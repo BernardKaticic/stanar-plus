@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfYear, endOfMonth } from "date-fns";
 import { hr } from "date-fns/locale";
@@ -35,6 +35,8 @@ const formatDelivery = (dm: string | null | undefined) => {
 const PersonDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string })?.from || "/tenants";
   const [periodOpen, setPeriodOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
@@ -78,7 +80,7 @@ const PersonDetail = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => navigate("/tenants")} aria-label="Natrag na popis suvlasnika">
+        <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => navigate(from)} aria-label="Natrag">
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <div>

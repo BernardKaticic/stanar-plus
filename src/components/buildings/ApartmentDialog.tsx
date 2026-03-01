@@ -308,11 +308,9 @@ export const ApartmentDialog = ({
                           >
                             {field.value
                               ? (() => {
-                                  const p = persons.find((p: { id: string }) => p.id === field.value) as { name: string; apartments?: { address?: string; city?: string }[] } | undefined;
+                                  const p = persons.find((p: { id: string }) => p.id === field.value) as { name: string; oib?: string | null } | undefined;
                                   if (!p) return field.value;
-                                  const apt = p.apartments?.[0];
-                                  const addr = apt?.address || apt?.city || "Nije dodijeljen";
-                                  return addr !== "Nije dodijeljen" ? `${p.name} – ${addr}` : p.name;
+                                  return p.oib ? `${p.name} – ${p.oib}` : p.name;
                                 })()
                               : "Odaberi suvlasnika..."}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -335,15 +333,12 @@ export const ApartmentDialog = ({
                                 <Check className={cn("mr-2 h-4 w-4", !field.value ? "opacity-100" : "opacity-0")} />
                                 Nema suvlasnika
                               </CommandItem>
-                              {persons.map((p: { id: string; name: string; apartments?: { address?: string; city?: string }[] }) => {
-                                const apt = p.apartments?.[0];
-                                const label = apt?.address || apt?.city
-                                  ? `${p.name} – ${apt?.address || apt?.city}`
-                                  : p.name;
+                              {persons.map((p: { id: string; name: string; oib?: string | null }) => {
+                                const label = p.oib ? `${p.name} – ${p.oib}` : p.name;
                                 return (
                                   <CommandItem
                                     key={p.id}
-                                    value={label}
+                                    value={`${p.name} ${p.oib || ""}`.trim()}
                                     onSelect={() => {
                                       field.onChange(p.id);
                                       setTenantComboboxOpen(false);
@@ -419,11 +414,9 @@ export const ApartmentDialog = ({
                               >
                                 {field.value
                                   ? (() => {
-                                      const p = persons.find((p: { id: string }) => p.id === field.value) as { name: string; apartments?: { address?: string; city?: string }[] } | undefined;
+                                      const p = persons.find((p: { id: string }) => p.id === field.value) as { name: string; oib?: string | null } | undefined;
                                       if (!p) return field.value;
-                                      const apt = p.apartments?.[0];
-                                      const addr = apt?.address || apt?.city || "Nije dodijeljen";
-                                      return addr !== "Nije dodijeljen" ? `${p.name} – ${addr}` : p.name;
+                                      return p.oib ? `${p.name} – ${p.oib}` : p.name;
                                     })()
                                   : "Odaberi suvlasnika..."}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -436,15 +429,12 @@ export const ApartmentDialog = ({
                               <CommandList>
                                 <CommandEmpty>Nema pronađenih suvlasnika</CommandEmpty>
                                 <CommandGroup>
-                                  {persons.map((p: { id: string; name: string; apartments?: { address?: string; city?: string }[] }) => {
-                                    const apt = p.apartments?.[0];
-                                    const label = apt?.address || apt?.city
-                                      ? `${p.name} – ${apt?.address || apt?.city}`
-                                      : p.name;
+                                  {persons.map((p: { id: string; name: string; oib?: string | null }) => {
+                                    const label = p.oib ? `${p.name} – ${p.oib}` : p.name;
                                     return (
                                       <CommandItem
                                         key={p.id}
-                                        value={label}
+                                        value={`${p.name} ${p.oib || ""}`.trim()}
                                         onSelect={() => {
                                           field.onChange(p.id);
                                           setTenantComboboxOpen(false);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -7,6 +7,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Building2,
   MapPin,
@@ -17,6 +18,7 @@ import {
   Menu,
   Loader2,
   ChevronRight,
+  Search,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -153,6 +155,12 @@ const Buildings = () => {
   const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
+  const [cardSearch, setCardSearch] = useState("");
+
+  // Reset search kad se mijenja razina (grad → ulica → ulaz)
+  useEffect(() => {
+    setCardSearch("");
+  }, [selectedCity?.id, selectedStreet?.id]);
 
   // Dialog states
   const [cityDialogOpen, setCityDialogOpen] = useState(false);
@@ -656,8 +664,23 @@ const Buildings = () => {
               />
             ) : (
               <div className="max-w-4xl space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Pretraži gradove..."
+                    value={cardSearch}
+                    onChange={(e) => setCardSearch(e.target.value)}
+                    className="pl-9 max-w-sm"
+                  />
+                </div>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {cities.map((city) => (
+                  {cities
+                    .filter((city) =>
+                      !cardSearch.trim()
+                        ? true
+                        : city.name.toLowerCase().includes(cardSearch.trim().toLowerCase())
+                    )
+                    .map((city) => (
                     <Card
                       key={city.id}
                       className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
@@ -735,8 +758,23 @@ const Buildings = () => {
               />
             ) : (
               <div className="max-w-4xl space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Pretraži ulice..."
+                    value={cardSearch}
+                    onChange={(e) => setCardSearch(e.target.value)}
+                    className="pl-9 max-w-sm"
+                  />
+                </div>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {(displayCity?.streets ?? []).map((street) => (
+                  {(displayCity?.streets ?? [])
+                    .filter((street) =>
+                      !cardSearch.trim()
+                        ? true
+                        : street.name.toLowerCase().includes(cardSearch.trim().toLowerCase())
+                    )
+                    .map((street) => (
                     <Card
                       key={street.id}
                       className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
@@ -801,8 +839,23 @@ const Buildings = () => {
               />
             ) : (
               <div className="max-w-4xl space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Pretraži ulaze..."
+                    value={cardSearch}
+                    onChange={(e) => setCardSearch(e.target.value)}
+                    className="pl-9 max-w-sm"
+                  />
+                </div>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {(displayStreet?.buildings ?? []).map((building) => (
+                  {(displayStreet?.buildings ?? [])
+                    .filter((building) =>
+                      !cardSearch.trim()
+                        ? true
+                        : building.name.toLowerCase().includes(cardSearch.trim().toLowerCase())
+                    )
+                    .map((building) => (
                     <Card
                       key={building.id}
                       className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"

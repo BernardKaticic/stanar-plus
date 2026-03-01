@@ -644,7 +644,11 @@ const Dashboard = () => {
                 ))
               ) : debtors && debtors.length > 0 ? (
                 debtors.slice(0, 5).map((debt) => (
-                  <div key={debt.name} className="rounded-lg border p-3">
+                  <div
+                    key={debt.id || debt.name}
+                    className="rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => debt.id && navigate(`/persons/${debt.id}`, { state: { from: "/" } })}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <p className="text-sm font-semibold leading-tight">{debt.name}</p>

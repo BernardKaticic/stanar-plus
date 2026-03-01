@@ -78,7 +78,7 @@ export const Header = () => {
               type: "person",
               id: p.id,
               title: p.name,
-              subtitle: p.apartments?.[0]?.address || p.apartments?.[0]?.city || "",
+              subtitle: p.oib || "",
               icon: Users,
             }))
           );

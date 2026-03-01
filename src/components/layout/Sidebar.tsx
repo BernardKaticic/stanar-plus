@@ -111,7 +111,7 @@ export const Sidebar = () => {
       <div className="flex flex-col px-3 py-3 gap-0.5">
         <div className="flex h-9 items-center">
           <Building2 className="h-4 w-4 text-primary shrink-0" />
-          <span className="ml-2 text-[13px] font-semibold tracking-tight">Stanar Plus</span>
+          <span className="ml-2 text-[13px] font-semibold tracking-tight">Zgrada+</span>
         </div>
         {user?.organization_name && (
           <p className="text-[11px] text-muted-foreground truncate pl-6" title={user.organization_name}>
@@ -128,7 +128,7 @@ export const Sidebar = () => {
 
       <div className="border-t px-3 py-2.5">
         <p className="text-[11px] text-muted-foreground">
-          © {new Date().getFullYear()} Stanar Plus
+          © {new Date().getFullYear()} Zgrada+
         </p>
         <p className="text-[11px] text-muted-foreground">Upravljanje zgradama</p>
       </div>

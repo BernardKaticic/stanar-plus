@@ -113,7 +113,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-3 mb-8">
           <Building2 className="h-11 w-11 text-primary shrink-0" />
-          <span className="text-2xl sm:text-3xl font-bold tracking-tight">STANAR PLUS</span>
+          <span className="text-2xl sm:text-3xl font-bold tracking-tight">ZGRADA+</span>
         </div>
 
         <Card className="shadow-lg border-muted">

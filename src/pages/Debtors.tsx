@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { AlertCircle, Mail, FileText, Filter, Download, X, CheckCircle, MapPin } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Mail, FileText, Filter, X, CheckCircle, MapPin, Search, MoreVertical } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -29,8 +29,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDebtors } from "@/hooks/useDebtorsData";
 import { debtorsApi } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +46,7 @@ import { exportTableToCSV } from "@/lib/export";
 
 const Debtors = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -49,8 +58,16 @@ const Debtors = () => {
   const [batchSendDialogOpen, setBatchSendDialogOpen] = useState(false);
   const [selectedDebtors, setSelectedDebtors] = useState<Set<string>>(new Set());
   const { toast } = useToast();
-  
+
   const { data: debtorsData, isLoading } = useDebtors({ page, pageSize, search: searchTerm });
+  const { data: stats } = useQuery({
+    queryKey: ["debtors", "stats"],
+    queryFn: () => debtorsApi.getStats(),
+  });
+  const { data: remindersData } = useQuery({
+    queryKey: ["debtors", "reminders"],
+    queryFn: () => debtorsApi.getReminders({ limit: 50 }),
+  });
 
   const allDebtors = debtorsData?.data || [];
   const totalCount = debtorsData?.totalCount || 0;
@@ -79,8 +96,9 @@ const Debtors = () => {
       [
         { key: 'name', label: 'Dužnik' },
         { key: 'email', label: 'Email' },
-        { key: 'address', label: 'Adresa' },
-        { key: 'city', label: 'Grad' },
+        { key: 'phone', label: 'Telefon' },
+        { key: 'address', label: 'Adresa/Stanovi' },
+        { key: 'apartmentsCount', label: 'Broj stanova' },
         { key: 'amount', label: 'Iznos duga' },
         { key: 'months', label: 'Broj mjeseci' },
         { key: 'warningsSent', label: 'Opomene poslane' },
@@ -129,6 +147,8 @@ const Debtors = () => {
     }
     if (sent > 0) {
       queryClient.invalidateQueries({ queryKey: ["debtors"] });
+      queryClient.invalidateQueries({ queryKey: ["debtors", "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["debtors", "reminders"] });
       toast({
         title: "Opomene zabilježene",
         description: `Poslano ${sent} opomena`,
@@ -143,6 +163,8 @@ const Debtors = () => {
     try {
       await debtorsApi.sendReminder(debtor.id);
       queryClient.invalidateQueries({ queryKey: ["debtors"] });
+      queryClient.invalidateQueries({ queryKey: ["debtors", "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["debtors", "reminders"] });
       toast({
         title: "Opomena zabilježena",
         description: debtor.email ? `Email će biti poslan na ${debtor.email}` : "Opomena je zabilježena u arhivi",
@@ -159,13 +181,15 @@ const Debtors = () => {
   };
 
   const totalDebt = debtors.reduce((sum, d) => sum + d.amountNum, 0);
+  const reminders = remindersData?.data || [];
+  const remindersTotal = remindersData?.totalCount || 0;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1>Dužnici i opomene</h1>
+        <h1>Dužnici</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Pregled dužnika i upravljanje opomenama.
+          Pregled dužnika, slanje opomena i arhiva poslanih opomena.
         </p>
       </div>
 
@@ -179,17 +203,19 @@ const Debtors = () => {
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupan dug</p>
           <p className="text-xl font-semibold mt-1 text-destructive">
-            {isLoading ? "..." : formatCurrency(totalDebt)}
+            {isLoading ? "..." : formatCurrency(stats?.totalDebt ?? totalDebt)}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Opomene ovaj mjesec</p>
-          <p className="text-xl font-semibold mt-1">0</p>
+          <p className="text-xl font-semibold mt-1">
+            {isLoading ? "..." : (stats?.remindersThisMonth ?? 0)}
+          </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Duguju &gt; 3 mjeseca</p>
-          <p className="text-xl font-semibold mt-1 text-warning">
-            {isLoading ? "..." : debtors.filter(d => d.months >= 3).length}
+          <p className="text-xl font-semibold mt-1 text-destructive">
+            {isLoading ? "..." : (stats?.over3Months ?? debtors.filter(d => d.months >= 3).length)}
           </p>
         </Card>
       </div>
@@ -200,7 +226,7 @@ const Debtors = () => {
             <div>
               <CardTitle>Popis dužnika</CardTitle>
               <CardDescription>
-                Pretraga, filteri i slanje opomena
+                Pretraga, filteri, izvoz i slanje opomena
               </CardDescription>
             </div>
             <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
@@ -226,13 +252,16 @@ const Debtors = () => {
           </div>
         </CardHeader>
         <CardContent>
-        <div className="flex gap-3 mb-6">
-          <Input 
-            placeholder="Pretraži dužnike..." 
-            className="flex-1"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Pretraži po imenu, emailu ili adresi..."
+              className="pl-9 flex-1"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
           <div className="flex gap-2">
             <Button 
               variant="outline" 
@@ -248,8 +277,8 @@ const Debtors = () => {
               )}
             </Button>
             {activeFiltersCount > 0 && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="min-w-[44px] min-h-[32px]"
                 onClick={() => {
@@ -299,8 +328,8 @@ const Debtors = () => {
         )}
 
         {/* Desktop Table View */}
-        <div className="hidden md:block rounded-md border">
-          <Table>
+        <div className="hidden md:block rounded-md border overflow-x-auto">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12 text-xs font-medium">
@@ -310,8 +339,7 @@ const Debtors = () => {
                   />
                 </TableHead>
                 <TableHead className="text-xs font-medium">Dužnik</TableHead>
-                <TableHead className="text-xs font-medium">Email</TableHead>
-                <TableHead className="text-xs font-medium">Adresa</TableHead>
+                <TableHead className="text-xs font-medium min-w-[200px]">Adresa</TableHead>
                 <TableHead className="text-xs font-medium">Grad</TableHead>
                 <TableHead className="text-right text-xs font-medium">Iznos duga</TableHead>
                 <TableHead className="text-center text-xs font-medium">Mjeseci</TableHead>
@@ -321,14 +349,23 @@ const Debtors = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
-                    Učitavanje...
-                    </TableCell>
-                  </TableRow>
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-12 mx-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))}
+                </>
               ) : debtors.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="p-0">
+                    <TableCell colSpan={8} className="p-0">
                       <EmptyState
                         icon={CheckCircle}
                         title="Nema dužnika"
@@ -338,24 +375,30 @@ const Debtors = () => {
                   </TableRow>
               ) : (
                   debtors.map((debtor) => (
-                  <TableRow key={debtor.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-xs">
+                  <TableRow
+                    key={debtor.id}
+                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/persons/${debtor.id}`, { state: { from: "/debtors" } })}
+                  >
+                    <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
                       <Checkbox 
                         checked={selectedDebtors.has(debtor.id)}
                         onCheckedChange={() => toggleDebtor(debtor.id)}
                       />
                     </TableCell>
                     <TableCell className="font-medium text-sm">
-                      <Link
-                        to={`/tenants/${debtor.id}`}
-                        className="flex items-center gap-2 text-primary hover:underline"
-                      >
-                        <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-                        {debtor.name}
-                      </Link>
+                      <div className="flex flex-col gap-0.5">
+                        <span>{debtor.name}</span>
+                        {debtor.apartmentsCount > 1 && (
+                          <Badge variant="outline" className="w-fit text-[10px] font-normal">
+                            {debtor.apartmentsCount} stanova
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-xs">{debtor.email || "-"}</TableCell>
-                    <TableCell className="text-xs">{debtor.address}</TableCell>
+                    <TableCell className="text-xs min-w-[200px]" title={debtor.address || debtor.city || "-"}>
+                      {debtor.address || debtor.city || "-"}
+                    </TableCell>
                     <TableCell className="text-xs">{debtor.city || "-"}</TableCell>
                     <TableCell className="text-right text-xs font-bold text-destructive">
                       {debtor.amount}
@@ -375,21 +418,27 @@ const Debtors = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="min-w-[44px] min-h-[32px]"
-                          onClick={() => handleSendReminder(debtor)}
-                          disabled={sendingReminder === debtor.id || !debtor.email}
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/persons/${debtor.id}`, { state: { from: "/debtors" } })}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Pregled kartice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleSendReminder(debtor)}
+                            disabled={sendingReminder === debtor.id}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Pošalji opomenu
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -443,28 +492,31 @@ const Debtors = () => {
             />
           ) : (
             debtors.map((debtor) => (
-              <Card key={debtor.id} className="p-4 hover:shadow-md hover:border-destructive/20 transition-all duration-300">
+              <Card
+                key={debtor.id}
+                className="p-4 hover:shadow-md hover:border-destructive/20 transition-all duration-300 cursor-pointer"
+                onClick={() => navigate(`/persons/${debtor.id}`, { state: { from: "/debtors" } })}
+              >
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="pt-1">
+                  <div className="pt-1" onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
                       checked={selectedDebtors.has(debtor.id)}
                       onCheckedChange={() => toggleDebtor(debtor.id)}
                     />
                   </div>
-                  <div className="flex-1">
-                    <Link
-                      to={`/tenants/${debtor.id}`}
-                      className="flex items-center gap-2 mb-1 text-primary hover:underline"
-                    >
-                      <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                    <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold">{debtor.name}</h3>
-                    </Link>
+                      {debtor.apartmentsCount > 1 && (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {debtor.apartmentsCount} stanova
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                      {debtor.address}{debtor.city && `, ${debtor.city}`}
+                      {debtor.address || debtor.city || "-"}
+                      {debtor.address && debtor.city && `, ${debtor.city}`}
                     </p>
-                    {debtor.email && (
-                      <p className="text-xs text-muted-foreground mt-1">{debtor.email}</p>
-                    )}
                   </div>
                 </div>
                 
@@ -488,19 +540,27 @@ const Debtors = () => {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-end justify-end gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="min-w-[44px] min-h-[32px]"
-                      onClick={() => handleSendReminder(debtor)}
-                      disabled={sendingReminder === debtor.id || !debtor.email}
-                    >
-                      <Mail className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="min-w-[44px] min-h-[32px]">
-                      <FileText className="h-4 w-4" />
-                    </Button>
+                  <div className="flex items-end justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="min-w-[44px] min-h-[32px]">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => navigate(`/persons/${debtor.id}`, { state: { from: "/debtors" } })}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Pregled kartice
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleSendReminder(debtor)}
+                          disabled={sendingReminder === debtor.id}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Pošalji opomenu
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </Card>
@@ -524,14 +584,63 @@ const Debtors = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Arhiva opomena</CardTitle>
+          <div>
+            <CardTitle>Arhiva opomena</CardTitle>
+            <CardDescription>
+              Povijest poslanih opomena dužnicima
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
-          <EmptyState
-            title="Arhiva opomena"
-            description="Povijest poslanih opomena će se prikazati kada pošaljete prvu opomenu dužnicima"
-            className="py-12"
-          />
+          {reminders.length === 0 ? (
+            <EmptyState
+              title="Arhiva opomena"
+              description="Povijest poslanih opomena će se prikazati kada pošaljete prvu opomenu dužnicima."
+              className="py-12"
+            />
+          ) : (
+            <>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs font-medium">Dužnik</TableHead>
+                      <TableHead className="text-xs font-medium">Adresa</TableHead>
+                      <TableHead className="text-xs font-medium">Poslano</TableHead>
+                      <TableHead className="text-right text-xs font-medium">Akcije</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reminders.map((r) => (
+                      <TableRow key={r.id} className="hover:bg-muted/30">
+                        <TableCell className="font-medium text-sm">{r.name}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {r.address && r.city ? `${r.address}, ${r.city}` : r.address || r.city || "-"}
+                        </TableCell>
+                        <TableCell className="text-xs">{r.sentAt}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => navigate(r.personId ? `/persons/${r.personId}` : `/tenants/${r.tenantId}`, { state: { from: "/debtors" } })}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Kartica
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {remindersTotal > reminders.length && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  Prikazano {reminders.length} od {remindersTotal} opomena.
+                </p>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -543,8 +652,8 @@ const Debtors = () => {
             <AlertDialogDescription>
               Spremni ste poslati opomene za <strong>{selectedDebtors.size}</strong> dužnika.
               {debtors.filter(d => selectedDebtors.has(d.id) && !d.email).length > 0 && (
-                <p className="mt-2 text-warning">
-                  Upozorenje: {debtors.filter(d => selectedDebtors.has(d.id) && !d.email).length} dužnika nema email adresu i bit će preskočeno.
+                <p className="mt-2 text-muted-foreground text-sm">
+                  Opomena će biti zabilježena u arhivi za sve. Dužnici bez email adrese neće primiti email.
                 </p>
               )}
               <p className="mt-3 text-sm">

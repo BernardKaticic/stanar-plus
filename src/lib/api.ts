@@ -232,6 +232,7 @@ export type Person = {
   id: string;
   name: string;
   email?: string | null;
+  oib?: string | null;
   phone?: string | null;
   deliveryMethod?: string | null;
   apartments: PersonApartment[];
@@ -307,8 +308,15 @@ export const debtorsApi = {
     if (params?.search) sp.set('search', params.search || '');
     return api<{ data: any[]; totalCount: number }>('/debtors?' + sp.toString());
   },
-  sendReminder: (tenantId: string) =>
-    api<{ message: string }>(`/debtors/${tenantId}/send-reminder`, { method: 'POST' }),
+  getStats: () => api<{ totalCount: number; totalDebt: number; remindersThisMonth: number; over3Months: number }>('/debtors/stats'),
+  getReminders: (params?: { limit?: number; offset?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.limit) sp.set('limit', String(params.limit));
+    if (params?.offset) sp.set('offset', String(params.offset));
+    return api<{ data: any[]; totalCount: number }>('/debtors/reminders' + (sp.toString() ? '?' + sp.toString() : ''));
+  },
+  sendReminder: (personId: string) =>
+    api<{ message: string }>(`/debtors/person/${personId}/send-reminder`, { method: 'POST' }),
 };
 
 export const workOrdersApi = {

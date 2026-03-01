@@ -339,7 +339,7 @@ const Tenants = () => {
                   <TableRow
                     key={person.id}
                     className="hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/persons/${person.id}`)}
+                    onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
                   >
                     <TableCell className="font-medium text-sm">
                       <div className="flex items-center gap-2">
@@ -381,7 +381,7 @@ const Tenants = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`)}>
+                          <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
                             <FileText className="h-4 w-4 mr-2" />
                             Pregled detalja
                           </DropdownMenuItem>
@@ -512,7 +512,7 @@ const Tenants = () => {
               <Card
                 key={person.id}
                 className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(`/persons/${person.id}`)}
+                onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -538,7 +538,7 @@ const Tenants = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`)}>
+                      <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
                         <FileText className="h-4 w-4 mr-2" />
                         Pregled detalja
                       </DropdownMenuItem>
