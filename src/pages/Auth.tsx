@@ -122,10 +122,10 @@ const Auth = () => {
             <CardDescription>Prijavite se ili registrirajte svoj račun</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 h-10 mb-6">
-                <TabsTrigger value="login" className="w-full">Prijava</TabsTrigger>
-                <TabsTrigger value="signup" className="w-full">Registracija</TabsTrigger>
+            <Tabs defaultValue="login" className="w-full min-w-0">
+              <TabsList className="grid w-full min-w-0 grid-cols-2 h-10 mb-6 overflow-hidden">
+                <TabsTrigger value="login" className="min-w-0 shrink">Prijava</TabsTrigger>
+                <TabsTrigger value="signup" className="min-w-0 shrink">Registracija</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
