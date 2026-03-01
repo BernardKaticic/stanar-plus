@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -27,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, TrendingUp, TrendingDown, Download, Wallet, Check, ChevronsUpDown } from "lucide-react";
+import { Building2, TrendingUp, TrendingDown, Download, Wallet, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { format, startOfDay, startOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -42,14 +41,14 @@ const FinancialCard = () => {
   const [dateFrom, setDateFrom] = useState<Date>(startOfYear(new Date()));
   const [dateTo, setDateTo] = useState<Date>(startOfDay(new Date()));
 
-  const { data: locationsList = [] } = useQuery({
+  const { data: locationsList = [], isLoading: locationsLoading } = useQuery({
     queryKey: ["locations", "building"],
     queryFn: () => locationsApi.getByLevel("building"),
   });
   const locations = locationsList.map((l: any) => ({ id: l.id, label: l.name }));
   const buildingId = selectedAddress?.startsWith("building-") ? selectedAddress.replace("building-", "") : "";
 
-  const { data: financial } = useQuery({
+  const { data: financial, isLoading: financialLoading } = useQuery({
     queryKey: [
       "financial",
       buildingId,
@@ -64,7 +63,7 @@ const FinancialCard = () => {
       ),
     enabled: !!buildingId,
   });
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
     queryKey: ["suppliers"],
     queryFn: () => suppliersApi.getAll({}),
     enabled: !!buildingId,
@@ -120,7 +119,7 @@ const FinancialCard = () => {
         <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
           {/* Autocomplete za adresu */}
           <div className="space-y-2">
-            <Label className="block text-sm">Pretraži adresu</Label>
+            <Label className="block text-sm font-medium">Pretraži adresu</Label>
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -132,9 +131,11 @@ const FinancialCard = () => {
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <span className="truncate">
-                      {selectedAddress
-                        ? locations.find((loc) => loc.id === selectedAddress)?.label
-                        : "Odaberi adresu..."}
+                      {locationsLoading
+                        ? "Učitavanje adresa..."
+                        : selectedAddress
+                          ? locations.find((loc) => loc.id === selectedAddress)?.label
+                          : "Odaberi adresu..."}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -174,8 +175,8 @@ const FinancialCard = () => {
           </div>
 
           {/* Date picker - Datum od */}
-          <div className="space-y-2">
-            <Label className="block text-sm">Datum od</Label>
+          <div className="space-y-2 min-w-[160px]">
+            <Label className="block text-sm font-medium">Datum od</Label>
             <DatePicker
               date={dateFrom}
               onDateChange={setDateFrom}
@@ -184,8 +185,8 @@ const FinancialCard = () => {
           </div>
 
           {/* Date picker - Datum do */}
-          <div className="space-y-2">
-            <Label className="block text-sm">Datum do</Label>
+          <div className="space-y-2 min-w-[160px]">
+            <Label className="block text-sm font-medium">Datum do</Label>
             <DatePicker
               date={dateTo}
               onDateChange={setDateTo}
@@ -224,7 +225,14 @@ const FinancialCard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {supplierList.length === 0 ? (
+                  {buildingId && suppliersLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Učitavanje dobavljača...</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : supplierList.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-12">
                         <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -268,7 +276,7 @@ const FinancialCard = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Trenutno stanje</p>
                   <p className="text-2xl font-bold text-primary">
-                    {accountInfo.currentBalance}
+                    {buildingId && financialLoading ? "..." : accountInfo.currentBalance}
                   </p>
                 </div>
               </div>
@@ -276,14 +284,14 @@ const FinancialCard = () => {
 
             <Card className="p-4">
               <p className="text-sm text-muted-foreground mb-1">Donos</p>
-              <p className="text-xl font-bold">{accountInfo.previousYearCarryover}</p>
+              <p className="text-xl font-bold">{buildingId && financialLoading ? "..." : accountInfo.previousYearCarryover}</p>
               <p className="text-xs text-muted-foreground mt-1">iz 2024.</p>
             </Card>
 
             <Card className="p-4">
               <p className="text-sm text-muted-foreground mb-1">Ukupno zaduženo</p>
               <p className="text-xl font-bold text-success">
-                {accountInfo.totalCharged}
+                {buildingId && financialLoading ? "..." : accountInfo.totalCharged}
               </p>
               <div className="flex items-center gap-1 mt-1">
                 <TrendingUp className="h-3 w-3 text-success" />
@@ -294,7 +302,7 @@ const FinancialCard = () => {
             <Card className="p-4">
               <p className="text-sm text-muted-foreground mb-1">Ukupni troškovi</p>
               <p className="text-xl font-bold text-destructive">
-                {accountInfo.totalExpenses}
+                {buildingId && financialLoading ? "..." : accountInfo.totalExpenses}
               </p>
               <div className="flex items-center gap-1 mt-1">
                 <TrendingDown className="h-3 w-3 text-destructive" />
@@ -319,7 +327,14 @@ const FinancialCard = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.length === 0 ? (
+                    {buildingId && financialLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">Učitavanje transakcija...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : transactions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-12">
                           <Wallet className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -370,38 +385,22 @@ const FinancialCard = () => {
                 <h3 className="text-base font-semibold mb-4">
                   Rekapitulacija prometa
                 </h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">Naplata</span>
-                      <span className="font-semibold">84,5%</span>
-                    </div>
-                    <Progress value={84.5} className="h-2" />
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Ukupno zaduženo:
+                    </span>
+                    <span className="font-semibold">
+                      {accountInfo.totalCharged}
+                    </span>
                   </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Ukupno zaduženo:
-                      </span>
-                      <span className="font-semibold">
-                        {accountInfo.totalCharged}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Ukupno uplaćeno:
-                      </span>
-                      <span className="font-semibold text-success">
-                        {accountInfo.totalPaid}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Preostalo:</span>
-                      <span className="font-semibold text-warning">
-                        7.333,39 €
-                      </span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Ukupno uplaćeno:
+                    </span>
+                    <span className="font-semibold text-success">
+                      {accountInfo.totalPaid}
+                    </span>
                   </div>
                 </div>
               </Card>

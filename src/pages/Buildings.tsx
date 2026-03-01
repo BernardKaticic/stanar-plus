@@ -33,7 +33,7 @@ import {
 import { CityDialog } from "@/components/buildings/CityDialog";
 import { StreetDialog } from "@/components/buildings/StreetDialog";
 import { BuildingDialog } from "@/components/buildings/BuildingDialog";
-import { ApartmentDialog } from "@/components/buildings/ApartmentDialog";
+import { ApartmentDialog, type ApartmentFormPayload } from "@/components/buildings/ApartmentDialog";
 import { ApartmentDetailDialog } from "@/components/buildings/ApartmentDetailDialog";
 import { BuildingsTreeSidebar } from "@/components/buildings/BuildingsTreeSidebar";
 import {
@@ -51,6 +51,10 @@ import {
   useUpdateApartment,
   useDeleteApartment,
 } from "@/hooks/useBuildingsData";
+import { tenantsApi, usersApi, buildingsApi, personsApi } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { TempPasswordModal } from "@/components/TempPasswordModal";
 
 interface Transaction {
   id: string;
@@ -74,6 +78,7 @@ interface Apartment {
   reserve: number;
   notes?: string;
   transactions: Transaction[];
+  tenant_id?: string;
 }
 
 interface Building {
@@ -126,6 +131,8 @@ const formatCurrency = (value?: number) => {
 };
 
 const Buildings = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: cities, isLoading } = useCities();
   const createCity = useCreateCity();
   const updateCity = useUpdateCity();
@@ -163,6 +170,13 @@ const Buildings = () => {
   );
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [editingApartment, setEditingApartment] = useState<Apartment | null>(null);
+
+  // Temp password modal (nakon kreiranja suvlasnika s emailom)
+  const [tempPasswordModal, setTempPasswordModal] = useState<{
+    open: boolean;
+    email: string;
+    tempPassword: string;
+  }>({ open: false, email: "", tempPassword: "" });
 
   // Delete states
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -242,12 +256,17 @@ const Buildings = () => {
   };
 
   // Building CRUD
-  const handleAddBuilding = (data: { number: string; name?: string }) => {
+  type BuildingFormData = {
+    number: string; name?: string; iban?: string; oib?: string; representative?: string; representativePhone?: string;
+    cleaningFee?: number; loanFee?: number; reservePerSqm?: number; savingsFixed?: number; extraFixed?: number;
+    electricityFixed?: number; savingsPerSqm?: number;
+  };
+  const handleAddBuilding = (data: BuildingFormData) => {
     if (!selectedCity || !selectedStreet) return;
     createBuilding.mutate(
       {
         streetId: selectedStreet.id,
-        data: { number: data.number, name: data.name },
+        data,
       },
       {
         onSuccess: () => setBuildingDialogOpen(false),
@@ -255,7 +274,7 @@ const Buildings = () => {
     );
   };
 
-  const handleEditBuilding = (data: { number: string; name?: string; iban?: string; oib?: string; representative?: string; representativePhone?: string; cleaningFee?: number; loanFee?: number; reservePerSqm?: number }) => {
+  const handleEditBuilding = (data: BuildingFormData) => {
     if (!editingBuilding) return;
     updateBuilding.mutate(
       {
@@ -280,60 +299,169 @@ const Buildings = () => {
   };
 
   // Apartment CRUD
-  const handleAddApartment = (data: Omit<Apartment, "id" | "debt" | "reserve">) => {
-    if (!selectedBuilding) return;
-    createApartment.mutate(
-      {
-        buildingId: selectedBuilding.id,
-        data: {
-          apartment_number: data.number,
-          floor: 0,
-          size_m2: data.area,
-          rooms: (data as any).rooms ?? null,
-          owner: data.owner,
-          tenant: data.tenant,
-          contact: data.contact,
-          email: data.email,
-          phone: data.phone,
-          notes: data.notes,
+  const handleApartmentSave = (payload: ApartmentFormPayload) => {
+    if (payload.mode === "add") {
+      if (!displayBuilding) return;
+      createApartment.mutate(
+        {
+          buildingId: displayBuilding.id,
+          data: {
+            apartment_number: payload.number,
+            floor: 0,
+            size_m2: payload.area,
+            rooms: null,
+            owner: payload.tenantId ? null : (payload.ownerName ?? null),
+            tenant: null,
+            contact: null,
+            email: payload.tenantId ? null : (payload.email ?? null),
+            phone: payload.tenantId ? null : (payload.phone ?? null),
+            notes: payload.notes ?? null,
+          },
         },
-      },
-      {
-        onSuccess: () => {
-          setApartmentDialogOpen(false);
-        },
-      },
-    );
-  };
+        {
+          onSuccess: async (created) => {
+            const aptId = created?.id ?? (created as any)?.id;
+            if (!aptId) {
+              await queryClient.refetchQueries({ queryKey: ["cities"] });
+              setApartmentDialogOpen(false);
+              return;
+            }
 
-  const handleEditApartment = (data: Omit<Apartment, "id" | "debt" | "reserve">) => {
-    if (!editingApartment) return;
-    updateApartment.mutate(
-      {
-        id: editingApartment.id,
-        data: {
-          apartment_number: data.number,
-          floor: 0,
-          size_m2: data.area,
-          rooms: (data as any).rooms ?? null,
-          owner: data.owner,
-          tenant: data.tenant,
-          contact: data.contact,
-          email: data.email,
-          phone: data.phone,
-          notes: data.notes,
+            if (payload.personId) {
+              try {
+                const person = await personsApi.getById(payload.personId);
+                await tenantsApi.create({
+                  apartment_id: String(aptId),
+                  name: person.name ?? "",
+                  email: person.email ?? undefined,
+                  phone: person.phone ?? undefined,
+                  person_id: payload.personId,
+                });
+                await buildingsApi.updateApartment(aptId, {
+                  owner: person.name ?? null,
+                  email: person.email ?? null,
+                  phone: person.phone ?? null,
+                });
+              } catch (err) {
+                toast({
+                  title: "Greška pri povezivanju suvlasnika",
+                  description: (err as Error)?.message ?? "Apartman je kreiran, suvlasnika možete dodijeliti ručno.",
+                  variant: "destructive",
+                });
+              }
+            } else if (payload.ownerName) {
+              try {
+                let userId: string | null = null;
+                if (payload.email) {
+                  const userRes = await usersApi.createStanar({
+                    email: payload.email,
+                    full_name: payload.ownerName,
+                  });
+                  userId = userRes.id;
+                  if (userRes.tempPassword && !userRes.existing) {
+                    setTempPasswordModal({
+                      open: true,
+                      email: payload.email!,
+                      tempPassword: userRes.tempPassword,
+                    });
+                  }
+                }
+                await tenantsApi.create({
+                  apartment_id: String(aptId),
+                  name: payload.ownerName,
+                  email: payload.email,
+                  phone: payload.phone,
+                  user_id: userId ?? undefined,
+                });
+                await buildingsApi.updateApartment(aptId, {
+                  owner: payload.ownerName,
+                  email: payload.email ?? null,
+                  phone: payload.phone ?? null,
+                });
+              } catch (err) {
+                toast({
+                  title: "Greška pri kreiranju suvlasnika",
+                  description: (err as Error)?.message ?? "Apartman je kreiran, suvlasnika možete dodati ručno.",
+                  variant: "destructive",
+                });
+              }
+            }
+
+            await queryClient.refetchQueries({ queryKey: ["cities"] });
+            await queryClient.refetchQueries({ queryKey: ["tenants"] });
+            await queryClient.refetchQueries({ queryKey: ["persons"] });
+            setApartmentDialogOpen(false);
+          },
         },
-      },
-      {
-        onSuccess: () => {
-          setApartmentDialogOpen(false);
-          setEditingApartment(null);
-          if (selectedApartment?.id === editingApartment.id) {
-            setSelectedApartment({ ...selectedApartment, ...data });
-          }
-        },
-      },
-    );
+      );
+    } else {
+      if (!editingApartment) return;
+      const prevTenantId = (editingApartment as Apartment & { tenant_id?: string }).tenant_id;
+
+      const runUpdates = async () => {
+        const newPersonId = payload.personId || null;
+        let ownerName: string | null = null;
+        let tenantEmail: string | null = null;
+        let tenantPhone: string | null = null;
+        if (newPersonId) {
+          const person = await personsApi.getById(newPersonId);
+          ownerName = person?.name ?? null;
+          tenantEmail = person?.email ?? null;
+          tenantPhone = person?.phone ?? null;
+        }
+
+        await updateApartment.mutateAsync({
+          id: editingApartment.id,
+          data: {
+            apartment_number: payload.number,
+            floor: 0,
+            size_m2: payload.area,
+            rooms: null,
+            owner: ownerName,
+            tenant: null,
+            contact: null,
+            email: tenantEmail,
+            phone: tenantPhone,
+            notes: payload.notes ?? null,
+          },
+        });
+
+        if (prevTenantId) {
+          await tenantsApi.update(prevTenantId, { apartment_id: null });
+        }
+        if (newPersonId) {
+          const person = await personsApi.getById(newPersonId);
+          await tenantsApi.create({
+            apartment_id: editingApartment.id,
+            name: person.name ?? "",
+            email: person.email ?? undefined,
+            phone: person.phone ?? undefined,
+            person_id: newPersonId,
+          });
+        }
+
+        await queryClient.refetchQueries({ queryKey: ["cities"] });
+        await queryClient.refetchQueries({ queryKey: ["tenants"] });
+        setApartmentDialogOpen(false);
+        setEditingApartment(null);
+        if (selectedApartment?.id === editingApartment.id) {
+          setSelectedApartment({
+            ...selectedApartment,
+            number: payload.number,
+            area: payload.area,
+            notes: payload.notes,
+          });
+        }
+      };
+
+      runUpdates().catch((err) => {
+        toast({
+          title: "Greška pri spremanju",
+          description: (err as Error)?.message ?? "Nije moguće spremiti promjene.",
+          variant: "destructive",
+        });
+      });
+    }
   };
 
   const handleDeleteApartment = (id: string) => {
@@ -356,15 +484,24 @@ const Buildings = () => {
     setDeleteDialog(null);
   };
 
+  const openTreeSidebar = () => {
+    setSidebarCollapsed(false);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setNavDrawerOpen(true);
+    }
+  };
+
   const handleSelectCity = (city: any) => {
     setSelectedCity(city);
     setSelectedStreet(null);
     setSelectedBuilding(null);
+    openTreeSidebar();
   };
 
   const handleSelectStreet = (street: any) => {
     setSelectedStreet(street);
     setSelectedBuilding(null);
+    openTreeSidebar();
   };
 
   // Koristi svježe podatke iz cachea – selectedCity/selectedStreet su reference na stare objekte
@@ -374,6 +511,12 @@ const Buildings = () => {
   const displayStreet = selectedStreet && displayCity?.streets
     ? displayCity.streets.find((s) => String(s.id) === String(selectedStreet.id)) ?? selectedStreet
     : selectedStreet;
+  const displayBuilding = selectedBuilding && displayStreet?.buildings
+    ? displayStreet.buildings.find((b) => String(b.id) === String(selectedBuilding.id)) ?? selectedBuilding
+    : selectedBuilding;
+  const displayApartment = selectedApartment && displayBuilding?.apartments
+    ? displayBuilding.apartments.find((a) => String(a.id) === String(selectedApartment.id)) ?? selectedApartment
+    : selectedApartment;
 
   const handleSelectBuilding = (building: any) => {
     let foundCity: City | null = null;
@@ -395,6 +538,7 @@ const Buildings = () => {
     setSelectedCity(foundCity);
     setSelectedStreet(foundStreet);
     setSelectedBuilding(building);
+    openTreeSidebar();
   };
 
   if (isLoading) {
@@ -469,13 +613,13 @@ const Buildings = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                {!selectedCity && (
+                {!selectedCity && cities && cities.length > 0 && (
                   <Button className="min-h-[28px]" onClick={() => setCityDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Dodaj grad
                   </Button>
                 )}
-                {selectedCity && !selectedStreet && (
+                {selectedCity && !selectedStreet && (displayCity?.streets?.length ?? 0) > 0 && (
                   <Button
                     className="min-h-[28px]"
                     onClick={() => setStreetDialogOpen(true)}
@@ -484,7 +628,7 @@ const Buildings = () => {
                     Dodaj ulicu
                   </Button>
                 )}
-                {selectedStreet && !selectedBuilding && (
+                {selectedStreet && !selectedBuilding && (displayStreet?.buildings?.length ?? 0) > 0 && (
                   <Button
                     className="min-h-[28px]"
                     onClick={() => setBuildingDialogOpen(true)}
@@ -737,7 +881,7 @@ const Buildings = () => {
             ))}
 
           {/* Building Detail View */}
-          {selectedBuilding && (
+          {displayBuilding && (
             <div className="space-y-4">
               <Card>
                 <CardHeader>
@@ -751,10 +895,10 @@ const Buildings = () => {
                           <Building2 className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <CardTitle>Ulaz {selectedBuilding.name}</CardTitle>
+                          <CardTitle>Ulaz {displayBuilding.name}</CardTitle>
                           <CardDescription>
-                            {selectedBuilding.apartments.length} stanova • Dug:{" "}
-                            {formatCurrency(selectedBuilding.debt)}
+                            {displayBuilding.apartments.length} stanova • Dug:{" "}
+                            {formatCurrency(displayBuilding.debt)}
                           </CardDescription>
                         </div>
                       </div>
@@ -765,7 +909,7 @@ const Buildings = () => {
                         size="sm"
                         className="min-h-[28px] gap-2"
                         onClick={() => {
-                          setEditingBuilding(selectedBuilding);
+                          setEditingBuilding(displayBuilding);
                           setBuildingDialogOpen(true);
                         }}
                       >
@@ -780,8 +924,8 @@ const Buildings = () => {
                           setDeleteDialog({
                             open: true,
                             type: "building",
-                            id: selectedBuilding.id,
-                            name: selectedBuilding.name,
+                            id: displayBuilding.id,
+                            name: displayBuilding.name,
                           })
                         }
                       >
@@ -797,19 +941,19 @@ const Buildings = () => {
                     <div className="rounded-lg border border-border bg-card p-3">
                       <p className="text-xs text-muted-foreground">Broj stanova</p>
                       <p className="text-xl font-semibold mt-1">
-                        {selectedBuilding.apartments.length}
+                        {displayBuilding.apartments.length}
                       </p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3">
                       <p className="text-xs text-muted-foreground">Pričuva</p>
                       <p className="text-xl font-semibold mt-1 text-success">
-                        {formatCurrency(selectedBuilding.reserve)}
+                        {formatCurrency(displayBuilding.reserve)}
                       </p>
                     </div>
                     <div className="rounded-lg border border-border bg-card p-3">
                       <p className="text-xs text-muted-foreground">Dugovanja</p>
                       <p className="text-xl font-semibold mt-1 text-destructive">
-                        {formatCurrency(selectedBuilding.debt)}
+                        {formatCurrency(displayBuilding.debt)}
                       </p>
                     </div>
                   </div>
@@ -821,7 +965,7 @@ const Buildings = () => {
                       <div className="flex flex-col gap-1">
                         <span className="text-muted-foreground text-xs">IBAN</span>
                         <span className="font-mono text-xs sm:text-sm">
-                          {selectedBuilding.iban || (
+                          {displayBuilding.iban || (
                             <span className="text-muted-foreground italic">
                               Nije uneseno
                             </span>
@@ -831,7 +975,7 @@ const Buildings = () => {
                       <div className="flex flex-col gap-1">
                         <span className="text-muted-foreground text-xs">OIB</span>
                         <span className="font-mono text-xs sm:text-sm">
-                          {selectedBuilding.oib || (
+                          {displayBuilding.oib || (
                             <span className="text-muted-foreground italic">
                               Nije uneseno
                             </span>
@@ -843,7 +987,7 @@ const Buildings = () => {
                           Predstavnik
                         </span>
                         <span className="text-sm">
-                          {selectedBuilding.representative || (
+                          {displayBuilding.representative || (
                             <span className="text-muted-foreground italic">
                               Nije dodijeljen
                             </span>
@@ -855,7 +999,7 @@ const Buildings = () => {
                           Telefon predstavnika
                         </span>
                         <span className="font-mono text-xs sm:text-sm">
-                          {selectedBuilding.representativePhone || (
+                          {displayBuilding.representativePhone || (
                             <span className="text-muted-foreground italic">
                               Nije uneseno
                             </span>
@@ -865,7 +1009,7 @@ const Buildings = () => {
                     </div>
                   </div>
 
-                  {selectedBuilding.fees && (
+                  {displayBuilding.fees && (
                     <div className="mt-5 pt-5 border-t">
                       <h3 className="text-sm font-semibold mb-3">Naknade</h3>
                       <div className="grid gap-3 sm:grid-cols-3 text-sm">
@@ -874,13 +1018,13 @@ const Buildings = () => {
                             Čišćenje (mj.)
                           </p>
                           <p className="text-xl font-semibold mt-1">
-                            {formatCurrency(selectedBuilding.fees.cleaning)}
+                            {formatCurrency(displayBuilding.fees.cleaning)}
                           </p>
                         </div>
                         <div className="rounded-lg border border-border bg-card p-3">
                           <p className="text-xs text-muted-foreground">Kredit (mj.)</p>
                           <p className="text-xl font-semibold mt-1">
-                            {formatCurrency(selectedBuilding.fees.loan)}
+                            {formatCurrency(displayBuilding.fees.loan)}
                           </p>
                         </div>
                         <div className="rounded-lg border border-border bg-card p-3">
@@ -889,7 +1033,7 @@ const Buildings = () => {
                           </p>
                           <p className="text-xl font-semibold mt-1">
                             {formatCurrency(
-                              selectedBuilding.fees.reservePerSqm,
+                              displayBuilding.fees.reservePerSqm,
                             )}{" "}
                             / m²
                           </p>
@@ -907,6 +1051,7 @@ const Buildings = () => {
                       <CardTitle className="text-base">Stanovi</CardTitle>
                       <CardDescription>Popis stanova u ulazu.</CardDescription>
                     </div>
+                    {displayBuilding.apartments.length > 0 && (
                     <div className="flex justify-end w-full sm:w-auto shrink-0">
                       <Button
                         type="button"
@@ -918,10 +1063,11 @@ const Buildings = () => {
                         Dodaj stan
                       </Button>
                     </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {selectedBuilding.apartments.length === 0 ? (
+                  {displayBuilding.apartments.length === 0 ? (
                     <EmptyState
                       title="Nema dodanih stanova"
                       description="Dodajte prvi stan da biste započeli evidenciju."
@@ -944,7 +1090,7 @@ const Buildings = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedBuilding.apartments.map((apartment) => (
+                            {displayBuilding.apartments.map((apartment) => (
                               <tr
                                 key={apartment.id}
                                 className="group cursor-pointer hover:bg-muted/30"
@@ -979,7 +1125,7 @@ const Buildings = () => {
 
                       {/* Mobile cards */}
                       <div className="md:hidden space-y-3 mt-3">
-                        {selectedBuilding.apartments.map((apartment) => (
+                        {displayBuilding.apartments.map((apartment) => (
                           <Card
                             key={apartment.id}
                             className="p-4 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
@@ -1044,6 +1190,7 @@ const Buildings = () => {
             }}
             onSave={editingCity ? handleEditCity : handleAddCity}
             editCity={editingCity}
+            isPending={createCity.isPending || updateCity.isPending}
           />
 
           <StreetDialog
@@ -1055,6 +1202,7 @@ const Buildings = () => {
             onSave={editingStreet ? handleEditStreet : handleAddStreet}
             editStreet={editingStreet}
             cityName={selectedCity?.name || ""}
+            isPending={createStreet.isPending || updateStreet.isPending}
           />
 
           <BuildingDialog
@@ -1066,6 +1214,7 @@ const Buildings = () => {
             onSave={editingBuilding ? handleEditBuilding : handleAddBuilding}
             editBuilding={editingBuilding}
             streetName={selectedStreet?.name || ""}
+            isPending={createBuilding.isPending || updateBuilding.isPending}
           />
 
           <ApartmentDialog
@@ -1079,14 +1228,22 @@ const Buildings = () => {
                 setEditingApartment(null);
               }
             }}
-            onSave={editingApartment ? handleEditApartment : handleAddApartment}
+            onSave={handleApartmentSave}
             editApartment={editingApartment}
-            buildingName={selectedBuilding?.name || ""}
-            fees={selectedBuilding?.fees}
+            buildingName={displayBuilding?.name || ""}
+            fees={displayBuilding?.fees}
+            isPending={createApartment.isPending || updateApartment.isPending}
+          />
+
+          <TempPasswordModal
+            open={tempPasswordModal.open}
+            onOpenChange={(open) => setTempPasswordModal((p) => ({ ...p, open }))}
+            email={tempPasswordModal.email}
+            tempPassword={tempPasswordModal.tempPassword}
           />
 
           <ApartmentDetailDialog
-            apartment={selectedApartment}
+            apartment={displayApartment}
             open={apartmentDetailOpen}
             onOpenChange={setApartmentDetailOpen}
             onEdit={(apartment) => {
@@ -1103,10 +1260,10 @@ const Buildings = () => {
               });
               setApartmentDetailOpen(false);
             }}
-            buildingName={selectedBuilding?.name || ""}
+            buildingName={displayBuilding?.name || ""}
             streetName={selectedStreet?.name || ""}
             cityName={selectedCity?.name || ""}
-            fees={selectedBuilding?.fees}
+            fees={displayBuilding?.fees}
           />
 
           {/* Mobile Navigation Drawer */}

@@ -75,8 +75,8 @@ export const ApartmentDetailDialog = ({
 }: ApartmentDetailDialogProps) => {
   if (!apartment) return null;
 
-  const formatCurrency = (value: number) =>
-    `${value.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const formatCurrency = (value?: number | null) =>
+    `${(typeof value === "number" && !Number.isNaN(value) ? value : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
   const reserveContribution = fees ? fees.reservePerSqm * apartment.area : null;
   const loanContribution = fees ? fees.loan * apartment.area : null;
@@ -199,26 +199,26 @@ export const ApartmentDetailDialog = ({
                     <div className="rounded-lg border bg-muted/40 px-3 py-2">
                       <p className="text-muted-foreground">Kredit</p>
                       <p className="font-medium mt-1">
-                        {loanContribution !== null ? formatCurrency(loanContribution) : "-"} ({fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
+                        {formatCurrency(loanContribution ?? 0)} ({fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
                       </p>
                     </div>
                     <div className="rounded-lg border bg-muted/40 px-3 py-2">
                       <p className="text-muted-foreground">Pričuva</p>
                       <p className="font-medium mt-1">
-                        {reserveContribution !== null ? formatCurrency(reserveContribution) : "-"} ({fees.reservePerSqm.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
+                        {formatCurrency(reserveContribution ?? 0)} ({fees.reservePerSqm.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
                       </p>
                     </div>
                     <div className="rounded-lg border bg-muted/40 px-3 py-2">
                       <p className="text-muted-foreground">Ukupno mjesečno</p>
                       <p className="font-semibold mt-1">
-                        {totalCharge !== null ? formatCurrency(totalCharge) : "-"}
+                        {formatCurrency(totalCharge ?? 0)}
                       </p>
                     </div>
                   </div>
                 </Card>
               )}
 
-              {(apartment.owner || apartment.tenant || apartment.phone || apartment.email || apartment.contact) && (
+              {(apartment.owner || apartment.phone || apartment.email || apartment.contact) && (
                 <Card className="p-4">
                   <h3 className="font-semibold mb-4 flex items-center gap-2">
                     <User className="h-4 w-4" />
@@ -227,14 +227,8 @@ export const ApartmentDetailDialog = ({
                   <div className="grid gap-4 text-sm sm:grid-cols-2">
                     {apartment.owner && (
                       <div>
-                        <p className="text-muted-foreground">Vlasnik</p>
+                        <p className="text-muted-foreground">Suvlasnik</p>
                         <p className="font-medium mt-1">{apartment.owner}</p>
-                      </div>
-                    )}
-                    {apartment.tenant && (
-                      <div>
-                        <p className="text-muted-foreground">Stanar</p>
-                        <p className="font-medium mt-1">{apartment.tenant}</p>
                       </div>
                     )}
                     {apartment.phone && (

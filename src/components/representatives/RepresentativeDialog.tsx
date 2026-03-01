@@ -25,9 +25,10 @@ interface RepresentativeDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: any) => void;
   editItem?: { id: string; buildingId: string; name: string; email?: string; phone?: string; oib?: string; iban?: string; monthlyIncome?: string; status?: string } | null;
+  isPending?: boolean;
 }
 
-export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem }: RepresentativeDialogProps) => {
+export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem, isPending }: RepresentativeDialogProps) => {
   const { data: buildings = [] } = useQuery({
     queryKey: ["locations", "building"],
     queryFn: () => locationsApi.getByLevel("building"),
@@ -71,7 +72,6 @@ export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem }: R
       buildingId: data.buildingId?.replace("building-", "") || data.buildingId,
       monthlyIncome: isNaN(monthlyIncome) ? 0 : monthlyIncome,
     });
-    onOpenChange(false);
   };
 
   return (
@@ -85,14 +85,14 @@ export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem }: R
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {!editItem && (
-            <div>
+            <div className="space-y-2">
               <Label>Zgrada</Label>
               <Select
                 value={watch("buildingId")}
                 onValueChange={(v) => setValue("buildingId", v)}
                 required={!editItem}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Odaberi zgradu" />
                 </SelectTrigger>
                 <SelectContent>
@@ -105,35 +105,41 @@ export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem }: R
               </Select>
             </div>
           )}
-          <div>
-            <Label>Ime i prezime</Label>
-            <Input {...register("name", { required: true })} placeholder="npr. Mato Aleric" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Ime i prezime</Label>
+              <Input {...register("name", { required: true })} placeholder="npr. Mato Aleric" className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input {...register("email")} type="email" placeholder="email@example.com" className="w-full" />
+            </div>
           </div>
-          <div>
-            <Label>E-mail</Label>
-            <Input {...register("email")} type="email" placeholder="email@example.com" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Telefon</Label>
+              <Input {...register("phone")} placeholder="+385 91 123 4567" className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>OIB</Label>
+              <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} className="w-full" />
+            </div>
           </div>
-          <div>
-            <Label>Telefon</Label>
-            <Input {...register("phone")} placeholder="+385 91 123 4567" />
-          </div>
-          <div>
-            <Label>OIB</Label>
-            <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} />
-          </div>
-          <div>
-            <Label>IBAN</Label>
-            <Input {...register("iban")} placeholder="HR..." />
-          </div>
-          <div>
-            <Label>Mjesečni dohodak (€)</Label>
-            <Input {...register("monthlyIncome")} placeholder="150" type="number" step="0.01" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>IBAN</Label>
+              <Input {...register("iban")} placeholder="HR..." className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>Mjesečni dohodak (€)</Label>
+              <Input {...register("monthlyIncome")} placeholder="150" type="number" step="0.01" className="w-full" />
+            </div>
           </div>
           {editItem && (
-            <div>
+            <div className="space-y-2">
               <Label>Status</Label>
               <Select value={watch("status")} onValueChange={(v) => setValue("status", v)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -144,10 +150,12 @@ export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem }: R
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
               Odustani
             </Button>
-            <Button type="submit">{editItem ? "Spremi" : "Dodaj"}</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Spremanje..." : editItem ? "Spremi" : "Dodaj"}
+            </Button>
           </div>
         </form>
       </DialogContent>

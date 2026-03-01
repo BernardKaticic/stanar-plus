@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, TrendingDown, ArrowUpDown, Download } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, ArrowUpDown, Download, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ import { dashboardApi } from "@/lib/api";
 import { EmptyState } from "@/components/ui/empty-state";
 
 const AccountStatement = () => {
-  const { data: statement } = useQuery({
+  const { data: statement, isLoading: statementLoading } = useQuery({
     queryKey: ["dashboard", "statement"],
     queryFn: () => dashboardApi.getStatement(),
   });
@@ -80,25 +80,25 @@ const AccountStatement = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Trenutno stanje</p>
-              <p className="text-2xl font-bold text-primary">{accountInfo.currentBalance}</p>
+              <p className="text-2xl font-bold text-primary">{statementLoading ? "..." : accountInfo.currentBalance}</p>
             </div>
           </div>
         </Card>
         
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Donos</p>
-          <p className="text-xl font-bold">{accountInfo.previousYearCarryover}</p>
+          <p className="text-xl font-bold">{statementLoading ? "..." : accountInfo.previousYearCarryover}</p>
           <p className="text-xs text-muted-foreground mt-1">iz 2024.</p>
         </Card>
 
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Ukupno zaduženo</p>
-          <p className="text-xl font-bold text-success">{accountInfo.totalCharged}</p>
+          <p className="text-xl font-bold text-success">{statementLoading ? "..." : accountInfo.totalCharged}</p>
         </Card>
 
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Ukupni troškovi</p>
-          <p className="text-xl font-bold text-destructive">{accountInfo.totalExpenses}</p>
+          <p className="text-xl font-bold text-destructive">{statementLoading ? "..." : accountInfo.totalExpenses}</p>
         </Card>
       </div>
 
@@ -124,7 +124,14 @@ const AccountStatement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.length === 0 ? (
+                {statementLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Učitavanje transakcija...</p>
+                    </TableCell>
+                  </TableRow>
+                ) : transactions.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-12">
                       <Wallet className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />

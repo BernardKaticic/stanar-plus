@@ -11,13 +11,15 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import Dashboard from "./pages/Dashboard";
 import Buildings from "./pages/Buildings";
 import Tenants from "./pages/Tenants";
-import TenantDetail from "./pages/TenantDetail";
+import { TenantDetailRedirect } from "./pages/TenantDetailRedirect";
+import PersonDetail from "./pages/PersonDetail";
 import AdminTenants from "./pages/AdminTenants";
 import Debtors from "./pages/Debtors";
 import PaymentSlips from "./pages/PaymentSlips";
 import WorkOrders from "./pages/WorkOrders";
 import FinancialCard from "./pages/FinancialCard";
 import Representatives from "./pages/Representatives";
+import Suppliers from "./pages/Suppliers";
 import AuditLog from "./pages/AuditLog";
 import EInvoices from "./pages/EInvoices";
 import Decisions from "./pages/Decisions";
@@ -58,7 +60,8 @@ const App = () => (
                           <Route path="/" element={<Dashboard />} />
                           <Route path="/buildings" element={<Buildings />} />
                           <Route path="/tenants" element={<Tenants />} />
-                          <Route path="/tenants/:id" element={<TenantDetail />} />
+                          <Route path="/tenants/:id" element={<TenantDetailRedirect />} />
+                          <Route path="/persons/:id" element={<PersonDetail />} />
                           <Route 
                             path="/admin/tenants" 
                             element={
@@ -74,6 +77,7 @@ const App = () => (
                           <Route path="/map" element={<MapPage />} />
                           <Route path="/e-invoices" element={<EInvoices />} />
                           <Route path="/representatives" element={<Representatives />} />
+                          <Route path="/suppliers" element={<Suppliers />} />
                           <Route path="/audit-log" element={<ProtectedRoute allowedRoles={["admin"]}><AuditLog /></ProtectedRoute>} />
                           <Route path="/decisions" element={<Decisions />} />
                           <Route path="*" element={<NotFound />} />

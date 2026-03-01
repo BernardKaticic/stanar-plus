@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
@@ -11,7 +11,8 @@ import {
   ScrollText,
   ClipboardCheck,
   History,
-  MapPin,
+  UserCircle,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,8 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const primaryNav = [
   { name: "Nadzorna ploča", href: "/", icon: LayoutDashboard },
   { name: "Zgrade", href: "/buildings", icon: Building2 },
-  { name: "Karta", href: "/map", icon: MapPin },
-  { name: "Suvlasnici", href: "/tenants", icon: Users },
+  { name: "Suvlasnici", href: "/tenants", icon: Users, activePaths: ["/persons"] },
   { name: "Dužnici", href: "/debtors", icon: AlertCircle },
   { name: "Radni nalozi", href: "/work-orders", icon: ClipboardCheck },
 ];
@@ -29,9 +29,11 @@ const financeNav = [
   { name: "Uplatnice", href: "/payment-slips", icon: Receipt },
   { name: "Financijska kartica", href: "/financial-card", icon: CreditCard },
   { name: "E-računi", href: "/e-invoices", icon: FileText },
+  { name: "Dobavljači", href: "/suppliers", icon: Package },
 ];
 
 const peopleNav = [
+  { name: "Predstavnici", href: "/representatives", icon: UserCircle },
   { name: "Odluke i ugovori", href: "/decisions", icon: ScrollText },
   { name: "Upravljanje", href: "/admin/tenants", icon: UserCog, adminOnly: true },
   { name: "Audit log", href: "/audit-log", icon: History, adminOnly: true },
@@ -42,16 +44,20 @@ type NavItem = {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  /** Dodatni pathovi koji aktiviraju ovu stavku (npr. /persons za Suvlasnici) */
+  activePaths?: string[];
 };
 
 const NavSection = ({
   label,
   items,
   userRole,
+  pathname,
 }: {
   label?: string;
   items: NavItem[];
   userRole: string | null | undefined;
+  pathname: string;
 }) => {
   const filtered = items.filter(
     (item) =>
@@ -69,30 +75,35 @@ const NavSection = ({
           {label}
         </p>
       )}
-      {filtered.map((item) => (
-        <NavLink
-          key={item.name}
-          to={item.href}
-          end={item.href === "/"}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
-              isActive
-                ? "bg-sidebar-accent text-sidebar-primary"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/60",
-            )
-          }
-        >
-          <item.icon className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{item.name}</span>
-        </NavLink>
-      ))}
+      {filtered.map((item) => {
+        const isActiveByPath = item.activePaths?.some((p) => pathname.startsWith(p));
+        return (
+          <NavLink
+            key={item.name}
+            to={item.href}
+            end={item.href === "/"}
+            className={({ isActive }) => {
+              const active = isActive || isActiveByPath;
+              return cn(
+                "flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                active
+                  ? "bg-sidebar-accent text-sidebar-primary"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+              );
+            }}
+          >
+            <item.icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{item.name}</span>
+          </NavLink>
+        );
+      })}
     </div>
   );
 };
 
 export const Sidebar = () => {
   const { userRole, user } = useAuth();
+  const { pathname } = useLocation();
 
   return (
     <aside className="hidden md:flex md:w-56 md:flex-col border-r bg-sidebar">
@@ -100,7 +111,7 @@ export const Sidebar = () => {
       <div className="flex flex-col px-3 py-3 gap-0.5">
         <div className="flex h-9 items-center">
           <Building2 className="h-4 w-4 text-primary shrink-0" />
-          <span className="ml-2 text-[13px] font-semibold tracking-tight">STANAR</span>
+          <span className="ml-2 text-[13px] font-semibold tracking-tight">Stanar Plus</span>
         </div>
         {user?.organization_name && (
           <p className="text-[11px] text-muted-foreground truncate pl-6" title={user.organization_name}>
@@ -110,14 +121,14 @@ export const Sidebar = () => {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-2.5 py-2">
-        <NavSection label="Glavno" items={primaryNav} userRole={userRole} />
-        <NavSection label="Financije" items={financeNav} userRole={userRole} />
-        <NavSection label="Osobe i pravni" items={peopleNav} userRole={userRole} />
+        <NavSection label="Osnovno" items={primaryNav} userRole={userRole} pathname={pathname} />
+        <NavSection label="Financije" items={financeNav} userRole={userRole} pathname={pathname} />
+        <NavSection label="Ostalo" items={peopleNav} userRole={userRole} pathname={pathname} />
       </nav>
 
       <div className="border-t px-3 py-2.5">
         <p className="text-[11px] text-muted-foreground">
-          © {new Date().getFullYear()} STANAR
+          © {new Date().getFullYear()} Stanar Plus
         </p>
         <p className="text-[11px] text-muted-foreground">Upravljanje zgradama</p>
       </div>

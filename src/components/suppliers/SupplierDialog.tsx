@@ -25,9 +25,10 @@ interface SupplierDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: any) => void;
   editItem?: { id: string; name: string; category: string; email?: string; contact?: string; oib?: string; iban?: string } | null;
+  isPending?: boolean;
 }
 
-export const SupplierDialog = ({ open, onOpenChange, onSave, editItem }: SupplierDialogProps) => {
+export const SupplierDialog = ({ open, onOpenChange, onSave, editItem, isPending }: SupplierDialogProps) => {
   const { register, handleSubmit, reset, setValue, watch } = useForm({
     defaultValues: {
       name: "",
@@ -56,7 +57,6 @@ export const SupplierDialog = ({ open, onOpenChange, onSave, editItem }: Supplie
 
   const onSubmit = (data: any) => {
     onSave(data);
-    onOpenChange(false);
   };
 
   return (
@@ -69,14 +69,15 @@ export const SupplierDialog = ({ open, onOpenChange, onSave, editItem }: Supplie
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <Label>Naziv</Label>
-            <Input {...register("name", { required: true })} placeholder="npr. HEP d.o.o." />
-          </div>
-          <div>
-            <Label>Kategorija</Label>
-            <Select value={watch("category")} onValueChange={(v) => setValue("category", v)}>
-              <SelectTrigger>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Naziv</Label>
+              <Input {...register("name", { required: true })} placeholder="npr. HEP d.o.o." className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>Kategorija</Label>
+              <Select value={watch("category")} onValueChange={(v) => setValue("category", v)}>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -86,29 +87,36 @@ export const SupplierDialog = ({ open, onOpenChange, onSave, editItem }: Supplie
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+              </Select>
+            </div>
           </div>
-          <div>
-            <Label>E-mail</Label>
-            <Input {...register("email")} type="email" placeholder="info@firma.hr" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>E-mail</Label>
+              <Input {...register("email")} type="email" placeholder="info@firma.hr" className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>Kontakt</Label>
+              <Input {...register("contact")} placeholder="+385 1 123 4567" className="w-full" />
+            </div>
           </div>
-          <div>
-            <Label>Kontakt</Label>
-            <Input {...register("contact")} placeholder="+385 1 123 4567" />
-          </div>
-          <div>
-            <Label>OIB</Label>
-            <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} />
-          </div>
-          <div>
-            <Label>IBAN</Label>
-            <Input {...register("iban")} placeholder="HR..." />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>OIB</Label>
+              <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>IBAN</Label>
+              <Input {...register("iban")} placeholder="HR..." className="w-full" />
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
               Odustani
             </Button>
-            <Button type="submit">{editItem ? "Spremi" : "Dodaj"}</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Spremanje..." : editItem ? "Spremi" : "Dodaj"}
+            </Button>
           </div>
         </form>
       </DialogContent>

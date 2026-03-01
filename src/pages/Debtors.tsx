@@ -1,5 +1,7 @@
+import { Link } from "react-router-dom";
 import { AlertCircle, Mail, FileText, Filter, Download, X, CheckCircle, MapPin } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatCurrency } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,7 +179,7 @@ const Debtors = () => {
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupan dug</p>
           <p className="text-xl font-semibold mt-1 text-destructive">
-            {isLoading ? "..." : `${totalDebt.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €`}
+            {isLoading ? "..." : formatCurrency(totalDebt)}
           </p>
         </Card>
         <Card className="p-4">
@@ -344,10 +346,13 @@ const Debtors = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium text-sm">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-destructive" />
+                      <Link
+                        to={`/tenants/${debtor.id}`}
+                        className="flex items-center gap-2 text-primary hover:underline"
+                      >
+                        <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                         {debtor.name}
-                      </div>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-xs">{debtor.email || "-"}</TableCell>
                     <TableCell className="text-xs">{debtor.address}</TableCell>
@@ -447,10 +452,13 @@ const Debtors = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    <Link
+                      to={`/tenants/${debtor.id}`}
+                      className="flex items-center gap-2 mb-1 text-primary hover:underline"
+                    >
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                       <h3 className="font-semibold">{debtor.name}</h3>
-                    </div>
+                    </Link>
                     <p className="text-sm text-muted-foreground">
                       {debtor.address}{debtor.city && `, ${debtor.city}`}
                     </p>
@@ -541,10 +549,11 @@ const Debtors = () => {
               )}
               <p className="mt-3 text-sm">
                 Ukupan iznos duga: <strong className="text-destructive">
-                  {debtors
-                    .filter(d => selectedDebtors.has(d.id))
-                    .reduce((sum, d) => sum + d.amountNum, 0)
-                    .toLocaleString('hr-HR', { minimumFractionDigits: 2 })} €
+                  {formatCurrency(
+                    debtors
+                      .filter(d => selectedDebtors.has(d.id))
+                      .reduce((sum, d) => sum + d.amountNum, 0)
+                  )}
                 </strong>
               </p>
             </AlertDialogDescription>

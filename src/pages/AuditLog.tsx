@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { History } from "lucide-react";
+import { History, Loader2 } from "lucide-react";
 import { auditLogApi } from "@/lib/api";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -90,7 +90,8 @@ const AuditLog = () => {
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
-                      Učitavanje...
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Učitavanje zapisa...</p>
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (

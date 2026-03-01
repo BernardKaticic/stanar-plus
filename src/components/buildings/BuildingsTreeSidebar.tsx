@@ -2,7 +2,7 @@ import { MapPin, ChevronRight, ChevronDown, Building2, PanelLeftClose, PanelLeft
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Apartment {
   id: string;
@@ -67,6 +67,16 @@ export const BuildingsTreeSidebar = ({
 }: BuildingsTreeSidebarProps) => {
   const [expandedCities, setExpandedCities] = useState<Set<string>>(new Set());
   const [expandedStreets, setExpandedStreets] = useState<Set<string>>(new Set());
+
+  // Proširi tree kad se odabere s popisa (ne iz stabla)
+  useEffect(() => {
+    if (selectedCity) {
+      setExpandedCities((prev) => new Set([...prev, selectedCity.id]));
+    }
+    if (selectedStreet) {
+      setExpandedStreets((prev) => new Set([...prev, selectedStreet.id]));
+    }
+  }, [selectedCity?.id, selectedStreet?.id]);
 
   const toggleCity = (cityId: string) => {
     const newExpanded = new Set(expandedCities);

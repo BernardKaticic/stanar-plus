@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
 
 const NotFound = () => {
-  const location = useLocation();
 
   return (
     <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">

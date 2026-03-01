@@ -1,4 +1,4 @@
-import { Plus, Search, FileText, Filter, X, MapPin } from "lucide-react";
+import { Plus, Search, FileText, Filter, X, MapPin, AlertCircle, Edit2, MoreVertical } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -17,14 +26,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useTenants } from "@/hooks/useTenantsData";
-import { useCreateTenant } from "@/hooks/useTenantsManagement";
+import { useNavigate } from "react-router-dom";
+import { usePersons } from "@/hooks/usePersonsData";
+import { useCreateTenant, useUpdateTenant } from "@/hooks/useTenantsManagement";
 import { TenantDialog } from "@/components/tenants/TenantDialog";
+import { TenantEditDialog } from "@/components/tenants/TenantEditDialog";
+import { AddApartmentToPersonDialog } from "@/components/tenants/AddApartmentToPersonDialog";
+import { TempPasswordModal } from "@/components/TempPasswordModal";
+import { usersApi, buildingsApi, tenantsApi } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { exportTableToCSV } from "@/lib/export";
 import { useToast } from "@/hooks/use-toast";
 
 const Tenants = () => {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -33,14 +49,58 @@ const Tenants = () => {
   const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'email' | 'pošta'>('all');
   const [cityFilter, setCityFilter] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [tempPasswordModal, setTempPasswordModal] = useState<{
+    open: boolean;
+    email: string;
+    tempPassword: string;
+  }>({ open: false, email: "", tempPassword: "" });
   
-  const { data: tenantsData, isLoading } = useTenants({ page, pageSize, search: searchTerm });
+  const navigate = useNavigate();
+  const { data: personsData, isLoading } = usePersons({ page, pageSize, search: searchTerm });
   const createTenant = useCreateTenant();
+  const updateTenant = useUpdateTenant();
+  const [editingTenant, setEditingTenant] = useState<{
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    apartment_id?: string | null;
+    deliveryMethod?: string | null;
+    personId?: string;
+  } | null>(null);
+  const [addApartmentPerson, setAddApartmentPerson] = useState<{
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    deliveryMethod?: string | null;
+    apartments: { apartmentId: string }[];
+  } | null>(null);
+  const [addApartmentPending, setAddApartmentPending] = useState(false);
   const { toast } = useToast();
 
+  const formatDelivery = (dm: string | null | undefined) => {
+    const v = typeof dm === 'string' ? dm : null;
+    if (v === 'email') return 'E-mail';
+    if (v === 'pošta') return 'Pošta';
+    if (v === 'both') return 'E-mail i pošta';
+    return 'Nije odabrano';
+  };
+
   const handleExportCSV = () => {
+    const exportData = persons.map(p => ({
+      name: p.name,
+      email: p.email,
+      address: p.apartments.map(a => a.address).filter(Boolean).join('; ') || '-',
+      city: [...new Set(p.apartments.map(a => a.city).filter(Boolean))].join(', ') || '-',
+      area: p.apartments.reduce((s, a) => s + (a.area ? parseFloat(a.area) : 0), 0) || '-',
+      monthlyRate: p.totalMonthlyRate,
+      balance: p.totalBalance,
+      deliveryLabel: formatDelivery(p.deliveryMethod),
+      apartmentsCount: p.apartmentsCount,
+    }));
     exportTableToCSV(
-      tenants,
+      exportData,
       [
         { key: 'name', label: 'Suvlasnik' },
         { key: 'email', label: 'Email' },
@@ -49,27 +109,31 @@ const Tenants = () => {
         { key: 'area', label: 'Površina' },
         { key: 'monthlyRate', label: 'Mjesečna rata' },
         { key: 'balance', label: 'Saldo' },
-        { key: 'deliveryMethod', label: 'Dostava' },
+        { key: 'deliveryLabel', label: 'Dostava' },
       ],
       'suvlasnici'
     );
     toast({
       title: "CSV exportan",
-      description: `Izvezeno ${tenants.length} suvlasnika`,
+      description: `Izvezeno ${persons.length} suvlasnika`,
     });
   };
 
-  const allTenants = tenantsData?.data || [];
-  const totalCount = tenantsData?.totalCount || 0;
+  const allPersons = personsData?.data || [];
+  const totalCount = personsData?.totalCount || 0;
 
-  // Get unique cities
-  const cities = Array.from(new Set(allTenants.map(t => t.city))).sort();
+  // Get unique cities from all apartments
+  const cities = Array.from(new Set(allPersons.flatMap(p => p.apartments.map(a => a.city).filter(Boolean)))).sort() as string[];
 
   // Apply filters
-  const tenants = allTenants.filter(tenant => {
-    if (statusFilter !== 'all' && tenant.status !== statusFilter) return false;
-    if (deliveryFilter !== 'all' && tenant.deliveryMethod !== deliveryFilter) return false;
-    if (cityFilter !== 'all' && tenant.city !== cityFilter) return false;
+  const persons = allPersons.filter(person => {
+    if (statusFilter !== 'all' && person.status !== statusFilter) return false;
+    if (deliveryFilter === 'email' && person.deliveryMethod !== 'email' && person.deliveryMethod !== 'both') return false;
+    if (deliveryFilter === 'pošta' && person.deliveryMethod !== 'pošta' && person.deliveryMethod !== 'both') return false;
+    if (cityFilter !== 'all') {
+      const hasCity = person.apartments.some(a => a.city === cityFilter);
+      if (!hasCity) return false;
+    }
     return true;
   });
 
@@ -86,9 +150,9 @@ const Tenants = () => {
 
   const stats = {
     total: totalCount,
-    paid: tenants.filter(t => t.status === 'paid').length,
-    overdue: tenants.filter(t => t.status === 'overdue').length,
-    email: tenants.filter(t => t.deliveryMethod === 'email').length,
+    paid: persons.filter(p => p.status === 'paid').length,
+    overdue: persons.filter(p => p.status === 'overdue').length,
+    email: persons.filter(p => p.deliveryMethod === 'email' || p.deliveryMethod === 'both').length,
   };
 
   return (
@@ -134,6 +198,7 @@ const Tenants = () => {
                 Pretraga, filteri i izvoz
               </CardDescription>
             </div>
+            {persons.length > 0 && (
             <div className="flex justify-end w-full sm:w-auto shrink-0">
               <Button
                 type="button"
@@ -144,6 +209,7 @@ const Tenants = () => {
                 Dodaj suvlasnika
               </Button>
             </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -185,7 +251,7 @@ const Tenants = () => {
               variant="outline" 
               className="hidden sm:flex min-h-[32px]"
               onClick={handleExportCSV}
-              disabled={tenants.length === 0}
+              disabled={persons.length === 0}
             >
               <FileText className="mr-2 h-4 w-4" />
               Export CSV
@@ -228,19 +294,17 @@ const Tenants = () => {
         )}
 
         {/* Desktop Table View */}
-        <div className="hidden md:block rounded-md border">
-          <Table>
+        <div className="hidden md:block rounded-md border overflow-x-auto">
+          <Table className="table-fixed min-w-[700px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs font-medium">Suvlasnik</TableHead>
-                <TableHead className="text-xs font-medium">Email</TableHead>
-                <TableHead className="text-xs font-medium">Adresa</TableHead>
-                <TableHead className="text-xs font-medium">Grad</TableHead>
-                <TableHead className="text-right text-xs font-medium">Površina</TableHead>
-                <TableHead className="text-right text-xs font-medium">Mjesečna rata</TableHead>
-                <TableHead className="text-right text-xs font-medium">Saldo</TableHead>
-                <TableHead className="text-xs font-medium">Dostava</TableHead>
-                <TableHead className="text-right text-xs font-medium">Akcije</TableHead>
+                <TableHead className="w-[22%] text-xs font-medium">Suvlasnik</TableHead>
+                <TableHead className="w-[18%] text-xs font-medium">Email</TableHead>
+                <TableHead className="w-[20%] text-xs font-medium">Stan</TableHead>
+                <TableHead className="w-[12%] text-right text-xs font-medium">Mjesečna rata</TableHead>
+                <TableHead className="w-[10%] text-right text-xs font-medium">Saldo</TableHead>
+                <TableHead className="w-[10%] text-xs font-medium">Dostava</TableHead>
+                <TableHead className="w-[8%] text-right text-xs font-medium">Akcije</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -250,9 +314,7 @@ const Tenants = () => {
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20" /></TableCell>
@@ -260,9 +322,9 @@ const Tenants = () => {
                     </TableRow>
                   ))}
                 </>
-              ) : tenants.length === 0 ? (
+              ) : persons.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="p-0">
+                  <TableCell colSpan={7} className="p-0">
                     <EmptyState
                       title="Nema suvlasnika"
                       description="Dodajte prvog suvlasnika da biste započeli s evidencijom."
@@ -271,38 +333,128 @@ const Tenants = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                tenants.map((tenant) => (
-                  <TableRow key={tenant.id} className="hover:bg-muted/30 transition-colors">
+                persons.map((person) => {
+                  const firstApt = person.apartments[0];
+                  return (
+                  <TableRow
+                    key={person.id}
+                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/persons/${person.id}`)}
+                  >
                     <TableCell className="font-medium text-sm">
                       <div className="flex items-center gap-2">
-                        {tenant.status === 'overdue' && (
+                        {person.status === 'overdue' && (
                           <AlertCircle className="h-4 w-4 text-destructive" />
                         )}
-                        {tenant.name}
+                        {person.name}
+                        {person.apartmentsCount > 1 && (
+                          <Badge variant="secondary" className="text-xs px-1.5">
+                            {person.apartmentsCount} stana
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs">{tenant.email || "-"}</TableCell>
-                    <TableCell className="text-xs">{tenant.address}</TableCell>
-                    <TableCell className="text-xs">{tenant.city}</TableCell>
-                    <TableCell className="text-right text-xs">{tenant.area}</TableCell>
-                    <TableCell className="text-right text-xs font-medium">{tenant.monthlyRate}</TableCell>
+                    <TableCell className="text-xs truncate" title={person.email || "-"}>{person.email || "-"}</TableCell>
+                    <TableCell className="text-xs truncate" title={person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : "-"}>
+                      {person.apartmentsCount === 1 && firstApt?.address
+                        ? firstApt.address
+                        : person.apartmentsCount > 1
+                        ? `${person.apartmentsCount} stana`
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="text-right text-xs font-medium">{person.totalMonthlyRate ?? "-"}</TableCell>
                     <TableCell className={`text-right text-xs font-semibold ${
-                      tenant.balanceNum < 0 ? 'text-destructive' : 'text-success'
+                      person.totalBalanceNum < 0 ? 'text-destructive' : 'text-success'
                     }`}>
-                      {tenant.balance}
+                      {person.totalBalance}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {tenant.deliveryMethod === 'email' ? 'E-mail' : 'Pošta'}
+                        {formatDelivery(person.deliveryMethod)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
-                        <FileText className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Pregled detalja
+                          </DropdownMenuItem>
+                          {person.apartments.length > 0 && (
+                            <>
+                              {person.apartmentsCount === 1 ? (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setEditingTenant({
+                                      id: firstApt!.tenantId,
+                                      name: person.name,
+                                      email: person.email,
+                                      phone: person.phone,
+                                      apartment_id: firstApt!.apartmentId,
+                                      deliveryMethod: person.deliveryMethod,
+                                      personId: person.id,
+                                    })
+                                  }
+                                >
+                                  <Edit2 className="h-4 w-4 mr-2" />
+                                  Uredi
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                    <Edit2 className="h-4 w-4 mr-2" />
+                                    Uredi stan
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                    {person.apartments.map((apt, i) => (
+                                      <DropdownMenuItem
+                                        key={apt.tenantId}
+                                        onClick={() =>
+                                          setEditingTenant({
+                                            id: apt.tenantId,
+                                            name: person.name,
+                                            email: person.email,
+                                            phone: person.phone,
+                                            apartment_id: apt.apartmentId,
+                                            deliveryMethod: person.deliveryMethod,
+                                            personId: person.id,
+                                          })
+                                        }
+                                      >
+                                        Stan {i + 1} {apt.address ? `– ${apt.address}` : ""}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                              )}
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setAddApartmentPerson({
+                                    id: person.id,
+                                    name: person.name,
+                                    email: person.email,
+                                    phone: person.phone,
+                                    deliveryMethod: person.deliveryMethod,
+                                    apartments: person.apartments,
+                                  })
+                                }
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Dodaj stan
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -343,59 +495,145 @@ const Tenants = () => {
                 </Card>
               ))}
             </>
-          ) : tenants.length === 0 ? (
+          ) : persons.length === 0 ? (
             <EmptyState
               title="Nema suvlasnika"
               description="Dodajte prvog suvlasnika da biste započeli s evidencijom."
               action={{ label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
             />
           ) : (
-            tenants.map((tenant) => (
-              <Card key={tenant.id} className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md transition-shadow">
+            persons.map((person) => {
+              const firstApt = person.apartments[0];
+              const addressStr = person.apartmentsCount === 1 && firstApt?.address
+                ? firstApt.address
+                : person.apartments.map(a => a.address || a.city).filter(Boolean).slice(0, 2).join(' • ') || '-';
+              const cityStr = [...new Set(person.apartments.map(a => a.city).filter(Boolean))].join(', ') || '';
+              return (
+              <Card
+                key={person.id}
+                className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate(`/persons/${person.id}`)}
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      {tenant.status === 'overdue' && (
+                      {person.status === 'overdue' && (
                         <AlertCircle className="h-4 w-4 text-destructive" />
                       )}
-                      <h3 className="font-semibold">{tenant.name}</h3>
+                      <h3 className="font-semibold">{person.name}</h3>
+                      {person.apartmentsCount > 1 && (
+                        <Badge variant="secondary" className="text-xs">{person.apartmentsCount} stana</Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{tenant.address}, {tenant.city}</p>
-                    {tenant.email && (
-                      <p className="text-xs text-muted-foreground mt-1">{tenant.email}</p>
+                    <p className="text-sm text-muted-foreground">{addressStr}{cityStr ? `, ${cityStr}` : ''}</p>
+                    {person.email && (
+                      <p className="text-xs text-muted-foreground mt-1">{person.email}</p>
                     )}
                   </div>
-                  <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px] -mr-2">
-                    <FileText className="h-4 w-4" />
-                  </Button>
+                  <div onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px] -mr-2">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`)}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Pregled detalja
+                      </DropdownMenuItem>
+                      {person.apartments.length > 0 && (
+                        <>
+                          {person.apartmentsCount === 1 ? (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setEditingTenant({
+                                  id: firstApt!.tenantId,
+                                  name: person.name,
+                                  email: person.email,
+                                  phone: person.phone,
+                                  apartment_id: firstApt!.apartmentId,
+                                  deliveryMethod: person.deliveryMethod,
+                                  personId: person.id,
+                                })
+                              }
+                            >
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Uredi
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <Edit2 className="h-4 w-4 mr-2" />
+                                Uredi stan
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                {person.apartments.map((apt, i) => (
+                                  <DropdownMenuItem
+                                    key={apt.tenantId}
+                                    onClick={() =>
+                                      setEditingTenant({
+                                        id: apt.tenantId,
+                                        name: person.name,
+                                        email: person.email,
+                                        phone: person.phone,
+                                        apartment_id: apt.apartmentId,
+                                        deliveryMethod: person.deliveryMethod,
+                                        personId: person.id,
+                                      })
+                                    }
+                                  >
+                                    Stan {i + 1} {apt.address ? `– ${apt.address}` : ""}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setAddApartmentPerson({
+                                id: person.id,
+                                name: person.name,
+                                email: person.email,
+                                phone: person.phone,
+                                deliveryMethod: person.deliveryMethod,
+                                apartments: person.apartments,
+                              })
+                            }
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Dodaj stan
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2 text-sm pt-3 border-t">
                   <div>
-                    <p className="text-muted-foreground text-xs">Površina</p>
-                    <p className="font-medium">{tenant.area}</p>
-                  </div>
-                  <div>
                     <p className="text-muted-foreground text-xs">Mjesečna rata</p>
-                    <p className="font-medium">{tenant.monthlyRate}</p>
+                    <p className="font-medium">{person.totalMonthlyRate ?? "-"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Saldo</p>
                     <p className={`font-semibold ${
-                      tenant.balanceNum < 0 ? 'text-destructive' : 'text-success'
+                      person.totalBalanceNum < 0 ? 'text-destructive' : 'text-success'
                     }`}>
-                      {tenant.balance}
+                      {person.totalBalance}
                     </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs mb-1">Dostava</p>
                     <Badge variant="outline" className="text-xs">
-                      {tenant.deliveryMethod === 'email' ? 'E-mail' : 'Pošta'}
+                      {formatDelivery(person.deliveryMethod)}
                     </Badge>
                   </div>
                 </div>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -416,18 +654,189 @@ const Tenants = () => {
       <TenantDialog
         open={tenantDialogOpen}
         onOpenChange={setTenantDialogOpen}
+        onSave={async (data) => {
+          const aptIds = data.apartment_ids || [];
+          if (!data.name || aptIds.length === 0) return;
+          try {
+            let userId: string | undefined;
+            if (data.email) {
+              const userRes = await usersApi.createStanar({
+                email: data.email,
+                full_name: data.name,
+              });
+              userId = userRes.id;
+              if (userRes.tempPassword && !userRes.existing) {
+                setTempPasswordModal({
+                  open: true,
+                  email: data.email,
+                  tempPassword: userRes.tempPassword,
+                });
+              }
+            }
+            const firstAptId = aptIds[0];
+            createTenant.mutate(
+              {
+                name: data.name,
+                email: data.email || undefined,
+                phone: data.phone || undefined,
+                apartment_id: firstAptId,
+                user_id: userId,
+                delivery_method: data.delivery_method || undefined,
+              },
+              {
+                onSuccess: async (firstTenant) => {
+                  const personId = firstTenant?.person_id ? String(firstTenant.person_id) : undefined;
+                  for (let i = 1; i < aptIds.length; i++) {
+                    try {
+                      await tenantsApi.create({
+                        name: data.name,
+                        email: data.email || undefined,
+                        phone: data.phone || undefined,
+                        apartment_id: aptIds[i],
+                        delivery_method: data.delivery_method || undefined,
+                        person_id: personId,
+                      });
+                    } catch {
+                      toast({
+                        title: "Upozorenje",
+                        description: `Suvlasnik je dodan na prvi stan, ali greška pri dodavanju na stan ${i + 1}.`,
+                        variant: "destructive",
+                      });
+                      break;
+                    }
+                  }
+                  for (const aptId of aptIds) {
+                    try {
+                      await buildingsApi.updateApartment(aptId, {
+                        owner: data.name,
+                        email: data.email || null,
+                        phone: data.phone || null,
+                      });
+                    } catch (err) {
+                      toast({
+                        title: "Upozorenje",
+                        description: `Suvlasnik je dodan, ali ažuriranje podataka stana nije uspjelo: ${(err as Error)?.message ?? "nepoznata greška"}`,
+                        variant: "destructive",
+                      });
+                    }
+                  }
+                  await queryClient.invalidateQueries({ queryKey: ["tenants"] });
+                  await queryClient.invalidateQueries({ queryKey: ["persons"] });
+                  await queryClient.invalidateQueries({ queryKey: ["cities"] });
+                  setTenantDialogOpen(false);
+                },
+              }
+            );
+          } catch (err) {
+            toast({
+              title: "Greška",
+              description: (err as Error)?.message ?? "Nije moguće kreirati suvlasnika.",
+              variant: "destructive",
+            });
+          }
+        }}
+        isPending={createTenant.isPending}
+      />
+
+      <TempPasswordModal
+        open={tempPasswordModal.open}
+        onOpenChange={(open) => setTempPasswordModal((p) => ({ ...p, open }))}
+        email={tempPasswordModal.email}
+        tempPassword={tempPasswordModal.tempPassword}
+      />
+
+      <TenantEditDialog
+        open={!!editingTenant}
+        onOpenChange={(open) => !open && setEditingTenant(null)}
+        tenant={editingTenant}
         onSave={(data) => {
-          if (!data.name || !data.apartment_id) return;
-          createTenant.mutate(
+          if (!editingTenant) return;
+          const apartmentId = data.apartment_id || null;
+          updateTenant.mutate(
             {
-              name: data.name,
-              email: data.email || undefined,
-              phone: data.phone || undefined,
-              apartment_id: data.apartment_id,
+              id: editingTenant.id,
+              data: {
+                name: data.name,
+                email: data.email || undefined,
+                phone: data.phone || undefined,
+                apartment_id: apartmentId,
+                delivery_method: data.delivery_method || null,
+              },
             },
-            { onSuccess: () => setTenantDialogOpen(false) }
+            {
+              onSuccess: async () => {
+                if (apartmentId) {
+                  try {
+                    await buildingsApi.updateApartment(apartmentId, {
+                      owner: data.name,
+                      email: data.email || null,
+                      phone: data.phone || null,
+                    });
+                  } catch (err) {
+                    toast({
+                      title: "Upozorenje",
+                      description: `Suvlasnik je ažuriran, ali ažuriranje podataka stana nije uspjelo: ${(err as Error)?.message ?? "nepoznata greška"}`,
+                      variant: "destructive",
+                    });
+                  }
+                }
+                setEditingTenant(null);
+              },
+            }
           );
         }}
+        isPending={updateTenant.isPending}
+      />
+
+      <AddApartmentToPersonDialog
+        open={!!addApartmentPerson}
+        onOpenChange={(open) => !open && setAddApartmentPerson(null)}
+        person={addApartmentPerson}
+        onSave={async (apartmentIds) => {
+          if (!addApartmentPerson) return;
+          setAddApartmentPending(true);
+          try {
+            for (const aptId of apartmentIds) {
+              await tenantsApi.create({
+                name: addApartmentPerson.name,
+                email: addApartmentPerson.email || undefined,
+                phone: addApartmentPerson.phone || undefined,
+                apartment_id: aptId,
+                delivery_method: addApartmentPerson.deliveryMethod || undefined,
+                person_id: addApartmentPerson.id,
+              });
+            }
+            for (const aptId of apartmentIds) {
+              try {
+                await buildingsApi.updateApartment(aptId, {
+                  owner: addApartmentPerson.name,
+                  email: addApartmentPerson.email || null,
+                  phone: addApartmentPerson.phone || null,
+                });
+              } catch (err) {
+                toast({
+                  title: "Upozorenje",
+                  description: `Stanovi su dodani, ali ažuriranje podataka stana nije uspjelo: ${(err as Error)?.message ?? "nepoznata greška"}`,
+                  variant: "destructive",
+                });
+              }
+            }
+            await queryClient.invalidateQueries({ queryKey: ["tenants"] });
+            await queryClient.invalidateQueries({ queryKey: ["persons"] });
+            await queryClient.invalidateQueries({ queryKey: ["cities"] });
+            setAddApartmentPerson(null);
+            toast({ title: "Stanovi dodani", description: `Suvlasnik je dodan na ${apartmentIds.length} stanova.` });
+          } catch (err) {
+            toast({
+              title: "Greška",
+              description: (err as Error)?.message ?? "Nije moguće dodati stanove.",
+              variant: "destructive",
+            });
+          } finally {
+            setAddApartmentPending(false);
+          }
+        }}
+        isPending={addApartmentPending}
       />
 
       {/* Filter Sheet */}

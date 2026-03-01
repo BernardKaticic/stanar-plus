@@ -28,9 +28,10 @@ interface CityDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: CityFormData) => void;
   editCity?: { id: string; name: string } | null;
+  isPending?: boolean;
 }
 
-export const CityDialog = ({ open, onOpenChange, onSave, editCity }: CityDialogProps) => {
+export const CityDialog = ({ open, onOpenChange, onSave, editCity, isPending }: CityDialogProps) => {
   const form = useForm<CityFormData>({
     resolver: zodResolver(citySchema),
     defaultValues: {
@@ -39,17 +40,13 @@ export const CityDialog = ({ open, onOpenChange, onSave, editCity }: CityDialogP
   });
 
   useEffect(() => {
-    if (editCity) {
-      form.reset({ name: editCity.name });
-    } else {
-      form.reset({ name: "" });
+    if (open) {
+      form.reset(editCity ? { name: editCity.name } : { name: "" });
     }
-  }, [editCity, form]);
+  }, [open, editCity, form]);
 
   const handleSubmit = (data: CityFormData) => {
     onSave(data);
-    form.reset();
-    onOpenChange(false);
   };
 
   return (
@@ -67,20 +64,22 @@ export const CityDialog = ({ open, onOpenChange, onSave, editCity }: CityDialogP
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Naziv grada</FormLabel>
                   <FormControl>
-                    <Input placeholder="Npr. Vinkovci" {...field} />
+                    <Input placeholder="Npr. Vinkovci" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani
               </Button>
-              <Button type="submit">{editCity ? "Spremi" : "Dodaj"}</Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Spremanje..." : editCity ? "Spremi" : "Dodaj"}
+              </Button>
             </div>
           </form>
         </Form>

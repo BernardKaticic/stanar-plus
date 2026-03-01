@@ -1,4 +1,5 @@
-import { User, Mail, Phone, FileText, Download, Send, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { User, Mail, Phone, FileText, Download, Send, Loader2, ChevronLeft, Calendar } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +12,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { format, startOfYear, endOfMonth } from "date-fns";
+import { hr } from "date-fns/locale";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Label } from "@/components/ui/label";
 import { tenantsApi } from "@/lib/api";
 
 const TenantDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["tenant-detail", id],
@@ -24,7 +38,17 @@ const TenantDetail = () => {
     enabled: !!id,
   });
 
-  const paymentHistory = tenant?.transactions ?? [];
+  const allTransactions = tenant?.transactions ?? [];
+  const paymentHistory = useMemo(() => {
+    if (!dateFrom && !dateTo) return allTransactions;
+    return allTransactions.filter((tx) => {
+      const d = (tx as { dateIso?: string }).dateIso;
+      if (!d) return true;
+      if (dateFrom && d < format(dateFrom, "yyyy-MM-dd")) return false;
+      if (dateTo && d > format(dateTo, "yyyy-MM-dd")) return false;
+      return true;
+    });
+  }, [allTransactions, dateFrom, dateTo]);
 
   if (isLoading) {
     return (
@@ -37,7 +61,7 @@ const TenantDetail = () => {
   if (!tenant) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">Stanar nije pronađen</p>
+        <p className="text-muted-foreground">Suvlasnik nije pronađen</p>
       </div>
     );
   }
@@ -46,13 +70,19 @@ const TenantDetail = () => {
   const address = tenant.building?.street
     ? `${tenant.building.street.city.name}, ${tenant.building.street.name} ${tenant.building.number}, Stan ${aptNum}`
     : "";
-  const monthlyRate = tenant.monthlyRate ?? (tenant.size_m2 ? (Number(tenant.size_m2) * 0.9).toFixed(2) + " €" : "0.00 €");
+  const monthlyRateRaw = tenant.monthlyRate ?? (tenant.size_m2 ? (Number(tenant.size_m2) * 0.9).toFixed(2) : "0,00");
+  const monthlyRate = monthlyRateRaw.includes("€") ? monthlyRateRaw : monthlyRateRaw + " €";
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1>{tenant.tenant?.full_name || "Nepoznat"}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Kartica stanara</p>
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => navigate("/tenants")} aria-label="Natrag na popis suvlasnika">
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1>{tenant.tenant?.full_name || "Nepoznat"}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Kartica suvlasnika</p>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -87,10 +117,6 @@ const TenantDetail = () => {
               <span className="font-medium text-right">{address}</span>
             </div>
             <div className="flex justify-between py-2 border-b">
-              <span className="text-muted-foreground">Kat:</span>
-              <span className="font-medium">{tenant.floor}. kat</span>
-            </div>
-            <div className="flex justify-between py-2 border-b">
               <span className="text-muted-foreground">Površina:</span>
               <span className="font-medium">{tenant.size_m2} m²</span>
             </div>
@@ -105,8 +131,18 @@ const TenantDetail = () => {
             <div className="flex justify-between py-2">
               <span className="text-muted-foreground">Način slanja:</span>
               <Badge variant="outline">
-                <Mail className="mr-1 h-3 w-3" />
-                E-mail
+                {tenant.deliveryMethod === "email" ? (
+                  <>
+                    <Mail className="mr-1 h-3 w-3" />
+                    E-mail
+                  </>
+                ) : tenant.deliveryMethod === "both" ? (
+                  <>E-mail i pošta</>
+                ) : tenant.deliveryMethod === "pošta" ? (
+                  <>Pošta</>
+                ) : (
+                  <>Nije odabrano</>
+                )}
               </Badge>
             </div>
           </div>
@@ -121,30 +157,69 @@ const TenantDetail = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Pričuva/m²</p>
-              <p className="text-xl font-semibold">0,20 €</p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Čišćenje</p>
-              <p className="text-xl font-bold">4,00 €</p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Kredit/m²</p>
-              <p className="text-xl font-semibold">0,70 €</p>
-            </div>
-            <div className="p-4 bg-primary/10 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Ukupno/m²</p>
-              <p className="text-xl font-bold text-primary">0,90 €</p>
-            </div>
-          </div>
+          {tenant.feeBreakdown ? (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Naknade po m²</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Pričuva</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.reservePerSqm.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Kredit</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.loanPerSqm.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Štednja</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.savingsPerSqm.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                    <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                      <p className="text-xs text-muted-foreground mb-1">Ukupno/m²</p>
+                      <p className="text-lg font-bold text-primary">
+                        {(tenant.feeBreakdown.reservePerSqm + tenant.feeBreakdown.loanPerSqm + tenant.feeBreakdown.savingsPerSqm).toFixed(2).replace(".", ",")} €
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Fiksne naknade (po stanu)</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Čišćenje</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.cleaningFee.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Štednja</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.savingsFixed.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Izvanredni</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.extraFixed.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Struja</p>
+                      <p className="text-lg font-semibold">{tenant.feeBreakdown.electricityFixed.toFixed(2).replace(".", ",")} €</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">Struktura troška nije dostupna (suvlasnik nije dodijeljen stanu).</p>
+          )}
 
           <div className="mt-6 p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
             <div className="flex items-center justify-between">
               <span className="text-base font-semibold">Mjesečna rata:</span>
-              <span className="text-3xl font-bold text-primary">{monthlyRate} €</span>
+              <span className="text-3xl font-bold text-primary">{monthlyRate}</span>
             </div>
+            {tenant.feeBreakdown && tenant.size_m2 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                = (ukupno/m² × {tenant.size_m2} m²) + fiksne naknade
+              </p>
+            )}
           </div>
           </CardContent>
         </Card>
@@ -159,7 +234,7 @@ const TenantDetail = () => {
         </CardHeader>
         <CardContent>
         <Tabs defaultValue="financial">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList>
             <TabsTrigger value="financial">Financijska kartica</TabsTrigger>
             <TabsTrigger value="payments">Uplatnice</TabsTrigger>
             <TabsTrigger value="warnings">Opomene</TabsTrigger>
@@ -167,16 +242,77 @@ const TenantDetail = () => {
           </TabsList>
 
           <TabsContent value="financial" className="space-y-4 mt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold">Pregled zaduženja i uplata</h3>
                 <p className="text-sm text-muted-foreground">
-                  Pregled transakcija
+                  {dateFrom || dateTo ? (
+                    <>
+                      Period: {dateFrom ? format(dateFrom, "d.M.yyyy.", { locale: hr }) : "..."} –{" "}
+                      {dateTo ? format(dateTo, "d.M.yyyy.", { locale: hr }) : "danas"}
+                    </>
+                  ) : (
+                    "Sve transakcije"
+                  )}
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="min-h-[32px]">
-                Prilagodi period
-              </Button>
+              <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="min-h-[32px] gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Prilagodi period
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="end">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="block text-sm font-medium">Od</Label>
+                        <DatePicker
+                          date={dateFrom}
+                          onDateChange={setDateFrom}
+                          placeholder="Odaberi datum"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="block text-sm font-medium">Do</Label>
+                        <DatePicker
+                          date={dateTo}
+                          onDateChange={setDateTo}
+                          placeholder="Odaberi datum"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setDateFrom(startOfYear(new Date()));
+                          setDateTo(endOfMonth(new Date()));
+                        }}
+                      >
+                        Ove godine
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setDateFrom(undefined);
+                          setDateTo(undefined);
+                          setPeriodOpen(false);
+                        }}
+                      >
+                        Sve transakcije
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="rounded-md border">
@@ -194,7 +330,9 @@ const TenantDetail = () => {
                   {!paymentHistory || paymentHistory.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        Nema podataka o plaćanjima
+                        {dateFrom || dateTo
+                          ? "Nema transakcija u odabranom periodu"
+                          : "Nema podataka o plaćanjima"}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -241,7 +379,7 @@ const TenantDetail = () => {
               <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-base font-semibold mb-2">Povijest uplatnica</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Ovdje će biti prikazane sve poslane uplatnice za ovog stanara
+                Ovdje će biti prikazane sve poslane uplatnice za ovog suvlasnika
               </p>
               <Button>Generiraj novu uplatnicu</Button>
             </div>
@@ -252,7 +390,7 @@ const TenantDetail = () => {
               <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-base font-semibold mb-2">Povijest opomena</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Trenutno nema poslanih opomena za ovog stanara
+                Trenutno nema poslanih opomena za ovog suvlasnika
               </p>
             </div>
           </TabsContent>
@@ -262,7 +400,7 @@ const TenantDetail = () => {
               <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-base font-semibold mb-2">Dokumenti</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Ugovori, odluke i ostali dokumenti vezani za stanara
+                Ugovori, odluke i ostali dokumenti vezani za suvlasnika
               </p>
             </div>
           </TabsContent>

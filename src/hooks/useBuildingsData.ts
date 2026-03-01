@@ -84,8 +84,8 @@ export const useUpdateCity = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: z.infer<typeof citySchema> }) =>
       buildingsApi.updateCity(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cities"] });
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["cities"] });
       toast({ title: "Grad ažuriran", description: "Grad je uspješno ažuriran." });
     },
     onError: () => {
@@ -165,6 +165,10 @@ export const useCreateBuilding = () => {
         streetId,
         name: data.name || data.number,
         number: data.number,
+        iban: data.iban || null,
+        oib: data.oib || null,
+        representative: data.representative || null,
+        representativePhone: data.representativePhone || null,
         cleaningFee: data.cleaningFee ?? 0,
         loanFee: data.loanFee ?? 0,
         reservePerSqm: data.reservePerSqm ?? 0,
@@ -203,8 +207,8 @@ export const useUpdateBuilding = () => {
         electricityFixed: data.electricityFixed ?? 0,
         savingsPerSqm: data.savingsPerSqm ?? 0,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cities"] });
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["cities"] });
       toast({ title: "Zgrada ažurirana", description: "Zgrada je uspješno ažurirana." });
     },
     onError: () => {

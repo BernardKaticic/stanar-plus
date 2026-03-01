@@ -1,4 +1,4 @@
-import { Receipt, Mail, Printer, Calendar, Building2, Check, ChevronsUpDown, Plus, X } from "lucide-react";
+import { Receipt, Mail, Printer, Calendar, Building2, Check, ChevronsUpDown, Plus, X, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { usePaymentSlips } from "@/hooks/usePaymentSlipsData";
+import { formatCurrency } from "@/lib/utils";
 import { paymentSlipsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -280,8 +281,8 @@ const PaymentSlips = () => {
                 {/* Period inputs */}
                 {periodType === "single" && (
                   <div className="pl-8">
-                    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3 items-end md:items-center">
-                      <Label className="text-sm">Odaberi mjesec:</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3 items-center">
+                      <Label className="text-sm font-medium shrink-0">Odaberi mjesec:</Label>
                       <MonthPicker
                         date={singleMonth}
                         onDateChange={setSingleMonth}
@@ -293,14 +294,14 @@ const PaymentSlips = () => {
 
                 {periodType === "range" && (
                   <div className="space-y-3 pl-8">
-                    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_1fr] gap-3 items-end">
-                      <Label className="text-sm md:self-center">Od:</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_1fr] gap-3 items-center">
+                      <Label className="text-sm font-medium shrink-0">Od:</Label>
                       <MonthPicker
                         date={periodFrom}
                         onDateChange={setPeriodFrom}
                         placeholder="Od mjeseca"
                       />
-                      <Label className="text-sm md:self-center">Do:</Label>
+                      <Label className="text-sm font-medium shrink-0">Do:</Label>
                       <MonthPicker
                         date={periodTo}
                         onDateChange={setPeriodTo}
@@ -490,7 +491,10 @@ const PaymentSlips = () => {
         </CardHeader>
         <CardContent>
         {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">Učitavanje...</div>
+          <div className="text-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Učitavanje uplatnica...</p>
+          </div>
         ) : history && history.length > 0 ? (
           <div className="space-y-3">
             {history.map((item, i) => (
@@ -518,7 +522,7 @@ const PaymentSlips = () => {
                   
                   <div className="text-right">
                     <p className="text-sm font-medium">{item.count} uplatnica</p>
-                    <p className="text-sm font-semibold text-primary">{item.amount.toFixed(2)} €</p>
+                    <p className="text-sm font-semibold text-primary">{formatCurrency(item.amount)}</p>
                   </div>
                   
                   <Button 
@@ -546,7 +550,7 @@ const PaymentSlips = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">{item.count} uplatnica</p>
-                      <p className="text-sm font-semibold text-primary">{item.amount.toFixed(2)} €</p>
+                      <p className="text-sm font-semibold text-primary">{formatCurrency(item.amount)}</p>
                     </div>
                   </div>
                   
@@ -613,7 +617,7 @@ const PaymentSlips = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Ukupan iznos</p>
-                  <p className="font-semibold text-sm text-primary">{selectedItem.amount.toFixed(2)} €</p>
+                  <p className="font-semibold text-sm text-primary">{formatCurrency(selectedItem.amount)}</p>
                 </div>
               </div>
 

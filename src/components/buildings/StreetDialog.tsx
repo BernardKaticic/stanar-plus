@@ -29,9 +29,10 @@ interface StreetDialogProps {
   onSave: (data: StreetFormData) => void;
   editStreet?: { id: string; name: string } | null;
   cityName: string;
+  isPending?: boolean;
 }
 
-export const StreetDialog = ({ open, onOpenChange, onSave, editStreet, cityName }: StreetDialogProps) => {
+export const StreetDialog = ({ open, onOpenChange, onSave, editStreet, cityName, isPending }: StreetDialogProps) => {
   const form = useForm<StreetFormData>({
     resolver: zodResolver(streetSchema),
     defaultValues: {
@@ -40,17 +41,13 @@ export const StreetDialog = ({ open, onOpenChange, onSave, editStreet, cityName 
   });
 
   useEffect(() => {
-    if (editStreet) {
-      form.reset({ name: editStreet.name });
-    } else {
-      form.reset({ name: "" });
+    if (open) {
+      form.reset(editStreet ? { name: editStreet.name } : { name: "" });
     }
-  }, [editStreet, form]);
+  }, [open, editStreet, form]);
 
   const handleSubmit = (data: StreetFormData) => {
     onSave(data);
-    form.reset();
-    onOpenChange(false);
   };
 
   return (
@@ -68,20 +65,22 @@ export const StreetDialog = ({ open, onOpenChange, onSave, editStreet, cityName 
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Naziv ulice</FormLabel>
                   <FormControl>
-                    <Input placeholder="Npr. Trg kralja Tomislava" {...field} />
+                    <Input placeholder="Npr. Trg kralja Tomislava" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani
               </Button>
-              <Button type="submit">{editStreet ? "Spremi" : "Dodaj"}</Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Spremanje..." : editStreet ? "Spremi" : "Dodaj"}
+              </Button>
             </div>
           </form>
         </Form>

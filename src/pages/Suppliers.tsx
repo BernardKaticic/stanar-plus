@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { startOfDay, startOfYear, format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 import { hr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -62,11 +64,15 @@ const Suppliers = () => {
 
   const handleSupplierSave = (data: any) => {
     if (editingSupplier) {
-      updateSupplier.mutate({ id: editingSupplier.id, data });
+      updateSupplier.mutate(
+        { id: editingSupplier.id, data },
+        { onSuccess: () => { setSupplierDialogOpen(false); setEditingSupplier(null); } }
+      );
     } else {
-      createSupplier.mutate(data);
+      createSupplier.mutate(data, {
+        onSuccess: () => { setSupplierDialogOpen(false); setEditingSupplier(null); },
+      });
     }
-    setEditingSupplier(null);
   };
   const [dateTo, setDateTo] = useState<Date>(startOfDay(new Date()));
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
@@ -120,7 +126,7 @@ const Suppliers = () => {
             {dateFrom || dateTo ? "Trošak u periodu" : "Mjesečni prosjek"}
           </p>
           <p className="text-xl font-semibold mt-1 text-primary">
-            {totalMonthly.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
+            {formatCurrency(totalMonthly)}
           </p>
           {(dateFrom || dateTo) && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -133,7 +139,7 @@ const Suppliers = () => {
             {dateFrom || dateTo ? "Projekcija godišnje" : "Godišnji trošak"}
           </p>
           <p className="text-xl font-semibold mt-1 text-warning">
-            {totalYearly.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
+            {formatCurrency(totalYearly)}
           </p>
         </Card>
       </div>
@@ -152,10 +158,12 @@ const Suppliers = () => {
                 <FileText className="h-4 w-4" />
                 Export CSV
               </Button>
-              <Button type="button" className="gap-2 min-h-[32px]" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
-                <Plus className="h-4 w-4" />
-                Dodaj dobavljača
-              </Button>
+              {suppliers.length > 0 && (
+                <Button type="button" className="gap-2 min-h-[32px]" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
+                  <Plus className="h-4 w-4" />
+                  Dodaj dobavljača
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -225,17 +233,23 @@ const Suppliers = () => {
             </Popover>
 
             {/* Date Range */}
-            <div className="flex gap-2">
-              <DatePicker
-                date={dateFrom}
-                onDateChange={setDateFrom}
-                placeholder="Datum od"
-              />
-              <DatePicker
-                date={dateTo}
-                onDateChange={setDateTo}
-                placeholder="Datum do"
-              />
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="space-y-2 min-w-[160px]">
+                <Label className="block text-sm font-medium">Od</Label>
+                <DatePicker
+                  date={dateFrom}
+                  onDateChange={setDateFrom}
+                  placeholder="Odaberi datum"
+                />
+              </div>
+              <div className="space-y-2 min-w-[160px]">
+                <Label className="block text-sm font-medium">Do</Label>
+                <DatePicker
+                  date={dateTo}
+                  onDateChange={setDateTo}
+                  placeholder="Odaberi datum"
+                />
+              </div>
             </div>
 
             {/* Reset filters */}
@@ -347,7 +361,7 @@ const Suppliers = () => {
                     <EmptyState
                       icon={Truck}
                       title="Nema dobavljača"
-                      description={suppliers.length === 0 ? "Dodajte prvog dobavljača klikom na gumb iznad" : "Nema dobavljača koji odgovaraju kriterijima"}
+                      description={suppliers.length === 0 ? "Dodajte prvog dobavljača da biste započeli." : "Nema dobavljača koji odgovaraju kriterijima"}
                       action={suppliers.length === 0 ? (
                         <Button size="sm" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
                           <Plus className="mr-2 h-4 w-4" />
@@ -411,6 +425,7 @@ const Suppliers = () => {
           onOpenChange={(o) => { setSupplierDialogOpen(o); if (!o) setEditingSupplier(null); }}
           onSave={handleSupplierSave}
           editItem={editingSupplier}
+          isPending={createSupplier.isPending || updateSupplier.isPending}
         />
 
         {/* Mobile Card View */}
@@ -439,7 +454,7 @@ const Suppliers = () => {
             <EmptyState
               icon={Truck}
               title="Nema dobavljača"
-              description={suppliers.length === 0 ? "Dodajte prvog dobavljača klikom na gumb iznad" : "Nema dobavljača koji odgovaraju kriterijima"}
+              description={suppliers.length === 0 ? "Dodajte prvog dobavljača da biste započeli." : "Nema dobavljača koji odgovaraju kriterijima"}
               action={suppliers.length === 0 ? (
                 <Button size="sm" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -508,8 +523,8 @@ const Suppliers = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {categories.map((category) => {
           const categorySuppliers = suppliers.filter(s => s.category === category);
-          const categoryTotal = categorySuppliers.reduce((sum, s) => 
-            sum + parseFloat(s.yearlyTotal.replace(/[^\d,]/g, '').replace(',', '.')), 0
+const categoryTotal = categorySuppliers.reduce((sum, s) =>
+            sum + parseFloat(String(s.yearlyTotal ?? "0").replace(/[^\d,]/g, '').replace(',', '.')), 0
           );
           
           return (
@@ -521,7 +536,7 @@ const Suppliers = () => {
               <div className="flex items-center gap-2">
                 <Euro className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm font-semibold">
-                  {categoryTotal.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
+                  {formatCurrency(categoryTotal)}
                 </p>
               </div>
               <p className="text-xs text-muted-foreground mt-1">

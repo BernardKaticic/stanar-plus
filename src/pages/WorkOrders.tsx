@@ -127,6 +127,7 @@ const WorkOrders = () => {
                 Pretraga, filteri i dodavanje naloga
               </CardDescription>
             </div>
+            {workOrders.length > 0 && (
             <div className="flex justify-end w-full sm:w-auto shrink-0">
               <Button
                 type="button"
@@ -137,6 +138,7 @@ const WorkOrders = () => {
                 Novi nalog
               </Button>
             </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -282,7 +284,7 @@ const WorkOrders = () => {
                     <EmptyState
                       icon={ClipboardCheck}
                       title="Nema radnih naloga"
-                      description="Dodajte prvi radni nalog klikom na gumb iznad"
+                      description="Dodajte prvi radni nalog da biste započeli."
                       action={
                         <Button onClick={() => setWorkOrderDialogOpen(true)} size="sm">
                           <Plus className="mr-2 h-4 w-4" />
@@ -345,7 +347,7 @@ const WorkOrders = () => {
             <EmptyState
               icon={ClipboardCheck}
               title="Nema radnih naloga"
-              description="Dodajte prvi radni nalog klikom na gumb iznad"
+              description="Dodajte prvi radni nalog da biste započeli."
               action={
                 <Button onClick={() => setWorkOrderDialogOpen(true)} size="sm">
                   <Plus className="mr-2 h-4 w-4" />
@@ -425,6 +427,7 @@ const WorkOrders = () => {
           });
         }}
         userId={user?.id || ""}
+        isPending={createWorkOrder.isPending}
       />
     </div>
   );

@@ -17,6 +17,7 @@ import {
 import { useRepresentatives } from "@/hooks/useRepresentativesData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { otherIncomeApi, representativesApi } from "@/lib/api";
+import { formatCurrency } from "@/lib/utils";
 import { RepresentativeDialog } from "@/components/representatives/RepresentativeDialog";
 import { OtherIncomeDialog } from "@/components/representatives/OtherIncomeDialog";
 import { toast } from "sonner";
@@ -56,11 +57,15 @@ const Representatives = () => {
 
   const handleRepSave = (data: any) => {
     if (editingRep) {
-      updateRep.mutate({ id: editingRep.id, data });
+      updateRep.mutate(
+        { id: editingRep.id, data },
+        { onSuccess: () => { setRepDialogOpen(false); setEditingRep(null); } }
+      );
     } else {
-      createRep.mutate(data);
+      createRep.mutate(data, {
+        onSuccess: () => { setRepDialogOpen(false); setEditingRep(null); },
+      });
     }
-    setEditingRep(null);
   };
 
   const createOI = useMutation({
@@ -75,11 +80,15 @@ const Representatives = () => {
   });
   const handleOtherIncomeSave = (data: any) => {
     if (editingOtherIncome) {
-      updateOI.mutate({ id: editingOtherIncome.id, data });
+      updateOI.mutate(
+        { id: editingOtherIncome.id, data },
+        { onSuccess: () => { setOtherIncomeDialogOpen(false); setEditingOtherIncome(null); } }
+      );
     } else {
-      createOI.mutate(data);
+      createOI.mutate(data, {
+        onSuccess: () => { setOtherIncomeDialogOpen(false); setEditingOtherIncome(null); },
+      });
     }
-    setEditingOtherIncome(null);
   };
   const { data: representatives = [], isLoading } = useRepresentatives(searchTerm || undefined);
 
@@ -109,12 +118,12 @@ const Representatives = () => {
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Mjesečni troškovi predstavnika</p>
           <p className="text-xl font-semibold mt-1 text-primary">
-            {totalMonthly.toFixed(2).replace('.', ',')} €
+            {formatCurrency(totalMonthly)}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Isplaćeno ovaj mjesec</p>
-          <p className="text-xl font-semibold mt-1">{totalMonthly.toFixed(2).replace('.', ',')} €</p>
+          <p className="text-xl font-semibold mt-1">{formatCurrency(totalMonthly)}</p>
         </Card>
       </div>
 
@@ -132,10 +141,12 @@ const Representatives = () => {
                 <FileText className="h-4 w-4" />
                 Export CSV
               </Button>
-              <Button type="button" className="gap-2 min-h-[32px]" onClick={() => { setEditingRep(null); setRepDialogOpen(true); }}>
-                <Plus className="h-4 w-4" />
-                Dodaj predstavnika
-              </Button>
+              {representatives.length > 0 && (
+                <Button type="button" className="gap-2 min-h-[32px]" onClick={() => { setEditingRep(null); setRepDialogOpen(true); }}>
+                  <Plus className="h-4 w-4" />
+                  Dodaj predstavnika
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -188,12 +199,11 @@ const Representatives = () => {
                 <TableCell colSpan={8} className="p-8">
                   <EmptyState
                     title="Nema predstavnika"
-                    description="Dodajte prvog predstavnika klikom na gumb iznad"
-                    action={
-                      <Button size="sm">
-                        Dodaj predstavnika
-                      </Button>
-                    }
+                    description="Dodajte prvog predstavnika da biste započeli."
+                    action={{
+                      label: "Dodaj predstavnika",
+                      onClick: () => { setEditingRep(null); setRepDialogOpen(true); },
+                    }}
                   />
                 </TableCell>
               </TableRow>
@@ -255,12 +265,11 @@ const Representatives = () => {
           ) : representatives.length === 0 ? (
             <EmptyState
               title="Nema predstavnika"
-              description="Dodajte prvog predstavnika klikom na gumb iznad"
-              action={
-                <Button size="sm">
-                  Dodaj predstavnika
-                </Button>
-              }
+              description="Dodajte prvog predstavnika da biste započeli."
+              action={{
+                label: "Dodaj predstavnika",
+                onClick: () => { setEditingRep(null); setRepDialogOpen(true); },
+              }}
             />
           ) : (
             representatives.map((rep) => (
@@ -312,6 +321,7 @@ const Representatives = () => {
         onOpenChange={(o) => { setRepDialogOpen(o); if (!o) setEditingRep(null); }}
         onSave={handleRepSave}
         editItem={editingRep}
+        isPending={createRep.isPending || updateRep.isPending}
       />
 
       <Card>
@@ -360,6 +370,7 @@ const Representatives = () => {
             onOpenChange={(o) => { setOtherIncomeDialogOpen(o); if (!o) setEditingOtherIncome(null); }}
             onSave={handleOtherIncomeSave}
             editItem={editingOtherIncome}
+            isPending={createOI.isPending || updateOI.isPending}
           />
         </div>
         </CardContent>

@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Building2, 
@@ -11,7 +11,8 @@ import {
   FileText,
   UserCog,
   ScrollText,
-  MapPin,
+  UserCircle,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -22,12 +23,13 @@ import { useAuth } from "@/contexts/AuthContext";
 const mobileNavigation = [
   { name: "Početna", href: "/", icon: LayoutDashboard },
   { name: "Zgrade", href: "/buildings", icon: Building2 },
-  { name: "Karta", href: "/map", icon: MapPin },
-  { name: "Suvlasnici", href: "/tenants", icon: Users },
+  { name: "Suvlasnici", href: "/tenants", icon: Users, activePaths: ["/persons"] },
   { name: "Dužnici", href: "/debtors", icon: AlertCircle },
 ];
 
 const moreNavigation = [
+  { name: "Predstavnici", href: "/representatives", icon: UserCircle },
+  { name: "Dobavljači", href: "/suppliers", icon: Package },
   { name: "Upravljanje", href: "/admin/tenants", icon: UserCog, adminOnly: true },
   { name: "Uplatnice", href: "/payment-slips", icon: Receipt },
   { name: "Radni nalozi", href: "/work-orders", icon: ClipboardCheck },
@@ -39,12 +41,17 @@ const moreNavigation = [
 export const MobileNav = () => {
   const [moreOpen, setMoreOpen] = useState(false);
   const { userRole } = useAuth();
+  const { pathname } = useLocation();
 
   return (
     <>
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background safe-bottom">
         <div className="grid grid-cols-5 gap-1">
-          {mobileNavigation.map((item) => (
+          {mobileNavigation.map((item) => {
+            const isActiveByPath = (item as { activePaths?: string[] }).activePaths?.some((p) =>
+              pathname.startsWith(p)
+            );
+            return (
             <NavLink
               key={item.name}
               to={item.href}
@@ -52,7 +59,7 @@ export const MobileNav = () => {
               className={({ isActive }) =>
                 cn(
                   "flex flex-col items-center justify-center py-3 text-xs font-medium transition-colors min-h-[60px]",
-                  isActive
+                  isActive || isActiveByPath
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )
@@ -61,7 +68,8 @@ export const MobileNav = () => {
               <item.icon className="h-5 w-5 mb-1" />
               {item.name}
             </NavLink>
-          ))}
+            );
+          })}
           <Button
             variant="ghost"
             onClick={() => setMoreOpen(true)}

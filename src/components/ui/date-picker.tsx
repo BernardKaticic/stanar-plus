@@ -33,7 +33,7 @@ export function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-[160px] justify-start text-left font-normal h-10",
+            "min-w-[160px] w-[160px] justify-start text-left font-normal h-10",
             !date && "text-muted-foreground",
             className
           )}

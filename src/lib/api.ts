@@ -217,6 +217,56 @@ export const buildingsApi = {
   deleteApartment: (id: string) => api(`/apartments/${id}`, { method: 'DELETE' }),
 };
 
+export const personsApi = {
+  getAll: (params?: { page?: number; pageSize?: number; search?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set('page', String(params.page));
+    if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
+    if (params?.search) sp.set('search', params.search || '');
+    return api<{ data: Person[]; totalCount: number }>('/persons?' + sp.toString());
+  },
+  getById: (id: string) => api<PersonDetail>('/persons/' + id),
+};
+
+export type Person = {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  deliveryMethod?: string | null;
+  apartments: PersonApartment[];
+  apartmentsCount: number;
+  totalBalance: string;
+  totalBalanceNum: number;
+  totalMonthlyRate: string | null;
+  status: string;
+};
+
+export type PersonApartment = {
+  tenantId: string;
+  apartmentId: string | null;
+  address: string | null;
+  city: string | null;
+  area: string | null;
+  monthlyRate: string | null;
+  balance: string;
+  balanceNum: number;
+  status: string;
+};
+
+export type PersonDetail = Person & {
+  totalApartments: number;
+  apartments: (PersonApartment & {
+    apartmentNumber?: string;
+    floor?: number;
+    size_m2?: string;
+    monthlyRateNum?: number;
+    feeBreakdown?: any;
+    building?: any;
+    transactions?: any[];
+  })[];
+};
+
 export const tenantsApi = {
   getAll: (params?: { page?: number; pageSize?: number; search?: string }) => {
     const sp = new URLSearchParams();
@@ -226,9 +276,25 @@ export const tenantsApi = {
     return api<{ data: any[]; totalCount: number }>('/tenants?' + sp.toString());
   },
   getById: (id: string) => api<any>('/tenants/' + id),
-  create: (data: { apartment_id: string; name: string; email?: string; phone?: string }) =>
-    api('/tenants', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { name?: string; email?: string; phone?: string }) =>
+  create: (data: {
+    apartment_id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    user_id?: string;
+    delivery_method?: 'email' | 'pošta' | 'both' | null;
+    person_id?: string | number;
+  }) => api('/tenants', { method: 'POST', body: JSON.stringify(data) }),
+  update: (
+    id: string,
+    data: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      apartment_id?: string | null;
+      delivery_method?: 'email' | 'pošta' | 'both' | null;
+    }
+  ) =>
     api(`/tenants/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => api(`/tenants/${id}`, { method: 'DELETE' }),
 };
@@ -344,6 +410,11 @@ export const apartmentsApi = {
 
 export const usersApi = {
   getByRole: (role: string) => api<any[]>('/users?role=' + role),
+  createStanar: (data: { email: string; full_name: string }) =>
+    api<{ id: string; email: string; tempPassword: string | null; existing: boolean }>(
+      '/users/create-stanar',
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
 };
 
 export const auditLogApi = {

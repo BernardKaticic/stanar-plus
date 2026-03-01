@@ -30,9 +30,10 @@ interface OtherIncomeDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: any) => void;
   editItem?: { id: string; name: string; service: string; frequency: string; amount: string; iban?: string } | null;
+  isPending?: boolean;
 }
 
-export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem }: OtherIncomeDialogProps) => {
+export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPending }: OtherIncomeDialogProps) => {
   const { register, handleSubmit, reset, setValue, watch } = useForm({
     defaultValues: { name: "", service: "", frequency: "monthly", amount: "", iban: "" },
   });
@@ -59,7 +60,6 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem }: Othe
       amount: parseFloat(String(data.amount || "0").replace(",", ".")),
       iban: data.iban || null,
     });
-    onOpenChange(false);
   };
 
   return (
@@ -70,36 +70,42 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem }: Othe
           <DialogDescription>Periodične isplate (upravitelji, čišćenje, revizija...)</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <Label>Naziv / Ime</Label>
-            <Input {...register("name", { required: true })} placeholder="npr. Košir Josip" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Naziv / Ime</Label>
+              <Input {...register("name", { required: true })} placeholder="npr. Košir Josip" className="w-full" />
+            </div>
+            <div className="space-y-2">
+              <Label>Usluga</Label>
+              <Input {...register("service", { required: true })} placeholder="npr. Održavanje lifta" className="w-full" />
+            </div>
           </div>
-          <div>
-            <Label>Usluga</Label>
-            <Input {...register("service", { required: true })} placeholder="npr. Održavanje lifta" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Učestalost</Label>
+              <Select value={watch("frequency")} onValueChange={(v) => setValue("frequency", v)}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FREQUENCIES.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Iznos (€)</Label>
+              <Input {...register("amount", { required: true })} type="number" step="0.01" placeholder="200" className="w-full" />
+            </div>
           </div>
-          <div>
-            <Label>Učestalost</Label>
-            <Select value={watch("frequency")} onValueChange={(v) => setValue("frequency", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {FREQUENCIES.map((f) => (
-                  <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Iznos (€)</Label>
-            <Input {...register("amount", { required: true })} type="number" step="0.01" placeholder="200" />
-          </div>
-          <div>
+          <div className="space-y-2">
             <Label>IBAN</Label>
-            <Input {...register("iban")} placeholder="HR..." />
+            <Input {...register("iban")} placeholder="HR..." className="w-full" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Odustani</Button>
-            <Button type="submit">{editItem ? "Spremi" : "Dodaj"}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Odustani</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Spremanje..." : editItem ? "Spremi" : "Dodaj"}
+            </Button>
           </div>
         </form>
       </DialogContent>

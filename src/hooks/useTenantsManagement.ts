@@ -12,15 +12,20 @@ export const useCreateTenant = () => {
       name: string;
       email?: string;
       phone?: string;
+      user_id?: string;
+      delivery_method?: 'email' | 'pošta' | 'both' | null;
     }) =>
       tenantsApi.create({
         apartment_id: data.apartment_id,
         name: data.name,
         email: data.email || undefined,
         phone: data.phone || undefined,
+        user_id: data.user_id,
+        delivery_method: data.delivery_method || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["persons"] });
       queryClient.invalidateQueries({ queryKey: ["apartments"] });
       toast({
         title: "Suvlasnik dodan",
@@ -42,10 +47,23 @@ export const useUpdateTenant = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; email?: string; phone?: string } }) =>
-      tenantsApi.update(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        apartment_id?: string | null;
+        delivery_method?: 'email' | 'pošta' | 'both' | null;
+      };
+    }) => tenantsApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["persons"] });
+      queryClient.invalidateQueries({ queryKey: ["apartments"] });
       toast({ title: "Suvlasnik ažuriran", description: "Podaci su uspješno spremljeni." });
     },
     onError: (err: Error & { body?: { message?: string } }) => {

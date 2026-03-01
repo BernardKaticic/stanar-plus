@@ -62,23 +62,23 @@ export const Header = () => {
         const results: any[] = [];
         const term = searchTerm.toLowerCase();
 
-        // Search tenants via API
-        const tenantsRes = await fetch(
-          `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/tenants?search=${encodeURIComponent(searchTerm)}&pageSize=5`,
+        // Search suvlasnici (persons) via API
+        const personsRes = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/persons?search=${encodeURIComponent(searchTerm)}&pageSize=5`,
           {
             headers: {
               Authorization: `Bearer ${getStoredSession()?.accessToken ?? ""}`,
             },
           }
         );
-        if (tenantsRes.ok) {
-          const { data: tenants } = await tenantsRes.json();
+        if (personsRes.ok) {
+          const { data: persons } = await personsRes.json();
           results.push(
-            ...(tenants || []).slice(0, 5).map((t: any) => ({
-              type: "tenant",
-              id: t.id,
-              title: t.name,
-              subtitle: t.address || t.city || "",
+            ...(persons || []).slice(0, 5).map((p: any) => ({
+              type: "person",
+              id: p.id,
+              title: p.name,
+              subtitle: p.apartments?.[0]?.address || p.apartments?.[0]?.city || "",
               icon: Users,
             }))
           );
@@ -179,8 +179,8 @@ export const Header = () => {
     setSearchTerm("");
     setSearchResults([]);
 
-    if (result.type === "tenant") {
-      navigate(`/tenants/${result.id}`);
+    if (result.type === "person") {
+      navigate(`/persons/${result.id}`);
     } else if (
       result.type === "building" ||
       result.type === "city" ||
@@ -263,10 +263,9 @@ export const Header = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative min-w-[32px] min-h-[32px]"
+                  className="min-w-[32px] min-h-[32px]"
                 >
                   <Bell className="h-5 w-5" />
-                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -294,7 +293,7 @@ export const Header = () => {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user.user_metadata?.full_name || user.email}
+                        {user?.user_metadata?.full_name || user?.full_name || user?.email}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
                         {user.email}

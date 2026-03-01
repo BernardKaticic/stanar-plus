@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -68,10 +70,10 @@ const EInvoices = () => {
   const [selectedRecipient, setSelectedRecipient] = useState<string>("");
   const { toast } = useToast();
 
-  const { data: invoices = [] } = useEInvoices({
+  const { data: invoices = [], isLoading: invoicesLoading } = useEInvoices({
     status: selectedStatus === "all" ? undefined : selectedStatus,
   });
-  const { data: recipientsList = [] } = useQuery({
+  const { data: recipientsList = [], isLoading: recipientsLoading } = useQuery({
     queryKey: ["locations", "building"],
     queryFn: () => locationsApi.getByLevel("building"),
   });
@@ -129,24 +131,24 @@ const EInvoices = () => {
       <div className="grid gap-4 md:grid-cols-5">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupno računa</p>
-          <p className="text-xl font-semibold mt-1">{stats.total}</p>
+          <p className="text-xl font-semibold mt-1">{invoicesLoading ? "..." : stats.total}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Knjiženo</p>
-          <p className="text-xl font-semibold mt-1 text-success">{stats.booked}</p>
+          <p className="text-xl font-semibold mt-1 text-success">{invoicesLoading ? "..." : stats.booked}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Na čekanju</p>
-          <p className="text-xl font-semibold mt-1 text-warning">{stats.pending}</p>
+          <p className="text-xl font-semibold mt-1 text-warning">{invoicesLoading ? "..." : stats.pending}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Neprepoznato</p>
-          <p className="text-xl font-semibold mt-1 text-destructive">{stats.unmatched}</p>
+          <p className="text-xl font-semibold mt-1 text-destructive">{invoicesLoading ? "..." : stats.unmatched}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupan iznos</p>
           <p className="text-xl font-semibold mt-1 text-primary">
-            {stats.totalAmount.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
+            {invoicesLoading ? "..." : formatCurrency(stats.totalAmount)}
           </p>
         </Card>
       </div>
@@ -230,7 +232,21 @@ const EInvoices = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvoices.length === 0 ? (
+                  {invoicesLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-14" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredInvoices.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-12">
                         <FileText className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -438,21 +454,22 @@ const EInvoices = () => {
             <div className="space-y-4 max-w-2xl">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="invoice-number">Broj računa</Label>
+                  <Label htmlFor="invoice-number" className="block text-sm font-medium">Broj računa</Label>
                   <Input id="invoice-number" placeholder="2025-001" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Datum</Label>
+                  <Label className="block text-sm font-medium">Datum</Label>
                   <DatePicker
                     date={invoiceDate}
                     onDateChange={setInvoiceDate}
                     placeholder="dd.MM.yyyy"
+                    className="w-full"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Primatelj</Label>
+                <Label className="block text-sm font-medium">Primatelj</Label>
                 <Popover open={recipientOpen} onOpenChange={setRecipientOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -506,21 +523,22 @@ const EInvoices = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="invoice-description">Opis usluge</Label>
+                <Label htmlFor="invoice-description" className="block text-sm font-medium">Opis usluge</Label>
                 <Input id="invoice-description" placeholder="Naknada za upravitelja - 2/2025" />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="invoice-amount">Iznos (€)</Label>
+                  <Label htmlFor="invoice-amount" className="block text-sm font-medium">Iznos (€)</Label>
                   <Input id="invoice-amount" type="number" step="0.01" placeholder="150.00" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Dospijeće</Label>
+                  <Label className="block text-sm font-medium">Dospijeće</Label>
                   <DatePicker
                     date={invoiceDueDate}
                     onDateChange={setInvoiceDueDate}
                     placeholder="dd.MM.yyyy"
+                    className="w-full"
                   />
                 </div>
               </div>

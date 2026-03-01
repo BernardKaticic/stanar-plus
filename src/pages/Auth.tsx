@@ -215,6 +215,9 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Demo: admin@stanar.hr / admin123
+        </p>
       </div>
     </div>
   );

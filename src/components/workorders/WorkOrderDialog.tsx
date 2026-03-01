@@ -44,9 +44,10 @@ interface WorkOrderDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: (data: WorkOrderFormData & { created_by: string }) => void;
   userId: string;
+  isPending?: boolean;
 }
 
-export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrderDialogProps) => {
+export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId, isPending }: WorkOrderDialogProps) => {
   const form = useForm<WorkOrderFormData>({
     resolver: zodResolver(workOrderSchema),
     defaultValues: {
@@ -88,21 +89,20 @@ export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrde
               control={form.control}
               name="title"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Naslov</FormLabel>
                   <FormControl>
-                    <Input placeholder="Npr. Popravak lifta" {...field} />
+                    <Input placeholder="Npr. Popravak lifta" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
             <FormField
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Opis (opcionalno)</FormLabel>
                   <FormControl>
                     <Textarea 
@@ -115,16 +115,16 @@ export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrde
                 </FormItem>
               )}
             />
-
+            <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
               name="building_id"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Zgrada</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Odaberite zgradu" />
                       </SelectTrigger>
                     </FormControl>
@@ -145,11 +145,11 @@ export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrde
               control={form.control}
               name="priority"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Prioritet</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
@@ -163,12 +163,14 @@ export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrde
                 </FormItem>
               )}
             />
-
+            </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani
               </Button>
-              <Button type="submit">Kreiraj nalog</Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "Kreiranje..." : "Kreiraj nalog"}
+              </Button>
             </div>
           </form>
         </Form>
