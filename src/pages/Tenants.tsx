@@ -1,6 +1,6 @@
-import { Users, Search, Mail, Phone, FileText, AlertCircle, Filter, X, UserX, MapPin } from "lucide-react";
+import { Plus, Search, FileText, Filter, X, MapPin } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,7 @@ const Tenants = () => {
   const [pageSize, setPageSize] = useState(25);
   const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue'>('all');
-  const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'email' | 'mail'>('all');
+  const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'email' | 'pošta'>('all');
   const [cityFilter, setCityFilter] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   
@@ -42,7 +42,7 @@ const Tenants = () => {
     exportTableToCSV(
       tenants,
       [
-        { key: 'name', label: 'Stanar' },
+        { key: 'name', label: 'Suvlasnik' },
         { key: 'email', label: 'Email' },
         { key: 'address', label: 'Adresa' },
         { key: 'city', label: 'Grad' },
@@ -51,11 +51,11 @@ const Tenants = () => {
         { key: 'balance', label: 'Saldo' },
         { key: 'deliveryMethod', label: 'Dostava' },
       ],
-      'stanari'
+      'suvlasnici'
     );
     toast({
       title: "CSV exportan",
-      description: `Izvezeno ${tenants.length} stanara`,
+      description: `Izvezeno ${tenants.length} suvlasnika`,
     });
   };
 
@@ -93,45 +93,60 @@ const Tenants = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Stanari</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Upravljanje podacima stanara i vlasnka
-          </p>
-        </div>
-        <Button onClick={() => setTenantDialogOpen(true)}>
-          <Users className="mr-2 h-4 w-4" />
-          Dodaj stanara
-        </Button>
+      <div>
+        <h1>Suvlasnici</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Upravljanje podacima suvlasnika (ime, adresa, kontakt, saldo...).
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Ukupno stanara</p>
-          <p className="text-2xl font-bold mt-1">{isLoading ? "..." : stats.total}</p>
+          <p className="text-sm text-muted-foreground">Ukupno suvlasnika</p>
+          <p className="text-xl font-semibold mt-1">{isLoading ? "..." : stats.total}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Uredno plaćaju</p>
-          <p className="text-2xl font-bold mt-1 text-success">
+          <p className="text-xl font-semibold mt-1 text-success">
             {isLoading ? "..." : stats.paid}
           </p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Dužnici</p>
-          <p className="text-2xl font-bold mt-1 text-destructive">
+          <p className="text-sm text-muted-foreground">U dugu</p>
+          <p className="text-xl font-semibold mt-1 text-destructive">
             {isLoading ? "..." : stats.overdue}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">E-mail dostava</p>
-          <p className="text-2xl font-bold mt-1">
+          <p className="text-xl font-semibold mt-1">
             {isLoading ? "..." : stats.email}
           </p>
         </Card>
       </div>
 
-      <Card className="p-4 md:p-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+            <div>
+              <CardTitle>Popis suvlasnika</CardTitle>
+              <CardDescription>
+                Pretraga, filteri i izvoz
+              </CardDescription>
+            </div>
+            <div className="flex justify-end w-full sm:w-auto shrink-0">
+              <Button
+                type="button"
+                className="gap-2 min-h-[28px] sm:min-h-[32px]"
+                onClick={() => setTenantDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Dodaj suvlasnika
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -145,7 +160,7 @@ const Tenants = () => {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              className="flex-1 sm:flex-none relative min-h-[44px]"
+              className="flex-1 sm:flex-none relative min-h-[32px]"
               onClick={() => setFilterOpen(true)}
             >
               <Filter className="mr-2 h-4 w-4" />
@@ -160,7 +175,7 @@ const Tenants = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="min-w-[44px] min-h-[44px]"
+                className="min-w-[44px] min-h-[32px]"
                 onClick={clearFilters}
               >
                 <X className="h-4 w-4" />
@@ -168,7 +183,7 @@ const Tenants = () => {
             )}
             <Button 
               variant="outline" 
-              className="hidden sm:flex min-h-[44px]"
+              className="hidden sm:flex min-h-[32px]"
               onClick={handleExportCSV}
               disabled={tenants.length === 0}
             >
@@ -202,7 +217,7 @@ const Tenants = () => {
             )}
             {deliveryFilter !== 'all' && (
               <Badge variant="secondary" className="gap-1">
-                Dostava: {deliveryFilter === 'email' ? 'E-mail' : 'Pošta'}
+                Dostava: {deliveryFilter === 'email' ? 'E-mail' : deliveryFilter === 'pošta' ? 'Pošta' : 'Sve'}
                 <X 
                   className="h-3 w-3 cursor-pointer hover:text-destructive" 
                   onClick={() => setDeliveryFilter('all')}
@@ -217,15 +232,15 @@ const Tenants = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Stanar</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Adresa</TableHead>
-                <TableHead>Grad</TableHead>
-                <TableHead className="text-right">Površina</TableHead>
-                <TableHead className="text-right">Mjesečna rata</TableHead>
-                <TableHead className="text-right">Saldo</TableHead>
-                <TableHead>Dostava</TableHead>
-                <TableHead className="text-right">Akcije</TableHead>
+                <TableHead className="text-xs font-medium">Suvlasnik</TableHead>
+                <TableHead className="text-xs font-medium">Email</TableHead>
+                <TableHead className="text-xs font-medium">Adresa</TableHead>
+                <TableHead className="text-xs font-medium">Grad</TableHead>
+                <TableHead className="text-right text-xs font-medium">Površina</TableHead>
+                <TableHead className="text-right text-xs font-medium">Mjesečna rata</TableHead>
+                <TableHead className="text-right text-xs font-medium">Saldo</TableHead>
+                <TableHead className="text-xs font-medium">Dostava</TableHead>
+                <TableHead className="text-right text-xs font-medium">Akcije</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -249,22 +264,16 @@ const Tenants = () => {
                 <TableRow>
                   <TableCell colSpan={9} className="p-0">
                     <EmptyState
-                      icon={UserX}
-                      title="Nema stanara"
-                      description="Dodajte prvog stanara klikom na gumb iznad"
-                      action={
-                        <Button onClick={() => setTenantDialogOpen(true)} size="sm">
-                          <Users className="mr-2 h-4 w-4" />
-                          Dodaj stanara
-                        </Button>
-                      }
+                      title="Nema suvlasnika"
+                      description="Dodajte prvog suvlasnika da biste započeli s evidencijom."
+                      action={{ label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
                     />
                   </TableCell>
                 </TableRow>
               ) : (
                 tenants.map((tenant) => (
-                  <TableRow key={tenant.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={tenant.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="font-medium text-sm">
                       <div className="flex items-center gap-2">
                         {tenant.status === 'overdue' && (
                           <AlertCircle className="h-4 w-4 text-destructive" />
@@ -272,27 +281,23 @@ const Tenants = () => {
                         {tenant.name}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{tenant.email || "-"}</TableCell>
-                    <TableCell className="text-sm">{tenant.address}</TableCell>
-                    <TableCell className="text-sm">{tenant.city}</TableCell>
-                    <TableCell className="text-right">{tenant.area}</TableCell>
-                    <TableCell className="text-right font-medium">{tenant.monthlyRate}</TableCell>
-                    <TableCell className={`text-right font-semibold ${
+                    <TableCell className="text-xs">{tenant.email || "-"}</TableCell>
+                    <TableCell className="text-xs">{tenant.address}</TableCell>
+                    <TableCell className="text-xs">{tenant.city}</TableCell>
+                    <TableCell className="text-right text-xs">{tenant.area}</TableCell>
+                    <TableCell className="text-right text-xs font-medium">{tenant.monthlyRate}</TableCell>
+                    <TableCell className={`text-right text-xs font-semibold ${
                       tenant.balanceNum < 0 ? 'text-destructive' : 'text-success'
                     }`}>
                       {tenant.balance}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {tenant.deliveryMethod === 'email' ? (
-                          <><Mail className="mr-1 h-3 w-3" /> E-mail</>
-                        ) : (
-                          <><Phone className="mr-1 h-3 w-3" /> Pošta</>
-                        )}
+                        {tenant.deliveryMethod === 'email' ? 'E-mail' : 'Pošta'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                         <FileText className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -340,19 +345,13 @@ const Tenants = () => {
             </>
           ) : tenants.length === 0 ? (
             <EmptyState
-              icon={UserX}
-              title="Nema stanara"
-              description="Dodajte prvog stanara klikom na gumb iznad"
-              action={
-                <Button onClick={() => setTenantDialogOpen(true)} size="sm">
-                  <Users className="mr-2 h-4 w-4" />
-                  Dodaj stanara
-                </Button>
-              }
+              title="Nema suvlasnika"
+              description="Dodajte prvog suvlasnika da biste započeli s evidencijom."
+              action={{ label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
             />
           ) : (
             tenants.map((tenant) => (
-              <Card key={tenant.id} className="p-4 hover:shadow-md hover:border-primary/20 transition-all duration-300">
+              <Card key={tenant.id} className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -366,7 +365,7 @@ const Tenants = () => {
                       <p className="text-xs text-muted-foreground mt-1">{tenant.email}</p>
                     )}
                   </div>
-                  <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px] -mr-2">
+                  <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px] -mr-2">
                     <FileText className="h-4 w-4" />
                   </Button>
                 </div>
@@ -391,11 +390,7 @@ const Tenants = () => {
                   <div>
                     <p className="text-muted-foreground text-xs mb-1">Dostava</p>
                     <Badge variant="outline" className="text-xs">
-                      {tenant.deliveryMethod === 'email' ? (
-                        <><Mail className="mr-1 h-3 w-3" /> E-mail</>
-                      ) : (
-                        <><Phone className="mr-1 h-3 w-3" /> Pošta</>
-                      )}
+                      {tenant.deliveryMethod === 'email' ? 'E-mail' : 'Pošta'}
                     </Badge>
                   </div>
                 </div>
@@ -415,21 +410,23 @@ const Tenants = () => {
             setPage(1);
           }}
         />
+        </CardContent>
       </Card>
 
       <TenantDialog
         open={tenantDialogOpen}
         onOpenChange={setTenantDialogOpen}
         onSave={(data) => {
-          if (!data.email || !data.full_name || !data.apartment_id) return;
-          createTenant.mutate({
-            email: data.email,
-            full_name: data.full_name,
-            phone: data.phone,
-            apartment_id: data.apartment_id,
-          }, {
-            onSuccess: () => setTenantDialogOpen(false),
-          });
+          if (!data.name || !data.apartment_id) return;
+          createTenant.mutate(
+            {
+              name: data.name,
+              email: data.email || undefined,
+              phone: data.phone || undefined,
+              apartment_id: data.apartment_id,
+            },
+            { onSuccess: () => setTenantDialogOpen(false) }
+          );
         }}
       />
 
@@ -446,7 +443,7 @@ const Tenants = () => {
               <RadioGroup value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="status-all" />
-                  <Label htmlFor="status-all" className="font-normal cursor-pointer">Svi stanari</Label>
+                  <Label htmlFor="status-all" className="font-normal cursor-pointer">Svi suvlasnici</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="paid" id="status-paid" />
@@ -485,14 +482,12 @@ const Tenants = () => {
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="email" id="delivery-email" />
                   <Label htmlFor="delivery-email" className="font-normal cursor-pointer">
-                    <Mail className="inline h-4 w-4 mr-1" />
                     E-mail
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="mail" id="delivery-mail" />
+                  <RadioGroupItem value="pošta" id="delivery-mail" />
                   <Label htmlFor="delivery-mail" className="font-normal cursor-pointer">
-                    <Phone className="inline h-4 w-4 mr-1" />
                     Pošta
                   </Label>
                 </div>

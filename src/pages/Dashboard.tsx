@@ -1,12 +1,6 @@
 import type { CSSProperties } from "react";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { 
-  AlertCircle, 
-  Calendar,
-  Activity,
-  ArrowUpRight
-} from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { ArrowUpRight } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,9 +19,9 @@ import {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { data: stats, isLoading: statsLoading } = useDashboardStats();
-  const { data: activities, isLoading: activitiesLoading } = useDashboardActivities();
-  const { data: debtors, isLoading: debtorsLoading } = useDashboardDebtors();
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useDashboardStats();
+  const { data: activities, isLoading: activitiesLoading, isError: activitiesError } = useDashboardActivities();
+  const { data: debtors, isLoading: debtorsLoading, isError: debtorsError } = useDashboardDebtors();
 
   const formatCurrency = (value?: number) => {
     if (typeof value !== "number") {
@@ -47,11 +41,12 @@ const Dashboard = () => {
     return value.toLocaleString("hr-HR");
   };
 
+  const hasDebtors = (stats?.outstandingBalance ?? 0) > 0;
   const statCards = [
     {
       title: "Ukupno zaduženo ove godine",
       value: statsLoading ? "..." : formatCurrency(stats?.totalCharged),
-      change: statsLoading ? "" : `Planirano ovaj mjesec ${formatCurrency(stats?.upcomingCharges)}`,
+      change: statsLoading ? "" : ((stats?.upcomingCharges ?? 0) > 0 ? `Planirano ovaj mjesec ${formatCurrency(stats?.upcomingCharges)}` : ""),
       changeType: "neutral" as const,
       icon: null,
     },
@@ -65,7 +60,7 @@ const Dashboard = () => {
     {
       title: "Aktivna dugovanja",
       value: statsLoading ? "..." : formatCurrency(stats?.outstandingBalance),
-      change: statsLoading ? "" : `Prosječno kašnjenje ${stats?.averageDaysOverdue ?? 0} dana`,
+      change: statsLoading ? "" : (hasDebtors && (stats?.averageDaysOverdue ?? 0) > 0 ? `Prosječno kašnjenje ${stats?.averageDaysOverdue} dana` : ""),
       changeType: "negative" as const,
       icon: null,
     },
@@ -85,19 +80,19 @@ const Dashboard = () => {
       to: "/payment-slips",
     },
     { 
-      label: "Nova opomena", 
-      helper: "Pošalji opomene dužnicima u kašnjenju",
+      label: "Dužnici", 
+      helper: "Pregled i opomene dužnicima",
       to: "/debtors",
-    },
-    { 
-      label: "Uvoz izvatka", 
-      helper: "Upari uplate s bankovnim izvatkom",
-      to: "/account-statement",
     },
     { 
       label: "Novi radni nalog", 
       helper: "Evidentiraj servis ili intervenciju",
       to: "/work-orders",
+    },
+    { 
+      label: "Zgrade", 
+      helper: "Dodaj grad, ulicu, zgradu",
+      to: "/buildings",
     },
   ];
 
@@ -119,32 +114,32 @@ const Dashboard = () => {
     },
   ];
 
-  // Chart data - Naplata po mjesecima
-  const collectionData = [
-    { month: "Sij", zaduzeno: 45000, uplaceno: 42000 },
-    { month: "Velj", zaduzeno: 45200, uplaceno: 43500 },
-    { month: "Ožu", zaduzeno: 45500, uplaceno: 44200 },
-    { month: "Tra", zaduzeno: 46000, uplaceno: 45100 },
-    { month: "Svi", zaduzeno: 46200, uplaceno: 44800 },
-    { month: "Lip", zaduzeno: 46400, uplaceno: 43900 },
-  ];
+  const collectionData: { month: string; zaduzeno: number; uplaceno: number }[] =
+    (stats?.monthlyCollections?.map((m: { month: string; charged: number; paid: number }) => ({
+      month: m.month,
+      zaduzeno: m.charged,
+      uplaceno: m.paid,
+    })) as { month: string; zaduzeno: number; uplaceno: number }[]) ?? [];
 
-  // Chart data - Struktura troška
-  const expenseStructure = [
-    { legendKey: "odrzavanje", name: "Održavanje", value: 18500, color: "hsl(var(--primary))" },
-    { legendKey: "komunalije", name: "Komunalije", value: 13200, color: "hsl(var(--info))" },
-    { legendKey: "zajednicke_usluge", name: "Zajedničke usluge", value: 9800, color: "hsl(var(--warning))" },
-    { legendKey: "osiguranje", name: "Osiguranje", value: 5600, color: "hsl(var(--success))" },
-  ];
+  const expenseColors: Record<string, string> = {
+    odrzavanje: "hsl(var(--primary))",
+    komunalije: "hsl(var(--info))",
+    zajednicke_usluge: "hsl(var(--warning))",
+    osiguranje: "hsl(var(--success))",
+  };
+  const expenseStructure: { legendKey: string; name: string; value: number; color: string }[] =
+    (stats?.expenseBreakdown?.map((e: { key: string; label: string; value: number }) => ({
+      legendKey: e.key ?? "other",
+      name: e.label ?? "Ostalo",
+      value: Number(e.value) || 0,
+      color: expenseColors[e.key] ?? "hsl(var(--muted-foreground))",
+    })) as { legendKey: string; name: string; value: number; color: string }[]) ?? [];
 
-  // Chart data - Tok novca po zgradama (top 5)
-  const cashFlowData = [
-    { building: "Starčevića 15", amount: 12500, previousMonth: 11800 },
-    { building: "Ohridska 7", amount: 9800, previousMonth: 9600 },
-    { building: "Strossmayera 22", amount: 8900, previousMonth: 8700 },
-    { building: "Trg kralja 12", amount: 7600, previousMonth: 7850 },
-    { building: "Starčevića 23A", amount: 6200, previousMonth: 6400 },
-  ];
+  const cashFlowData: { building: string; amount: number }[] =
+    (stats?.topBuildings?.map((b: { building: string; amount: number }) => ({
+      building: b.building ?? "",
+      amount: Number(b.amount) || 0,
+    })) as { building: string; amount: number }[]) ?? [];
 
   const expenseChartConfig: ChartConfig = {
     odrzavanje: { label: "Održavanje", color: "hsl(var(--primary))" },
@@ -186,9 +181,9 @@ const Dashboard = () => {
   }, {});
 
   const renderExpenseTooltipItem = (rawValue: number | string, legendKey?: string) => {
-    const fallbackKey = expenseStructure[0]?.legendKey ?? "";
-    const key = legendKey && expenseLabels[legendKey] ? legendKey : fallbackKey;
-    const label = expenseLabels[key] ?? "Kategorija";
+    const safeLegendKey = legendKey != null && String(legendKey).trim() !== "" ? legendKey : expenseStructure[0]?.legendKey ?? "";
+    const key = safeLegendKey && expenseLabels[safeLegendKey] ? safeLegendKey : expenseStructure[0]?.legendKey ?? "";
+    const label = (key && expenseLabels[key]) ?? expenseStructure.find((e) => e.legendKey === key)?.name ?? "Kategorija";
     const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
     const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
     const indicatorStyle: CSSProperties =
@@ -211,31 +206,45 @@ const Dashboard = () => {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Nadzorna ploča</h1>
+          <h1>Nadzorna ploča</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Pregled ključnih podataka i aktivnosti
+            Pregled ključnih podataka i aktivnosti.
           </p>
-        </div>
-        <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-4 w-4" />
-          <span>Posljednje ažuriranje: Danas, 14:32</span>
         </div>
       </div>
 
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <StatCard key={stat.title} {...stat} />
+          <Card key={stat.title} className="p-4">
+            <p className="text-xs text-muted-foreground">{stat.title}</p>
+            <p className="text-lg font-semibold mt-1">{stat.value}</p>
+            {stat.change && (
+              <p className={`mt-1 text-xs font-medium ${
+                (stat.changeType as string) === "positive" ? "text-success" :
+                stat.changeType === "negative" ? "text-destructive" : "text-muted-foreground"
+              }`}>
+                {stat.change}
+              </p>
+            )}
+          </Card>
         ))}
       </div>
 
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4 sm:space-y-6">
-          <Card className="p-4 sm:p-6">
-            <div className="flex items-center mb-4">
-              <h2 className="text-lg sm:text-xl font-semibold">Nedavne aktivnosti</h2>
-            </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Nedavne aktivnosti</CardTitle>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-4">
-              {activitiesLoading ? (
+              {activitiesError ? (
+                <EmptyState
+                  title="Greška u učitavanju"
+                  description="Aktivnosti nisu dostupne. Pokušajte osvježiti stranicu."
+                  className="py-8"
+                />
+              ) : activitiesLoading ? (
                 <>
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-start gap-3 pb-4">
@@ -267,22 +276,33 @@ const Dashboard = () => {
                 ))
               ) : (
                 <EmptyState
-                  icon={Activity}
                   title="Nema nedavnih aktivnosti"
                   description="Aktivnosti će se prikazati kada počnete koristiti sustav"
                 />
               )}
             </div>
+            </CardContent>
           </Card>
 
-          <Card className="p-4 sm:p-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Naplata po mjesecima</CardTitle>
+            </CardHeader>
+            <CardContent>
+            {statsError ? (
+              <EmptyState
+                title="Greška u učitavanju"
+                description="Podaci za graf nisu dostupni. Osvježite stranicu."
+                className="py-12"
+              />
+            ) : collectionData.length === 0 ? (
+              <EmptyState
+                title="Nema podataka za graf"
+                description="Dodajte zgrade i uplatnice da biste vidjeli naplatu po mjesecima"
+                className="py-12"
+              />
+            ) : (
             <div className="space-y-6">
-              <div className="flex items-center">
-                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                  <div className="h-1 w-8 bg-gradient-to-r from-primary to-success rounded-full" />
-                  Naplata po mjesecima
-                </h3>
-              </div>
               <ChartContainer 
                 config={{
                   zaduzeno: {
@@ -364,20 +384,28 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+            )}
+            </CardContent>
           </Card>
 
-          <Card className="p-4 sm:p-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-success/5 to-transparent pointer-events-none" />
-            <div className="relative space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                  <div className="h-1 w-8 bg-gradient-to-r from-primary via-info to-warning rounded-full" />
-                  Struktura troškova
-                </h3>
-                <Badge variant="outline" className="bg-background/70 text-foreground border-border/60">
-                  Top kategorije
-                </Badge>
-              </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Struktura troškova</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {statsError ? (
+                <EmptyState
+                  title="Greška u učitavanju"
+                  description="Podaci za strukturu troškova nisu dostupni. Osvježite stranicu."
+                  className="py-12"
+                />
+              ) : expenseStructure.length === 0 ? (
+                <EmptyState
+                  title="Nema podataka za strukturu troškova"
+                  description="Troškovi će se prikazati kada budu evidentirani"
+                  className="py-12"
+                />
+              ) : (
               <ChartContainer config={expenseChartConfig} className="h-[320px] w-full">
                 <PieChart>
                   <defs>
@@ -427,19 +455,29 @@ const Dashboard = () => {
                 <ChartLegend content={<ChartLegendContent nameKey="legendKey" />} />
                 </PieChart>
               </ChartContainer>
-            </div>
+              )}
+            </CardContent>
           </Card>
 
-          <Card className="p-4 sm:p-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-info/5 to-transparent pointer-events-none" />
-            <div className="relative space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                  <div className="h-1 w-8 bg-gradient-to-r from-primary to-primary/60 rounded-full" />
-                  Top 5 zgrada po pričuvi
-                </h3>
-                <span className="text-xs text-muted-foreground sm:text-sm">Usporedba posljednjeg mjeseca</span>
-              </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Top 5 zgrada po pričuvi</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {statsError ? (
+                <EmptyState
+                  title="Greška u učitavanju"
+                  description="Podaci za top zgrade nisu dostupni. Osvježite stranicu."
+                  className="py-12"
+                />
+              ) : cashFlowData.length === 0 ? (
+                <EmptyState
+                  title="Nema podataka za top zgrade"
+                  description="Dodajte zgrade i transakcije da biste vidjeli pričuvu po zgradama"
+                  className="py-12"
+                />
+              ) : (
+              <div className="min-w-0 w-full overflow-x-auto">
               <ChartContainer 
                 config={{
                   amount: {
@@ -447,7 +485,7 @@ const Dashboard = () => {
                     color: "hsl(var(--primary))",
                   },
                 } satisfies ChartConfig}
-                className="h-[280px] w-full"
+                className="h-[280px] w-full min-h-[280px]"
               >
                 <BarChart 
                   data={cashFlowData} 
@@ -493,14 +531,25 @@ const Dashboard = () => {
                   />
                 </BarChart>
               </ChartContainer>
-            </div>
+              </div>
+              )}
+            </CardContent>
           </Card>
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-4">Pregled portfelja</h3>
-            {statsLoading ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="">Pregled portfelja</CardTitle>
+            </CardHeader>
+            <CardContent>
+            {statsError ? (
+              <EmptyState
+                title="Greška u učitavanju"
+                description="Pregled portfelja nije dostupan. Pokušajte osvježiti stranicu."
+                className="py-8"
+              />
+            ) : statsLoading ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="space-y-2 rounded-lg border p-3">
@@ -532,47 +581,60 @@ const Dashboard = () => {
                 ))}
               </div>
             )}
+            </CardContent>
           </Card>
 
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-4">Brze akcije</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle className="">Brze akcije</CardTitle>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-2">
               {quickActions.map((action) => (
                 <Button
                   key={action.label}
                   variant="secondary"
-                  className="w-full justify-between items-start min-h-[56px] py-3"
+                  className="w-full justify-between h-auto py-2.5 px-3"
                   onClick={() => navigate(action.to)}
                 >
-                  <div className="text-left">
-                    <p className="font-semibold leading-tight">{action.label}</p>
-                    <p className="text-xs mt-1 text-muted-foreground">
+                  <div className="text-left flex-1 min-w-0">
+                    <p className="font-medium text-sm leading-tight">{action.label}</p>
+                    <p className="text-xs mt-0.5 text-muted-foreground truncate">
                       {action.helper}
                     </p>
                   </div>
-                  <ArrowUpRight className="h-4 w-4" />
+                  <ArrowUpRight className="h-4 w-4 shrink-0 ml-2" />
                 </Button>
               ))}
             </div>
+            </CardContent>
           </Card>
 
-          <Card className="p-4 sm:p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-base sm:text-lg font-semibold">Najnovija dugovanja</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Ukupno otvoreno {statsLoading ? "..." : formatCurrency(stats?.outstandingBalance)}
-                </p>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="">Najnovija dugovanja</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ukupno otvoreno {statsLoading ? "..." : formatCurrency(stats?.outstandingBalance)}
+                  </p>
+                </div>
+                {!statsLoading && hasDebtors && (stats?.averageDaysOverdue ?? 0) > 0 && (
+                  <Badge variant="destructive" className="whitespace-nowrap shrink-0">
+                    {stats?.averageDaysOverdue} dana u prosjeku
+                  </Badge>
+                )}
               </div>
-              {!statsLoading && (
-                <Badge variant="destructive" className="whitespace-nowrap">
-                  {stats?.averageDaysOverdue ?? 0} dana u prosjeku
-                </Badge>
-              )}
-            </div>
-
+            </CardHeader>
+            <CardContent>
             <div className="space-y-3">
-              {debtorsLoading ? (
+              {debtorsError ? (
+                <EmptyState
+                  title="Greška u učitavanju"
+                  description="Lista dužnika nije dostupna. Pokušajte osvježiti stranicu."
+                  className="py-6"
+                />
+              ) : debtorsLoading ? (
                 [1, 2, 3].map((i) => (
                   <div key={i} className="rounded-lg border p-3 space-y-2">
                     <Skeleton className="h-4 w-2/3" />
@@ -597,21 +659,23 @@ const Dashboard = () => {
                 ))
               ) : (
                 <EmptyState
-                  icon={AlertCircle}
                   title="Nema dužnika"
                   description="Svi stanari su uredni s plaćanjem"
                   className="py-6"
                 />
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-4 min-h-[44px]"
-              onClick={() => navigate("/debtors")}
-            >
-              Vidi sve dužnike
-            </Button>
+            {debtors && debtors.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-4"
+                onClick={() => navigate("/debtors")}
+              >
+                Vidi sve dužnike
+              </Button>
+            )}
+            </CardContent>
           </Card>
         </div>
       </div>

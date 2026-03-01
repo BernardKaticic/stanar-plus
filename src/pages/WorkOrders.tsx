@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import {
   Table,
@@ -23,7 +23,6 @@ import { Search, Plus, FileText, AlertCircle, ClipboardCheck, X } from "lucide-r
 import { useWorkOrders, useCreateWorkOrder } from "@/hooks/useWorkOrdersData";
 import { WorkOrderDialog } from "@/components/workorders/WorkOrderDialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -92,31 +91,55 @@ const WorkOrders = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Radni nalozi</h1>
+        <h1>Radni nalozi</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Upravljanje održavanjem i popravcima
+          Upravljanje održavanjem i popravcima.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          title="Hitni nalozi"
-          value={isLoading ? "..." : String(urgentCount)}
-          changeType="negative"
-        />
-        <StatCard
-          title="U tijeku"
-          value={isLoading ? "..." : String(inProgressCount)}
-          changeType="neutral"
-        />
-        <StatCard
-          title="Otvoreni"
-          value={isLoading ? "..." : String(openCount)}
-          changeType="neutral"
-        />
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Hitni nalozi</p>
+          <p className="text-xl font-semibold mt-1 text-destructive">
+            {isLoading ? "..." : urgentCount}
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">U tijeku</p>
+          <p className="text-xl font-semibold mt-1">
+            {isLoading ? "..." : inProgressCount}
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Otvoreni</p>
+          <p className="text-xl font-semibold mt-1">
+            {isLoading ? "..." : openCount}
+          </p>
+        </Card>
       </div>
 
-      <Card className="p-4 sm:p-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+            <div>
+              <CardTitle>Popis radnih naloga</CardTitle>
+              <CardDescription>
+                Pretraga, filteri i dodavanje naloga
+              </CardDescription>
+            </div>
+            <div className="flex justify-end w-full sm:w-auto shrink-0">
+              <Button
+                type="button"
+                className="gap-2 min-h-[28px] sm:min-h-[32px]"
+                onClick={() => setWorkOrderDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Novi nalog
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -132,7 +155,7 @@ const WorkOrders = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="min-w-[44px] min-h-[44px]"
+                className="min-w-[44px] min-h-[32px]"
                 onClick={() => {
                   setStatusFilter('all');
                   setPriorityFilter('all');
@@ -141,13 +164,6 @@ const WorkOrders = () => {
                 <X className="h-4 w-4" />
               </Button>
             )}
-            <Button 
-              onClick={() => setWorkOrderDialogOpen(true)} 
-              className="flex-1 sm:flex-none min-h-[44px]"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Novi nalog
-            </Button>
           </div>
         </div>
 
@@ -157,7 +173,7 @@ const WorkOrders = () => {
             <Button 
               variant={statusFilter === 'all' && priorityFilter === 'all' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => {
                 setStatusFilter('all');
                 setPriorityFilter('all');
@@ -171,7 +187,7 @@ const WorkOrders = () => {
             <Button 
               variant={statusFilter === 'open' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setStatusFilter('open')}
             >
               Otvoreni
@@ -179,7 +195,7 @@ const WorkOrders = () => {
             <Button 
               variant={statusFilter === 'in-progress' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setStatusFilter('in-progress')}
             >
               U tijeku
@@ -187,7 +203,7 @@ const WorkOrders = () => {
             <Button 
               variant={statusFilter === 'completed' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setStatusFilter('completed')}
             >
               Završeni
@@ -198,7 +214,7 @@ const WorkOrders = () => {
             <Button 
               variant={priorityFilter === 'urgent' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setPriorityFilter('urgent')}
             >
               Hitno
@@ -206,7 +222,7 @@ const WorkOrders = () => {
             <Button 
               variant={priorityFilter === 'normal' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setPriorityFilter('normal')}
             >
               Normalno
@@ -214,7 +230,7 @@ const WorkOrders = () => {
             <Button 
               variant={priorityFilter === 'low' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setPriorityFilter('low')}
             >
               Nisko
@@ -278,7 +294,7 @@ const WorkOrders = () => {
                 </TableRow>
               ) : (
                 workOrders.map((order) => (
-                  <TableRow key={order.id}>
+                  <TableRow key={order.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="font-medium">{order.id}</TableCell>
                     <TableCell>{order.title}</TableCell>
                     <TableCell>
@@ -293,7 +309,7 @@ const WorkOrders = () => {
                     <TableCell className="text-sm">{order.assignedTo}</TableCell>
                     <TableCell className="text-right font-medium">-</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" className="min-h-[44px]">
+                      <Button variant="ghost" size="sm" className="min-h-[32px]">
                         Detalji
                       </Button>
                     </TableCell>
@@ -369,7 +385,7 @@ const WorkOrders = () => {
                     </div>
                   </div>
                   
-                  <Button variant="outline" size="sm" className="w-full min-h-[44px]">
+                  <Button variant="outline" size="sm" className="w-full min-h-[32px]">
                     Pregledaj detalje
                   </Button>
                 </div>
@@ -389,6 +405,7 @@ const WorkOrders = () => {
             setPage(1);
           }}
         />
+        </CardContent>
       </Card>
 
       <WorkOrderDialog

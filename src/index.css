@@ -2,135 +2,141 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ==========================================================================
+   STANAR – Design system: "Charcoal + Teal / Amber"
+   Neutralne sive za podlogu, teal kao primarni akcent (light),
+   amber kao primarni akcent (dark). Ugodno za 8h rada.
+   ========================================================================== */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 210 12% 16%;
+    /* Neutrali prema STANAR UI kitu */
+    /* Background: #F5F5F7 */
+    --background: 220 16% 96%;
+    /* Text primary: #0F172A */
+    --foreground: 222 47% 15%;
 
+    /* Surface / card: #FFFFFF */
     --card: 0 0% 100%;
-    --card-foreground: 210 12% 16%;
+    --card-foreground: 222 47% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 12% 16%;
+    --popover-foreground: 222 47% 15%;
 
-    --primary: 217 91% 60%;
+    /* Primary: teal #0F766E (brend zelena iz UI kita) */
+    --primary: 174 72% 26%;
     --primary-foreground: 0 0% 100%;
-    
-    --primary-hover: 217 91% 65%;
-    --primary-light: 217 91% 95%;
-    --primary-glow: 217 91% 70%;
+    --primary-hover: 174 72% 31%;
+    --primary-light: 174 55% 90%;
+    --primary-glow: 174 72% 35%;
 
-    --secondary: 210 16% 93%;
-    --secondary-foreground: 210 12% 16%;
+    /* Secondary / muted neutrals – oko #6B7280 */
+    --secondary: 220 12% 92%;
+    --secondary-foreground: 220 9% 46%;
 
-    --muted: 210 16% 96%;
-    --muted-foreground: 210 8% 46%;
+    --muted: 220 12% 93%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 217 91% 60%;
+    /* Accent – manje saturirani teal za neutralne naglaske */
+    --accent: 174 40% 35%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    
-    --success: 142 76% 36%;
+    /* Semantic boje prema UI kitu */
+    /* Success: #16A34A, Destructive: #DC2626, Warning: #F97316 */
+    --success: 142 72% 36%;
     --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 24 94% 50%;
     --warning-foreground: 0 0% 100%;
-    
-    --info: 199 89% 48%;
+
+    --info: 205 80% 40%;
     --info-foreground: 0 0% 100%;
 
-    --border: 210 16% 90%;
-    --input: 210 16% 90%;
-    --ring: 217 91% 60%;
+    /* Border: rgba(15,23,42,0.08) ~ #E5E7EB */
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 174 72% 26%;
 
-    --radius: 0.75rem;
-    
-    --chart-1: 217 91% 60%;
-    --chart-2: 199 89% 48%;
-    --chart-3: 142 76% 36%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 0 84% 60%;
+    --radius: 0.5rem;
 
-    --sidebar-background: 210 20% 98%;
-    --sidebar-foreground: 210 12% 16%;
-    --sidebar-primary: 217 91% 60%;
+    /* Chart boje: primary teal + semantic */
+    --chart-1: 174 72% 26%;
+    --chart-2: 24 94% 50%;
+    --chart-3: 142 72% 36%;
+    --chart-4: 205 80% 40%;
+    --chart-5: 0 72% 50%;
+
+    /* Sidebar – svijetla navigacija, aktivni item u teal tintu */
+    --sidebar-background: 220 18% 94%;
+    --sidebar-foreground: 222 47% 15%;
+    --sidebar-primary: 174 72% 26%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 97%;
-    --sidebar-accent-foreground: 217 30% 20%;
-    --sidebar-border: 210 16% 90%;
-    --sidebar-ring: 217 91% 60%;
-    
-    --shadow-elegant: 0 10px 30px -10px hsl(217 91% 60% / 0.2);
-    --shadow-soft: 0 2px 8px -2px hsl(210 12% 16% / 0.1);
-    --shadow-glow: 0 0 20px hsl(217 91% 60% / 0.15);
+    /* koristimo sličnu nijansu kao primary-light za bg aktivnog linka */
+    --sidebar-accent: 174 55% 90%;
+    --sidebar-accent-foreground: 174 72% 26%;
+    --sidebar-border: 222 18% 24%;
+    --sidebar-ring: 174 72% 26%;
   }
 
   .dark {
-    --background: 210 20% 10%;
-    --foreground: 210 16% 93%;
+    --background: 220 20% 8%;
+    --foreground: 220 12% 92%;
 
-    --card: 210 20% 12%;
-    --card-foreground: 210 16% 93%;
+    --card: 220 16% 11%;
+    --card-foreground: 220 12% 92%;
 
-    --popover: 210 20% 12%;
-    --popover-foreground: 210 16% 93%;
+    --popover: 220 16% 11%;
+    --popover-foreground: 220 12% 92%;
 
-    --primary: 217 91% 65%;
-    --primary-foreground: 0 0% 100%;
-    
-    --primary-hover: 217 91% 70%;
-    --primary-light: 217 91% 25%;
-    --primary-glow: 217 91% 75%;
+    /* Primarni amber u dark modu, malo smanjena saturacija da ne svijetli previše */
+    --primary: 35 80% 60%;
+    --primary-foreground: 0 0% 0%;
+    --primary-hover: 35 82% 64%;
+    --primary-light: 35 60% 20%;
+    --primary-glow: 35 82% 65%;
 
-    --secondary: 210 16% 20%;
-    --secondary-foreground: 210 16% 93%;
+    --secondary: 220 16% 16%;
+    --secondary-foreground: 220 12% 92%;
 
-    --muted: 210 16% 18%;
-    --muted-foreground: 210 8% 60%;
+    --muted: 220 16% 14%;
+    --muted-foreground: 220 10% 60%;
 
-    --accent: 217 91% 65%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 35 80% 60%;
+    --accent-foreground: 0 0% 0%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 70% 52%;
     --destructive-foreground: 0 0% 100%;
-    
-    --success: 142 76% 45%;
+
+    --success: 150 50% 40%;
     --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 60%;
-    --warning-foreground: 0 0% 100%;
-    
-    --info: 199 89% 58%;
+
+    --warning: 35 95% 56%;
+    --warning-foreground: 0 0% 0%;
+
+    --info: 205 80% 46%;
     --info-foreground: 0 0% 100%;
 
-    --border: 210 16% 24%;
-    --input: 210 16% 24%;
-    --ring: 217 91% 65%;
-    
-    --chart-1: 217 91% 65%;
-    --chart-2: 199 89% 58%;
-    --chart-3: 142 76% 45%;
-    --chart-4: 38 92% 60%;
-    --chart-5: 0 84% 60%;
+    --border: 220 18% 22%;
+    --input: 220 18% 22%;
+    --ring: 35 80% 60%;
 
-    --sidebar-background: 210 20% 12%;
-    --sidebar-foreground: 210 16% 93%;
-    --sidebar-primary: 217 91% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 50% 20%;
-    --sidebar-accent-foreground: 210 16% 93%;
-    --sidebar-border: 210 16% 24%;
-    --sidebar-ring: 217 91% 65%;
-    
-    --shadow-elegant: 0 10px 30px -10px hsl(217 91% 65% / 0.3);
-    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
-    --shadow-glow: 0 0 20px hsl(217 91% 65% / 0.2);
+    --chart-1: 35 80% 60%;
+    --chart-2: 205 80% 46%;
+    --chart-3: 150 50% 40%;
+    --chart-4: 35 95% 56%;
+    --chart-5: 0 70% 52%;
+
+    --sidebar-background: 220 24% 10%;
+    --sidebar-foreground: 220 12% 92%;
+    --sidebar-primary: 35 80% 60%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 220 22% 18%;
+    --sidebar-accent-foreground: 220 12% 92%;
+    --sidebar-border: 220 20% 22%;
+    --sidebar-ring: 35 80% 60%;
   }
 }
 
@@ -140,7 +146,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased text-sm;
   }
 
   html {
@@ -169,23 +175,30 @@ All colors MUST be HSL.
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted) / 0.3);
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3)
+      hsl(var(--muted) / 0.3);
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
   }
-  
+
+  /* Kompaktni naslovi – sve na dlani */
   h1 {
-    @apply text-3xl md:text-4xl;
-  }
-  
-  h2 {
-    @apply text-2xl md:text-3xl;
-  }
-  
-  h3 {
     @apply text-xl md:text-2xl;
+  }
+
+  h2 {
+    @apply text-lg;
+  }
+
+  h3 {
+    @apply text-base;
   }
 }
 
@@ -198,47 +211,63 @@ All colors MUST be HSL.
   a:not(.no-hover):hover {
     @apply text-primary;
   }
-  
+
+  /* Page layout helpers */
+  .page-wrapper {
+    @apply max-w-6xl mx-auto px-3 md:px-5 py-4 md:py-5;
+  }
+
+  .section-gap {
+    @apply space-y-4 md:space-y-5;
+  }
+
+  /* Data table – čitljivo, konzistentno */
   .data-table {
     @apply w-full border-collapse text-sm;
   }
-  
+
   .data-table th {
-    @apply border-b bg-muted/50 px-4 py-3 text-left font-semibold;
+    @apply border-b bg-muted/50 px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap;
   }
-  
+
   .data-table td {
-    @apply border-b px-4 py-3 transition-colors;
+    @apply border-b px-4 py-3 align-middle transition-colors;
   }
-  
+
   .data-table tr {
     @apply transition-colors duration-200;
   }
-  
+
   .data-table tr:hover {
     @apply bg-muted/30;
   }
-  
+
+  .data-table td .inline-flex.rounded-full {
+    @apply px-2 py-0.5 text-xs font-medium leading-tight;
+  }
+
+  /* Amount utilities */
   .amount-positive {
     @apply text-success;
   }
-  
+
   .amount-negative {
     @apply text-destructive;
   }
-  
+
+  /* Badges */
   .badge-success {
     @apply inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success;
   }
-  
+
   .badge-warning {
     @apply inline-flex items-center rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning;
   }
-  
+
   .badge-error {
     @apply inline-flex items-center rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive;
   }
-  
+
   .badge-info {
     @apply inline-flex items-center rounded-full bg-info/10 px-2.5 py-0.5 text-xs font-medium text-info;
   }

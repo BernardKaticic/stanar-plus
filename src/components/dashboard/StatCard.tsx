@@ -13,7 +13,7 @@ interface StatCardProps {
 
 export const StatCard = ({ title, value, change, changeType = "neutral", icon: Icon, trend }: StatCardProps) => {
   return (
-    <Card className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
+    <Card className="p-4 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>

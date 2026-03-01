@@ -21,69 +21,42 @@ import {
   type ChartConfig 
 } from '@/components/ui/chart';
 
+import { useQuery } from "@tanstack/react-query";
+import { dashboardApi } from "@/lib/api";
+import { EmptyState } from "@/components/ui/empty-state";
+
 const AccountStatement = () => {
-  const accountInfo = {
-    currentBalance: "87.456,32 €",
-    previousYearCarryover: "12.345,67 €",
-    totalCharged: "234.567,89 €",
-    totalPaid: "198.234,50 €",
-    totalExpenses: "123.456,78 €",
-  };
+  const { data: statement } = useQuery({
+    queryKey: ["dashboard", "statement"],
+    queryFn: () => dashboardApi.getStatement(),
+  });
 
-  const transactions = [
-    {
-      date: "15.02.2025.",
-      type: "uplata",
-      description: "Galić Mato - Pričuva 2/2025",
-      amount: "65,55 €",
-      balance: "87.456,32 €",
-    },
-    {
-      date: "14.02.2025.",
-      type: "trošak",
-      description: "HEP - Električna energija",
-      amount: "-1.234,56 €",
-      balance: "87.390,77 €",
-    },
-    {
-      date: "13.02.2025.",
-      type: "uplata",
-      description: "Babić Ana - Pričuva 2/2025",
-      amount: "78,90 €",
-      balance: "88.625,33 €",
-    },
-    {
-      date: "10.02.2025.",
-      type: "trošak",
-      description: "Vinkoprom - Materijal za održavanje",
-      amount: "-567,80 €",
-      balance: "88.546,43 €",
-    },
-  ];
+  const accountInfo = statement
+    ? {
+        currentBalance: statement.currentBalance,
+        previousYearCarryover: statement.previousYearCarryover,
+        totalCharged: statement.totalCharged,
+        totalPaid: statement.totalPaid,
+        totalExpenses: statement.totalExpenses,
+      }
+    : {
+        currentBalance: "0,00 €",
+        previousYearCarryover: "0,00 €",
+        totalCharged: "0,00 €",
+        totalPaid: "0,00 €",
+        totalExpenses: "0,00 €",
+      };
 
-  // Chart data - Trend stanja računa (6 mjeseci)
-  const balanceTrend = [
-    { month: 'Siječanj', stanje: 78500 },
-    { month: 'Veljača', stanje: 82300 },
-    { month: 'Ožujak', stanje: 85100 },
-    { month: 'Travanj', stanje: 84800 },
-    { month: 'Svibanj', stanje: 86900 },
-    { month: 'Lipanj', stanje: 87456 },
-  ];
+  const transactions = statement?.transactions ?? [];
 
-  // Chart data - Struktura troškova
-  const expenseBreakdown = [
-    { name: 'Komunalije', value: 45000, color: 'hsl(var(--primary))' },
-    { name: 'Održavanje', value: 28000, color: 'hsl(var(--info))' },
-    { name: 'Zajedničke usluge', value: 32000, color: 'hsl(var(--warning))' },
-    { name: 'Ostalo', value: 18456, color: 'hsl(var(--success))' },
-  ];
+  const balanceTrend: { month: string; stanje: number }[] = [];
+  const expenseBreakdown: { name: string; value: number; color: string }[] = [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Stanje računa</h1>
+          <h1>Stanje računa</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Pregled financijskih transakcija i stanja
           </p>
@@ -121,27 +94,19 @@ const AccountStatement = () => {
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Ukupno zaduženo</p>
           <p className="text-xl font-bold text-success">{accountInfo.totalCharged}</p>
-          <div className="flex items-center gap-1 mt-1">
-            <TrendingUp className="h-3 w-3 text-success" />
-            <span className="text-xs text-success">+5,2%</span>
-          </div>
         </Card>
 
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Ukupni troškovi</p>
           <p className="text-xl font-bold text-destructive">{accountInfo.totalExpenses}</p>
-          <div className="flex items-center gap-1 mt-1">
-            <TrendingDown className="h-3 w-3 text-destructive" />
-            <span className="text-xs text-destructive">-2,1%</span>
-          </div>
         </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Nedavne transakcije</h2>
-            <Button variant="outline" size="sm" className="min-h-[44px]">
+            <h2 className="text-base font-semibold">Nedavne transakcije</h2>
+            <Button variant="outline" size="sm" className="min-h-[32px]">
               <ArrowUpDown className="mr-2 h-4 w-4" />
               Filtriraj
             </Button>
@@ -151,11 +116,11 @@ const AccountStatement = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Datum</TableHead>
-                  <TableHead>Tip</TableHead>
-                  <TableHead>Opis</TableHead>
-                  <TableHead className="text-right">Iznos</TableHead>
-                  <TableHead className="text-right">Stanje</TableHead>
+                  <TableHead className="text-xs font-medium">Datum</TableHead>
+                  <TableHead className="text-xs font-medium">Tip</TableHead>
+                  <TableHead className="text-xs font-medium">Opis</TableHead>
+                  <TableHead className="text-right text-xs font-medium">Iznos</TableHead>
+                  <TableHead className="text-right text-xs font-medium">Stanje</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -171,19 +136,19 @@ const AccountStatement = () => {
                 ) : (
                   transactions.map((transaction, i) => (
                   <TableRow key={i}>
-                    <TableCell className="font-medium">{transaction.date}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium text-sm">{transaction.date}</TableCell>
+                    <TableCell className="text-xs">
                       <Badge variant={transaction.type === "uplata" ? "default" : "secondary"}>
                         {transaction.type === "uplata" ? "Uplata" : "Trošak"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{transaction.description}</TableCell>
-                    <TableCell className={`text-right font-semibold ${
+                    <TableCell className="text-xs">{transaction.description}</TableCell>
+                    <TableCell className={`text-right text-xs font-semibold ${
                       transaction.amount.startsWith('-') ? 'text-destructive' : 'text-success'
                     }`}>
                       {transaction.amount}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right text-xs font-medium">
                       {transaction.balance}
                     </TableCell>
                   </TableRow>
@@ -196,14 +161,22 @@ const AccountStatement = () => {
 
         <div className="space-y-6">
           <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">Rekapitulacija prometa</h3>
+            <h3 className="text-base font-semibold mb-4">Rekapitulacija prometa</h3>
             <div className="space-y-4">
+              {statement && (() => {
+                const parseNum = (s: string) => parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                const charged = parseNum(statement.totalCharged);
+                const paid = parseNum(statement.totalPaid);
+                const rate = charged > 0 ? Math.min(100, (paid / charged) * 100) : 0;
+                const remaining = Math.max(0, charged - paid);
+                const remainingStr = remaining.toLocaleString('hr-HR', { minimumFractionDigits: 2 }) + ' €';
+                return (
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">Naplata</span>
-                  <span className="font-semibold">84,5%</span>
+                  <span className="font-semibold">{rate.toFixed(1)}%</span>
                 </div>
-                <Progress value={84.5} className="h-2" />
+                <Progress value={rate} className="h-2" />
               </div>
               
               <div className="space-y-2 text-sm">
@@ -217,14 +190,16 @@ const AccountStatement = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Preostalo:</span>
-                  <span className="font-semibold text-warning">36.333,39 €</span>
+                  <span className="font-semibold text-warning">{remainingStr}</span>
                 </div>
               </div>
+                );
+              })()}
             </div>
           </Card>
 
           <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">Brze akcije</h3>
+            <h3 className="text-base font-semibold mb-4">Brze akcije</h3>
             <div className="space-y-2">
               <Button variant="outline" className="w-full justify-start">
                 Dodaj ručnu transakciju
@@ -246,7 +221,7 @@ const AccountStatement = () => {
         <Card className="p-4 sm:p-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
           <div className="relative">
-            <h3 className="text-base sm:text-lg font-semibold mb-6 flex items-center gap-2">
+            <h3 className="text-base font-semibold mb-6 flex items-center gap-2">
               <div className="h-1 w-8 bg-gradient-to-r from-primary to-success rounded-full" />
               Trend stanja računa
             </h3>
@@ -320,6 +295,7 @@ const AccountStatement = () => {
                 />
               </LineChart>
             </ChartContainer>
+            )}
           </div>
         </Card>
 
@@ -327,10 +303,13 @@ const AccountStatement = () => {
         <Card className="p-4 sm:p-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-warning/5 to-transparent pointer-events-none" />
           <div className="relative">
-            <h3 className="text-base sm:text-lg font-semibold mb-6 flex items-center gap-2">
+            <h3 className="text-base font-semibold mb-6 flex items-center gap-2">
               <div className="h-1 w-8 bg-gradient-to-r from-primary via-warning to-info rounded-full" />
               Struktura troškova
             </h3>
+            {expenseBreakdown.length === 0 ? (
+              <EmptyState title="Nema podataka za strukturu troškova" description="Struktura troškova će se prikazati kada budu evidentirani" className="py-12" />
+            ) : (
             <ChartContainer 
               config={{
                 Komunalije: {
@@ -391,6 +370,7 @@ const AccountStatement = () => {
                 <ChartLegend content={<ChartLegendContent />} />
               </PieChart>
             </ChartContainer>
+            )}
           </div>
         </Card>
       </div>

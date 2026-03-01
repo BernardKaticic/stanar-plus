@@ -17,7 +17,8 @@ import {
   ChevronsUpDown,
   Building2
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,9 @@ import {
 import { FileUpload } from "@/components/ui/file-upload";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useEInvoices } from "@/hooks/useEInvoicesData";
+import { useQuery } from "@tanstack/react-query";
+import { locationsApi } from "@/lib/api";
 
 const EInvoices = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -64,74 +68,23 @@ const EInvoices = () => {
   const [selectedRecipient, setSelectedRecipient] = useState<string>("");
   const { toast } = useToast();
 
-  const recipients = [
-    { id: "building1", name: "A.Starčevića 15, Vinkovci" },
-    { id: "building2", name: "Ohridska 7, Vinkovci" },
-    { id: "building3", name: "Trg Bana J. Jelačića 3, Split" },
-    { id: "building4", name: "Marmontova 12, Split" },
-    { id: "client1", name: "Drugi komitent - Zagreb" },
-  ];
-
-  const invoices = [
-    {
-      id: 1,
-      invoiceNumber: "2025-001-HEP",
-      supplier: "HEP - Elektra Zagreb d.o.o.",
-      date: "15.02.2025.",
-      dueDate: "01.03.2025.",
-      amount: "2.450,00 €",
-      status: "booked",
-      category: "Energija",
-      accountingGroup: "25 - Materijalni troškovi",
-      paymentDate: "20.02.2025.",
-      type: "xml",
-    },
-    {
-      id: 2,
-      invoiceNumber: "2025-002-ZOV",
-      supplier: "Zagrebačke otpadne vode d.o.o.",
-      date: "12.02.2025.",
-      dueDate: "28.02.2025.",
-      amount: "1.850,00 €",
-      status: "pending",
-      category: "Komunalije",
-      accountingGroup: "25 - Materijalni troškovi",
-      type: "xml",
-    },
-    {
-      id: 3,
-      invoiceNumber: "QR-2025-003",
-      supplier: "Čistoća d.o.o.",
-      date: "10.02.2025.",
-      dueDate: "25.02.2025.",
-      amount: "1.200,00 €",
-      status: "unmatched",
-      category: "Čišćenje",
-      accountingGroup: "4 - Troškovi",
-      type: "qr",
-    },
-    {
-      id: 4,
-      invoiceNumber: "MAN-2025-004",
-      supplier: "Servis lifta Marić d.o.o.",
-      date: "08.02.2025.",
-      dueDate: "23.02.2025.",
-      amount: "350,00 €",
-      status: "booked",
-      category: "Održavanje",
-      accountingGroup: "25 - Materijalni troškovi",
-      paymentDate: "15.02.2025.",
-      type: "manual",
-    },
-  ];
+  const { data: invoices = [] } = useEInvoices({
+    status: selectedStatus === "all" ? undefined : selectedStatus,
+  });
+  const { data: recipientsList = [] } = useQuery({
+    queryKey: ["locations", "building"],
+    queryFn: () => locationsApi.getByLevel("building"),
+  });
+  const recipients = recipientsList.map((b: any) => ({ id: b.id, name: b.name }));
 
   const stats = {
     total: invoices.length,
-    booked: invoices.filter(i => i.status === "booked").length,
-    pending: invoices.filter(i => i.status === "pending").length,
-    unmatched: invoices.filter(i => i.status === "unmatched").length,
-    totalAmount: invoices.reduce((sum, i) => 
-      sum + parseFloat(i.amount.replace(/[^\d,]/g, '').replace(',', '.')), 0
+    booked: invoices.filter((i: any) => i.status === "booked").length,
+    pending: invoices.filter((i: any) => i.status === "pending").length,
+    unmatched: invoices.filter((i: any) => i.status === "unmatched").length,
+    totalAmount: invoices.reduce((sum: number, i: any) =>
+      sum + parseFloat(String(i.amount || "0").replace(/[^\d,]/g, "").replace(",", ".")),
+      0
     ),
   };
 
@@ -161,52 +114,38 @@ const EInvoices = () => {
     }
   };
 
-  const filteredInvoices = selectedStatus === "all" 
-    ? invoices 
-    : invoices.filter(i => i.status === selectedStatus);
+  const filteredInvoices = invoices;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">E-Računi i knjiženje</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Uvoz, automatsko knjiženje i upravljanje računima
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="hidden sm:flex min-h-[44px]">
-            <FileText className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button className="min-h-[44px]">
-            <Send className="mr-2 h-4 w-4" />
-            Pošalji E-račune
-          </Button>
-        </div>
+      <div>
+        <h1>E-Računi i knjiženje</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Uvoz, automatsko knjiženje i upravljanje računima
+        </p>
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-5">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupno računa</p>
-          <p className="text-2xl font-bold mt-1">{stats.total}</p>
+          <p className="text-xl font-semibold mt-1">{stats.total}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Knjiženo</p>
-          <p className="text-2xl font-bold mt-1 text-success">{stats.booked}</p>
+          <p className="text-xl font-semibold mt-1 text-success">{stats.booked}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Na čekanju</p>
-          <p className="text-2xl font-bold mt-1 text-warning">{stats.pending}</p>
+          <p className="text-xl font-semibold mt-1 text-warning">{stats.pending}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Neprepoznato</p>
-          <p className="text-2xl font-bold mt-1 text-destructive">{stats.unmatched}</p>
+          <p className="text-xl font-semibold mt-1 text-destructive">{stats.unmatched}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupan iznos</p>
-          <p className="text-2xl font-bold mt-1 text-primary">
+          <p className="text-xl font-semibold mt-1 text-primary">
             {stats.totalAmount.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
           </p>
         </Card>
@@ -234,7 +173,28 @@ const EInvoices = () => {
 
         {/* Invoices Tab */}
         <TabsContent value="invoices" className="space-y-4">
-          <Card className="p-4 sm:p-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                <div>
+                  <CardTitle>Popis računa</CardTitle>
+                  <CardDescription>
+                    Pretraga i filtriranje po statusu
+                  </CardDescription>
+                </div>
+                <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
+                  <Button variant="outline" className="min-h-[32px] gap-2">
+                    <FileText className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button className="min-h-[32px] gap-2">
+                    <Send className="h-4 w-4" />
+                    Pošalji E-račune
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
             <div className="flex gap-3 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -302,15 +262,15 @@ const EInvoices = () => {
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           {invoice.status === "unmatched" && (
-                            <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                            <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                               <Check className="h-4 w-4 text-success" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -332,20 +292,27 @@ const EInvoices = () => {
                       Imate {stats.unmatched} računa koji nisu povezani s uplatama. Ručno povežite račune s uplatama ili ispravite podatke.
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" className="min-h-[44px]">
+                  <Button variant="outline" size="sm" className="min-h-[32px]">
                     Poveži uplate
                   </Button>
                 </div>
               </div>
             )}
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* Import Tab */}
         <TabsContent value="import" className="space-y-4">
           {/* Drag & Drop Upload */}
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">Uvoz računa</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle>Uvoz računa</CardTitle>
+              <CardDescription>
+                Povucite datoteke ili odaberite s uređaja
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             <FileUpload
               onFilesSelected={(files) => {
                 toast({
@@ -357,6 +324,7 @@ const EInvoices = () => {
               maxFiles={20}
               maxSize={5}
             />
+            </CardContent>
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -411,8 +379,14 @@ const EInvoices = () => {
             </Card>
           </div>
 
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">Automatsko knjiženje</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Automatsko knjiženje</CardTitle>
+              <CardDescription>
+                Povezivanje s bankovnim računom i pravila knjiženja
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-4 border rounded-lg">
                 <Check className="h-5 w-5 text-success mt-0.5" />
@@ -422,7 +396,7 @@ const EInvoices = () => {
                     Uneseni računi će se automatski proknjižiti nakon uplate s povezanog bankovnog računa.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" className="min-h-[44px]">
+                <Button variant="outline" size="sm" className="min-h-[32px]">
                   Postavke
                 </Button>
               </div>
@@ -441,23 +415,26 @@ const EInvoices = () => {
                   <p className="text-sm text-muted-foreground mb-3">
                     Neprepoznate uplate možete ručno povezati s računima ili stanarima.
                   </p>
-                  <Button variant="outline" size="sm" className="min-h-[44px]">
+                  <Button variant="outline" size="sm" className="min-h-[32px]">
                     Poveži uplate
                   </Button>
                 </div>
               </div>
             </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* Create Invoice Tab */}
         <TabsContent value="create" className="space-y-4">
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">Kreiraj vlastiti račun</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Kreirajte račune za vašu naknadu ili za druge komitente.
-            </p>
-            
+          <Card>
+            <CardHeader>
+              <CardTitle>Kreiraj vlastiti račun</CardTitle>
+              <CardDescription>
+                Kreirajte račune za vašu naknadu ili za druge komitente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-4 max-w-2xl">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -556,103 +533,56 @@ const EInvoices = () => {
                 <Button variant="outline">
                   Pregled
                 </Button>
-                <Button variant="outline">
-                  <Send className="mr-2 h-4 w-4" />
+                <Button variant="outline" className="gap-2">
+                  <Send className="h-4 w-4" />
                   Kreiraj i pošalji
                 </Button>
               </div>
             </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* Accounting Groups Tab */}
         <TabsContent value="accounting" className="space-y-4">
-          <Card className="p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold">Grupe troškova</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Upravljanje grupama troškova za lakše knjiženje
-                </p>
-              </div>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Dodaj grupu
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                {
-                  code: "4",
-                  name: "Troškovi",
-                  subgroups: ["3 - Zajednička struja", "5 - Čišćenje"],
-                  count: 12,
-                  total: "3.450,00 €"
-                },
-                {
-                  code: "25",
-                  name: "Materijalni troškovi",
-                  subgroups: ["1 - Održavanje", "2 - Energija"],
-                  count: 8,
-                  total: "5.234,50 €"
-                },
-                {
-                  code: "7",
-                  name: "Komunalije",
-                  subgroups: ["1 - Voda", "2 - Odvodnja"],
-                  count: 6,
-                  total: "2.180,00 €"
-                },
-              ].map((group, i) => (
-                <div key={i} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="font-mono">{group.code}</Badge>
-                        <h4 className="font-semibold">{group.name}</h4>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                        <span>{group.count} računa</span>
-                        <span>•</span>
-                        <span className="font-medium text-foreground">{group.total}</span>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {group.subgroups.map((sub, j) => (
-                          <Badge key={j} variant="secondary" className="text-xs">
-                            {sub}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Grupe troškova</CardTitle>
+                  <CardDescription>
+                    Upravljanje grupama troškova za lakše knjiženje
+                  </CardDescription>
                 </div>
-              ))}
-            </div>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Dodaj grupu
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+            <EmptyState
+              title="Nema grupa troškova"
+              description="Dodajte grupe troškova za lakše knjiženje e-računa"
+              className="py-12"
+            />
+            </CardContent>
           </Card>
 
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4">Početno stanje</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Prijenos stanja od prošle godine u novu
-            </p>
-            <div className="p-4 border rounded-lg bg-muted/30">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium">Stanje iz 2024.</span>
-                <span className="text-xl font-bold">12.345,67 €</span>
-              </div>
-              <Button variant="outline" size="sm" className="w-full min-h-[44px]">
-                Prilagodi početno stanje
-              </Button>
-            </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Početno stanje</CardTitle>
+              <CardDescription>
+                Prijenos stanja od prošle godine u novu
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <EmptyState
+              title="Početno stanje"
+              description="Funkcija prilagodbe početnog stanja nije još implementirana"
+              className="py-8"
+            />
+            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>

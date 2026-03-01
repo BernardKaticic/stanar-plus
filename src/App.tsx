@@ -18,12 +18,22 @@ import PaymentSlips from "./pages/PaymentSlips";
 import WorkOrders from "./pages/WorkOrders";
 import FinancialCard from "./pages/FinancialCard";
 import Representatives from "./pages/Representatives";
+import AuditLog from "./pages/AuditLog";
 import EInvoices from "./pages/EInvoices";
 import Decisions from "./pages/Decisions";
+import MapPage from "./pages/Map";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30 * 1000, // 30s
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -42,7 +52,8 @@ const App = () => (
                     <Sidebar />
                     <div className="flex flex-1 flex-col overflow-hidden">
                       <Header />
-                      <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6 md:p-6 lg:p-8">
+                      <main className="flex-1 overflow-y-auto bg-muted/20 px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:py-6 md:pb-6">
+                        <div className="mx-auto w-full max-w-6xl">
                         <Routes>
                           <Route path="/" element={<Dashboard />} />
                           <Route path="/buildings" element={<Buildings />} />
@@ -60,11 +71,14 @@ const App = () => (
                           <Route path="/debtors" element={<Debtors />} />
                           <Route path="/work-orders" element={<WorkOrders />} />
                           <Route path="/financial-card" element={<FinancialCard />} />
+                          <Route path="/map" element={<MapPage />} />
                           <Route path="/e-invoices" element={<EInvoices />} />
                           <Route path="/representatives" element={<Representatives />} />
+                          <Route path="/audit-log" element={<ProtectedRoute allowedRoles={["admin"]}><AuditLog /></ProtectedRoute>} />
                           <Route path="/decisions" element={<Decisions />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
+                        </div>
                       </main>
                       <MobileNav />
                     </div>

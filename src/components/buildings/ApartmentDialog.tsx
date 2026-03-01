@@ -116,7 +116,8 @@ export const ApartmentDialog = ({
   const areaValue = parseFloat(rawArea || "0");
   const hasValidArea = !Number.isNaN(areaValue) && areaValue > 0;
   const reserveCharge = fees && hasValidArea ? fees.reservePerSqm * areaValue : 0;
-  const totalCharge = fees ? reserveCharge + fees.cleaning + fees.loan : 0;
+  const loanCharge = fees && hasValidArea ? fees.loan * areaValue : 0;
+  const totalCharge = fees ? reserveCharge + loanCharge + fees.cleaning : 0;
 
   const onSubmit = (data: ApartmentFormData) => {
     onSave({
@@ -180,28 +181,30 @@ export const ApartmentDialog = ({
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Čišćenje</span>
                     <span className="font-medium">
-                      {fees.cleaning.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €
+                      {fees.cleaning.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Kredit</span>
                     <span className="font-medium">
-                      {fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €
+                      {hasValidArea
+                        ? loanCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : "-"} € ({fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/m²)
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Pričuva</span>
                     <span className="font-medium">
                       {hasValidArea
-                        ? reserveCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2 })
-                        : "-"} € ({fees.reservePerSqm.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
+                        ? reserveCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : "-"} € ({fees.reservePerSqm.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/m²)
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Ukupno mjesečno</span>
                     <span className="font-semibold">
                       {hasValidArea
-                        ? totalCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2 })
+                        ? totalCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : "-"} €
                     </span>
                   </div>
@@ -300,10 +303,10 @@ export const ApartmentDialog = ({
             />
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" className="min-h-[32px]" onClick={() => onOpenChange(false)}>
                 Odustani
               </Button>
-              <Button type="submit" className="min-h-[44px]">
+              <Button type="submit" className="min-h-[32px]">
                 {editApartment ? "Spremi" : "Dodaj"}
               </Button>
             </div>

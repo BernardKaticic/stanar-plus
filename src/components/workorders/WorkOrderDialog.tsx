@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
+import { locationsApi } from "@/lib/api";
 
 const workOrderSchema = z.object({
   title: z.string().trim().min(1, "Naslov je obavezan").max(200, "Naslov je predugačak"),
@@ -57,19 +58,15 @@ export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrde
     },
   });
 
-  const { data: buildings } = useQuery({
-    queryKey: ["buildings-list"],
-    queryFn: async () => {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      return [
-        { id: '1', number: '15', name: null, street: { name: 'Antuna Starčevića', city: { name: 'Vinkovci' } } },
-        { id: '2', number: '7', name: null, street: { name: 'Ohridska', city: { name: 'Vinkovci' } } },
-        { id: '3', number: '12', name: null, street: { name: 'Marmontova', city: { name: 'Split' } } },
-      ];
-    },
+  const { data: buildingsList = [] } = useQuery({
+    queryKey: ["locations", "building"],
+    queryFn: () => locationsApi.getByLevel("building"),
+    enabled: open,
   });
+  const buildings = buildingsList.map((b: { id: string; name: string }) => ({
+    id: String(b.id).replace(/^building-/, ""),
+    name: b.name,
+  }));
 
   const handleSubmit = (data: WorkOrderFormData) => {
     onSave({ ...data, created_by: userId });
@@ -132,9 +129,9 @@ export const WorkOrderDialog = ({ open, onOpenChange, onSave, userId }: WorkOrde
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {buildings?.map((building) => (
+                      {buildings.map((building) => (
                         <SelectItem key={building.id} value={building.id}>
-                          {building.street?.city?.name} - {building.street?.name} {building.number}
+                          {building.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

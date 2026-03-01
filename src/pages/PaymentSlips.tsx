@@ -1,5 +1,5 @@
 import { Receipt, Mail, Printer, Calendar, Building2, Check, ChevronsUpDown, Plus, X } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -32,11 +32,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { usePaymentSlips } from "@/hooks/usePaymentSlipsData";
+import { paymentSlipsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { startOfMonth } from "date-fns";
+import { locationsApi } from "@/lib/api";
 
 const PaymentSlips = () => {
   const [page, setPage] = useState(1);
@@ -67,61 +69,53 @@ const PaymentSlips = () => {
     { id: "owner", name: "Suvlasnik", description: "Pojedinačni suvlasnik" },
   ];
 
-  const getLocationsByLevel = () => {
-    if (chargeLevel === "city") {
-      return [
-        { id: "vinkovci", name: "Vinkovci", count: "45 zgrada, 83 stana" },
-        { id: "split", name: "Split", count: "38 zgrada, 67 stanova" },
-        { id: "vukovar", name: "Vukovar", count: "12 zgrada, 25 stanova" },
-      ];
-    } else if (chargeLevel === "street") {
-      return [
-        { id: "street-1", name: "Antuna Starčevića, Vinkovci", count: "3 zgrade, 28 stanova" },
-        { id: "street-2", name: "Ohridska, Vinkovci", count: "2 zgrade, 15 stanova" },
-        { id: "street-3", name: "Marmontova, Split", count: "5 zgrada, 42 stana" },
-        { id: "street-4", name: "Dioklecijanova, Split", count: "4 zgrade, 35 stanova" },
-      ];
-    } else if (chargeLevel === "building") {
-      return [
-        { id: "building-1", name: "A.Starčevića 15, Vinkovci", count: "12 stanova" },
-        { id: "building-2", name: "Ohridska 7, Vinkovci", count: "8 stanova" },
-        { id: "building-3", name: "Marmontova 12, Split", count: "15 stanova" },
-        { id: "building-4", name: "Vukovarska 25, Vinkovci", count: "10 stanova" },
-      ];
-    } else if (chargeLevel === "owner") {
-      return [
-        { id: "owner-1", name: "Mato Galić", count: "Stan 15/3, Vinkovci" },
-        { id: "owner-2", name: "Ana Babić", count: "Stan 7/2, Vinkovci" },
-        { id: "owner-3", name: "Petar Horvat", count: "Stan 12/5, Split" },
-        { id: "owner-4", name: "Ivana Kovač", count: "Stan 3/1, Split" },
-      ];
-    }
-    return [];
-  };
-
-  const locations = getLocationsByLevel();
+  const { data: locations = [] } = useQuery({
+    queryKey: ["locations", chargeLevel],
+    queryFn: () =>
+      locationsApi.getByLevel(
+        (chargeLevel as "city" | "street" | "building" | "owner") || "city"
+      ),
+    enabled: !!chargeLevel,
+  });
 
   const handleGenerateSlips = async () => {
+    if (!chargeLevel || !selectedLocation || (!sendEmail && !sendPrint)) return;
+    if (periodType === "single" && !singleMonth) return;
+    if (periodType === "range" && (!periodFrom || !periodTo)) return;
+
     setGenerating(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const generatedCount = 10; // Mock: broj stanova s stanarima
-
-    toast({
-      title: "Uplatnice generirane",
-      description: `Uspješno generirano ${generatedCount} uplatnica`,
-    });
-
-    queryClient.invalidateQueries({ queryKey: ["payment-slips"] });
-    setGenerating(false);
+    try {
+      const res = await paymentSlipsApi.generate({
+        chargeLevel,
+        locationId: selectedLocation,
+        periodType: periodType as "current" | "single" | "range",
+        singleMonth: singleMonth ? `${singleMonth.getFullYear()}-${String(singleMonth.getMonth() + 1).padStart(2, "0")}` : undefined,
+        periodFrom: periodFrom ? `${periodFrom.getFullYear()}-${String(periodFrom.getMonth() + 1).padStart(2, "0")}` : undefined,
+        periodTo: periodTo ? `${periodTo.getFullYear()}-${String(periodTo.getMonth() + 1).padStart(2, "0")}` : undefined,
+        sendEmail,
+        sendPrint,
+      });
+      queryClient.invalidateQueries({ queryKey: ["payment-slips"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast({
+        title: "Uplatnice generirane",
+        description: res.message,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Greška",
+        description: err.body?.message || err.message || "Generiranje nije uspjelo.",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
   };
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Uplatnice</h1>
+          <h1>Uplatnice</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Generiranje i slanje uplatnica
           </p>
@@ -129,20 +123,22 @@ const PaymentSlips = () => {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Card className="p-4 sm:p-6">
-          <h2 className="text-xl font-semibold mb-2">Novo generiranje uplatnica</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Odaberite parametre za generiranje i slanje uplatnica
-          </p>
-          
-          <div className="space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Novo generiranje uplatnica</CardTitle>
+            <CardDescription>
+              Odaberite parametre za generiranje i slanje uplatnica
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+          <div className="space-y-6">
             {/* Step 1: Charge Level */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
                   1
                 </div>
-                <Label className="text-base">Razina zaduženja</Label>
+                <Label className="text-sm">Razina zaduženja</Label>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {levels.map((level) => (
@@ -172,7 +168,7 @@ const PaymentSlips = () => {
                   )}>
                     2
                   </div>
-                  <Label className="text-base">
+                  <Label className="text-sm">
                     Odabir {chargeLevel === "city" ? "grada" : chargeLevel === "street" ? "ulice" : chargeLevel === "building" ? "zgrade" : "suvlasnika"}
                   </Label>
                 </div>
@@ -182,7 +178,7 @@ const PaymentSlips = () => {
                       variant="outline"
                       role="combobox"
                       aria-expanded={locationOpen}
-                      className="w-full justify-between h-auto min-h-[44px]"
+                      className="w-full justify-between h-auto min-h-[32px]"
                     >
                       <span className="truncate">
                         {selectedLocation
@@ -241,7 +237,7 @@ const PaymentSlips = () => {
                   )}>
                     3
                   </div>
-                  <Label className="text-base">Razdoblje zaduženja</Label>
+                  <Label className="text-sm">Razdoblje zaduženja</Label>
                 </div>
                 
                 <div className="flex flex-wrap gap-2 pl-8">
@@ -326,7 +322,7 @@ const PaymentSlips = () => {
                   )}>
                     4
                   </div>
-                  <Label className="text-base">Način slanja</Label>
+                  <Label className="text-sm">Način slanja</Label>
                 </div>
                 <div className="flex gap-3 pl-8">
                   <div className="flex items-center gap-2">
@@ -358,8 +354,8 @@ const PaymentSlips = () => {
             {/* Summary preview */}
             {selectedLocation && (periodType === "current" || (periodType === "single" && singleMonth) || (periodType === "range" && periodFrom && periodTo)) && (sendEmail || sendPrint) && (
               <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-5 space-y-4">
-                <p className="font-semibold flex items-center gap-2 text-base">
-                  <Receipt className="h-5 w-5" />
+                <p className="font-semibold flex items-center gap-2 text-sm">
+                  <Receipt className="h-4 w-4" />
                   Spremno za generiranje
                 </p>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -423,20 +419,21 @@ const PaymentSlips = () => {
               </Button>
             </div>
           </div>
+          </CardContent>
         </Card>
 
         <Card className="p-4 sm:p-6">
-          <h3 className="text-lg font-semibold mb-2">Brze akcije</h3>
+          <h3 className="text-base font-semibold mb-2">Brze akcije</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Automatski popuni najčešće kombinacije
           </p>
           <div className="space-y-2">
             <Button 
               variant="outline" 
-              className="w-full justify-start min-h-[44px]"
+              className="w-full justify-start min-h-[32px]"
               onClick={() => {
                 setChargeLevel("city");
-                setSelectedLocation("vinkovci");
+                setSelectedLocation("");
                 setPeriodType("current");
                 setSingleMonth(startOfMonth(new Date()));
                 setSendEmail(true);
@@ -444,14 +441,14 @@ const PaymentSlips = () => {
               }}
             >
               <Calendar className="mr-2 h-4 w-4" />
-              Tekući mjesec - Vinkovci
+              Tekući mjesec – odaberi grad
             </Button>
             <Button 
               variant="outline" 
-              className="w-full justify-start min-h-[44px]"
+              className="w-full justify-start min-h-[32px]"
               onClick={() => {
-                setChargeLevel("city");
-                setSelectedLocation("split");
+                setChargeLevel("building");
+                setSelectedLocation("");
                 setPeriodType("current");
                 setSingleMonth(startOfMonth(new Date()));
                 setSendEmail(true);
@@ -459,36 +456,39 @@ const PaymentSlips = () => {
               }}
             >
               <Building2 className="mr-2 h-4 w-4" />
-              Tekući mjesec - Split
+              Tekući mjesec – odaberi zgradu
             </Button>
             <Button 
               variant="outline" 
-              className="w-full justify-start min-h-[44px]"
+              className="w-full justify-start min-h-[32px]"
               onClick={() => {
                 setChargeLevel("city");
-                setSelectedLocation("vinkovci");
+                setSelectedLocation("");
                 setPeriodType("range");
-                setPeriodFrom(new Date(2025, 0, 1));
-                setPeriodTo(new Date(2025, 5, 1));
+                const now = new Date();
+                setPeriodFrom(new Date(now.getFullYear(), 0, 1));
+                setPeriodTo(new Date(now.getFullYear(), 5, 1));
                 setSendEmail(true);
                 setSendPrint(false);
               }}
             >
               <Calendar className="mr-2 h-4 w-4" />
-              Siječanj-Lipanj - Vinkovci
+              Siječanj–Lipanj – odaberi grad
             </Button>
           </div>
         </Card>
       </div>
 
-      <Card className="p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Povijest poslanih uplatnica</h2>
-          <Badge variant="secondary" className="hidden sm:inline-flex">
-            {history?.length || 0} ukupno
-          </Badge>
-        </div>
-
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>Povijest poslanih uplatnica</CardTitle>
+            <Badge variant="secondary" className="hidden sm:inline-flex">
+              {history?.length || 0} ukupno
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">Učitavanje...</div>
         ) : history && history.length > 0 ? (
@@ -498,7 +498,7 @@ const PaymentSlips = () => {
                 {/* Desktop Layout */}
                 <div className="hidden md:grid md:grid-cols-[2fr_1.5fr_1fr_auto] gap-4 items-center">
                   <div>
-                    <p className="font-semibold text-base">{item.period}</p>
+                    <p className="font-semibold text-sm">{item.period}</p>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       <Calendar className="inline h-3 w-3 mr-1" />
                       {item.date}
@@ -518,7 +518,7 @@ const PaymentSlips = () => {
                   
                   <div className="text-right">
                     <p className="text-sm font-medium">{item.count} uplatnica</p>
-                    <p className="text-lg font-bold text-primary">{item.amount.toFixed(2)} €</p>
+                    <p className="text-sm font-semibold text-primary">{item.amount.toFixed(2)} €</p>
                   </div>
                   
                   <Button 
@@ -546,7 +546,7 @@ const PaymentSlips = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">{item.count} uplatnica</p>
-                      <p className="text-base font-bold text-primary">{item.amount.toFixed(2)} €</p>
+                      <p className="text-sm font-semibold text-primary">{item.amount.toFixed(2)} €</p>
                     </div>
                   </div>
                   
@@ -564,7 +564,7 @@ const PaymentSlips = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="w-full min-h-[44px]"
+                    className="w-full min-h-[32px]"
                     onClick={() => {
                       setSelectedItem(item);
                       setDetailsOpen(true);
@@ -585,13 +585,14 @@ const PaymentSlips = () => {
             </p>
           </div>
         )}
+        </CardContent>
       </Card>
 
       {/* Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl">Detalji uplatnice</DialogTitle>
+            <DialogTitle>Detalji uplatnice</DialogTitle>
           </DialogHeader>
           
           {selectedItem && (
@@ -600,25 +601,25 @@ const PaymentSlips = () => {
               <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Razdoblje</p>
-                  <p className="font-semibold text-lg">{selectedItem.period}</p>
+                  <p className="font-semibold text-sm">{selectedItem.period}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Datum slanja</p>
-                  <p className="font-semibold text-lg">{selectedItem.date}</p>
+                  <p className="font-semibold text-sm">{selectedItem.date}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Broj uplatnica</p>
-                  <p className="font-semibold text-lg">{selectedItem.count}</p>
+                  <p className="font-semibold text-sm">{selectedItem.count}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Ukupan iznos</p>
-                  <p className="font-bold text-xl text-primary">{selectedItem.amount.toFixed(2)} €</p>
+                  <p className="font-semibold text-sm text-primary">{selectedItem.amount.toFixed(2)} €</p>
                 </div>
               </div>
 
               {/* Delivery Methods */}
               <div>
-                <Label className="text-base mb-3 block">Način dostave</Label>
+                <Label className="text-sm mb-3 block">Način dostave</Label>
                 <div className="flex gap-2">
                   <Badge variant="outline" className="px-3 py-2">
                     <Mail className="mr-2 h-4 w-4" />
@@ -631,33 +632,10 @@ const PaymentSlips = () => {
                 </div>
               </div>
 
-              {/* Mock Recipients List */}
               <div>
-                <Label className="text-base mb-3 block">Primatelji ({selectedItem.count})</Label>
-                <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
-                  {Array.from({ length: Math.min(selectedItem.count, 10) }).map((_, i) => (
-                    <div key={i} className="p-3 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">Stan {i + 1}/2</p>
-                          <p className="text-sm text-muted-foreground">Primatelj #{i + 1}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-primary">
-                            {(Math.random() * 200 + 50).toFixed(2)} €
-                          </p>
-                          <Badge variant="secondary" className="mt-1 text-xs">
-                            {selectedItem.email > 0 ? "E-mail" : "Print"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {selectedItem.count > 10 && (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      ... i još {selectedItem.count - 10} uplatnica
-                    </div>
-                  )}
+                <Label className="text-sm mb-3 block">Primatelji ({selectedItem.count})</Label>
+                <div className="border rounded-lg p-6 text-center text-muted-foreground text-sm">
+                  Detalji primatelja po uplatnici nisu dostupni.
                 </div>
               </div>
 

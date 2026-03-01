@@ -11,7 +11,7 @@ import {
   FileText,
   UserCog,
   ScrollText,
-  X
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -22,7 +22,8 @@ import { useAuth } from "@/contexts/AuthContext";
 const mobileNavigation = [
   { name: "Početna", href: "/", icon: LayoutDashboard },
   { name: "Zgrade", href: "/buildings", icon: Building2 },
-  { name: "Stanari", href: "/tenants", icon: Users },
+  { name: "Karta", href: "/map", icon: MapPin },
+  { name: "Suvlasnici", href: "/tenants", icon: Users },
   { name: "Dužnici", href: "/debtors", icon: AlertCircle },
 ];
 
@@ -32,7 +33,6 @@ const moreNavigation = [
   { name: "Radni nalozi", href: "/work-orders", icon: ClipboardCheck },
   { name: "Financijska kartica", href: "/financial-card", icon: CreditCard },
   { name: "E-računi", href: "/e-invoices", icon: FileText },
-  { name: "Predstavnici", href: "/representatives", icon: UserCog },
   { name: "Odluke i ugovori", href: "/decisions", icon: ScrollText },
 ];
 
@@ -95,7 +95,7 @@ export const MobileNav = () => {
                       "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors min-h-[52px]",
                       isActive
                         ? "bg-primary/10 text-primary"
-                        : "text-foreground hover:bg-accent"
+                        : "text-foreground hover:bg-accent hover:text-accent-foreground hover:[&_*]:text-accent-foreground"
                     )
                   }
                 >

@@ -1,6 +1,6 @@
 import { AlertCircle, Mail, FileText, Filter, Download, X, CheckCircle, MapPin } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,11 +28,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDebtors } from "@/hooks/useDebtorsData";
+import { debtorsApi } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { exportTableToCSV } from "@/lib/export";
 
 const Debtors = () => {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -108,92 +111,119 @@ const Debtors = () => {
   };
 
   const handleBatchSend = async () => {
-    const selectedList = debtors.filter(d => selectedDebtors.has(d.id) && d.email);
-    
-    // Simulate sending emails
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    toast({
-      title: "Opomene poslane",
-      description: `Poslano ${selectedList.length} opomena`,
-    });
+    const selectedList = debtors.filter(d => selectedDebtors.has(d.id));
+    let sent = 0;
+    for (const d of selectedList) {
+      try {
+        await debtorsApi.sendReminder(d.id);
+        sent++;
+      } catch {
+        toast({
+          title: "Greška",
+          description: `Nije moguće poslati opomenu za ${d.name}`,
+          variant: "destructive",
+        });
+      }
+    }
+    if (sent > 0) {
+      queryClient.invalidateQueries({ queryKey: ["debtors"] });
+      toast({
+        title: "Opomene zabilježene",
+        description: `Poslano ${sent} opomena`,
+      });
+    }
     setBatchSendDialogOpen(false);
     setSelectedDebtors(new Set());
   };
 
   const handleSendReminder = async (debtor: any) => {
     setSendingReminder(debtor.id);
-    
-    // Simulate sending email
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    toast({
-      title: "Podsjetnik poslan",
-      description: `Email poslan na ${debtor.email}`,
-    });
-    
-    setSendingReminder(null);
+    try {
+      await debtorsApi.sendReminder(debtor.id);
+      queryClient.invalidateQueries({ queryKey: ["debtors"] });
+      toast({
+        title: "Opomena zabilježena",
+        description: debtor.email ? `Email će biti poslan na ${debtor.email}` : "Opomena je zabilježena u arhivi",
+      });
+    } catch {
+      toast({
+        title: "Greška",
+        description: "Nije moguće poslati opomenu",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReminder(null);
+    }
   };
 
   const totalDebt = debtors.reduce((sum, d) => sum + d.amountNum, 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Dužnici i opomene</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Pregled dužnika i upravljanje opomenama
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={handleExportCSV}
-            disabled={debtors.length === 0}
-            className="hidden sm:flex min-h-[44px]"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button
-            onClick={() => setBatchSendDialogOpen(true)}
-            disabled={selectedDebtors.size === 0}
-            className="min-h-[44px]"
-          >
-            <Mail className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Pošalji opomene </span>
-            {selectedDebtors.size > 0 && `(${selectedDebtors.size})`}
-          </Button>
-        </div>
+      <div>
+        <h1>Dužnici i opomene</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Pregled dužnika i upravljanje opomenama.
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupno dužnika</p>
-          <p className="text-2xl font-bold mt-1 text-destructive">
+          <p className="text-xl font-semibold mt-1 text-destructive">
             {isLoading ? "..." : totalCount}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupan dug</p>
-          <p className="text-2xl font-bold mt-1 text-destructive">
+          <p className="text-xl font-semibold mt-1 text-destructive">
             {isLoading ? "..." : `${totalDebt.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €`}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Opomene ovaj mjesec</p>
-          <p className="text-2xl font-bold mt-1">0</p>
+          <p className="text-xl font-semibold mt-1">0</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Duguju &gt; 3 mjeseca</p>
-          <p className="text-2xl font-bold mt-1 text-warning">
+          <p className="text-xl font-semibold mt-1 text-warning">
             {isLoading ? "..." : debtors.filter(d => d.months >= 3).length}
           </p>
         </Card>
       </div>
 
-      <Card className="p-4 sm:p-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+            <div>
+              <CardTitle>Popis dužnika</CardTitle>
+              <CardDescription>
+                Pretraga, filteri i slanje opomena
+              </CardDescription>
+            </div>
+            <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                disabled={debtors.length === 0}
+                className="min-h-[32px]"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button
+                onClick={() => setBatchSendDialogOpen(true)}
+                disabled={selectedDebtors.size === 0}
+                className="min-h-[32px] gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                <span className="hidden sm:inline">Pošalji opomene</span>
+                {selectedDebtors.size > 0 && `(${selectedDebtors.size})`}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
         <div className="flex gap-3 mb-6">
           <Input 
             placeholder="Pretraži dužnike..." 
@@ -204,7 +234,7 @@ const Debtors = () => {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              className="flex-1 sm:flex-none relative min-h-[44px]"
+              className="flex-1 sm:flex-none relative min-h-[32px]"
               onClick={() => setFilterOpen(true)}
             >
               <Filter className="mr-2 h-4 w-4" />
@@ -219,7 +249,7 @@ const Debtors = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="min-w-[44px] min-h-[44px]"
+                className="min-w-[44px] min-h-[32px]"
                 onClick={() => {
                   setAmountFilter('all');
                   setMonthFilter('all');
@@ -271,20 +301,20 @@ const Debtors = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12">
+                <TableHead className="w-12 text-xs font-medium">
                   <Checkbox 
                     checked={selectedDebtors.size === debtors.length && debtors.length > 0}
                     onCheckedChange={toggleAll}
                   />
                 </TableHead>
-                <TableHead>Dužnik</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Adresa</TableHead>
-                <TableHead>Grad</TableHead>
-                <TableHead className="text-right">Iznos duga</TableHead>
-                <TableHead className="text-center">Mjeseci</TableHead>
-                <TableHead>Opomene</TableHead>
-                <TableHead className="text-right">Akcije</TableHead>
+                <TableHead className="text-xs font-medium">Dužnik</TableHead>
+                <TableHead className="text-xs font-medium">Email</TableHead>
+                <TableHead className="text-xs font-medium">Adresa</TableHead>
+                <TableHead className="text-xs font-medium">Grad</TableHead>
+                <TableHead className="text-right text-xs font-medium">Iznos duga</TableHead>
+                <TableHead className="text-center text-xs font-medium">Mjeseci</TableHead>
+                <TableHead className="text-xs font-medium">Opomene</TableHead>
+                <TableHead className="text-right text-xs font-medium">Akcije</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -306,35 +336,35 @@ const Debtors = () => {
                   </TableRow>
               ) : (
                   debtors.map((debtor) => (
-                  <TableRow key={debtor.id}>
-                    <TableCell>
+                  <TableRow key={debtor.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-xs">
                       <Checkbox 
                         checked={selectedDebtors.has(debtor.id)}
                         onCheckedChange={() => toggleDebtor(debtor.id)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium text-sm">
                       <div className="flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-destructive" />
                         {debtor.name}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{debtor.email || "-"}</TableCell>
-                    <TableCell className="text-sm">{debtor.address}</TableCell>
-                    <TableCell className="text-sm">{debtor.city || "-"}</TableCell>
-                    <TableCell className="text-right font-bold text-destructive">
+                    <TableCell className="text-xs">{debtor.email || "-"}</TableCell>
+                    <TableCell className="text-xs">{debtor.address}</TableCell>
+                    <TableCell className="text-xs">{debtor.city || "-"}</TableCell>
+                    <TableCell className="text-right text-xs font-bold text-destructive">
                       {debtor.amount}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center text-xs">
                       <Badge variant={debtor.months >= 3 ? "destructive" : "secondary"}>
                         {debtor.months}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <p className="font-medium">{debtor.warningsSent} poslano</p>
+                    <TableCell className="text-xs">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-xs">{debtor.warningsSent} poslano</p>
                         {debtor.lastReminder && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[11px] text-muted-foreground">
                             Zadnja: {debtor.lastReminder}
                           </p>
                         )}
@@ -345,13 +375,13 @@ const Debtors = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="min-w-[44px] min-h-[44px]"
+                          className="min-w-[44px] min-h-[32px]"
                           onClick={() => handleSendReminder(debtor)}
                           disabled={sendingReminder === debtor.id || !debtor.email}
                         >
                           <Mail className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                        <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                           <FileText className="h-4 w-4" />
                         </Button>
                       </div>
@@ -454,13 +484,13 @@ const Debtors = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="min-w-[44px] min-h-[44px]"
+                      className="min-w-[44px] min-h-[32px]"
                       onClick={() => handleSendReminder(debtor)}
                       disabled={sendingReminder === debtor.id || !debtor.email}
                     >
                       <Mail className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" className="min-w-[44px] min-h-[44px]">
+                    <Button variant="outline" size="sm" className="min-w-[44px] min-h-[32px]">
                       <FileText className="h-4 w-4" />
                     </Button>
                   </div>
@@ -481,84 +511,20 @@ const Debtors = () => {
             setPage(1);
           }}
         />
+        </CardContent>
       </Card>
 
-      <Card className="p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold">Arhiva opomena</h3>
-          <Badge variant="secondary">
-            12 ukupno poslano
-          </Badge>
-        </div>
-
-        {/* Desktop Table View */}
-        <div className="hidden md:block rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Korisnik</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Datum</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[
-                { name: 'Alerić Mato', status: 'Poslano', date: '17.1.2023.' },
-                { name: 'Abigalić Ivan', status: 'Poslano', date: '17.1.2023.' },
-                { name: 'Babić Ana', status: 'Poslano', date: '17.1.2023.' },
-                { name: 'Cirki Jelena', status: 'Poslano', date: '20.1.2024.' },
-                { name: 'Došen Luka', status: 'Poslano', date: '20.1.2024.' },
-                { name: 'Galić Mato', status: 'Poslano', date: '22.2.2024.' },
-                { name: 'Ivezić Sara', status: 'Poslano', date: '22.2.2024.' },
-                { name: 'Josić Mijo', status: 'Poslano', date: '22.2.2024.' },
-                { name: 'Kalenić Goran', status: 'Poslano', date: '22.2.2024.' },
-                { name: 'Popadić Ante', status: 'Poslano', date: '22.2.2024.' },
-                { name: 'Rotz Robert', status: 'Poslano', date: '22.2.2024.' },
-                { name: 'Vuković Tomislav', status: 'Poslano', date: '10.10.2025.' },
-              ].map((record, i) => (
-                <TableRow key={i}>
-                  <TableCell className="font-medium">{record.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="success" className="gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      {record.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{record.date}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Mobile Card View */}
-        <div className="md:hidden space-y-2">
-          {[
-            { name: 'Alerić Mato', status: 'Poslano', date: '17.1.2023.' },
-            { name: 'Abigalić Ivan', status: 'Poslano', date: '17.1.2023.' },
-            { name: 'Babić Ana', status: 'Poslano', date: '17.1.2023.' },
-            { name: 'Cirki Jelena', status: 'Poslano', date: '20.1.2024.' },
-            { name: 'Došen Luka', status: 'Poslano', date: '20.1.2024.' },
-            { name: 'Galić Mato', status: 'Poslano', date: '22.2.2024.' },
-            { name: 'Ivezić Sara', status: 'Poslano', date: '22.2.2024.' },
-            { name: 'Josić Mijo', status: 'Poslano', date: '22.2.2024.' },
-            { name: 'Kalenić Goran', status: 'Poslano', date: '22.2.2024.' },
-            { name: 'Popadić Ante', status: 'Poslano', date: '22.2.2024.' },
-            { name: 'Rotz Robert', status: 'Poslano', date: '22.2.2024.' },
-            { name: 'Vuković Tomislav', status: 'Poslano', date: '10.10.2025.' },
-          ].map((record, i) => (
-            <div key={i} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
-              <div className="flex-1">
-                <p className="font-medium">{record.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">{record.date}</p>
-              </div>
-              <Badge variant="success" className="text-xs">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                {record.status}
-              </Badge>
-            </div>
-          ))}
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Arhiva opomena</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            title="Arhiva opomena"
+            description="Povijest poslanih opomena će se prikazati kada pošaljete prvu opomenu dužnicima"
+            className="py-12"
+          />
+        </CardContent>
       </Card>
 
       {/* Batch Send Confirmation Dialog */}

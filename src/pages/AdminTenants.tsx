@@ -1,88 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string | null;
-}
-
-interface Apartment {
-  id: string;
-  apartment_number: string;
-  building_id: string;
-  tenant_id: string | null;
-  buildings: {
-    name: string | null;
-    number: string;
-    streets: {
-      name: string;
-      cities: {
-        name: string;
-      };
-    };
-  };
-}
-
-// Mock data
-const MOCK_PROFILES: Profile[] = [
-  { id: '1', email: 'gali.mato@gmail.com', full_name: 'Mato Galić' },
-  { id: '2', email: 'babic.ana@gmail.com', full_name: 'Ana Babić' },
-  { id: '3', email: 'horvat.p@gmail.com', full_name: 'Petar Horvat' },
-  { id: '4', email: 'kovac.ivana@gmail.com', full_name: 'Ivana Kovač' },
-  { id: '5', email: 'marko.novak@gmail.com', full_name: 'Marko Novak' },
-];
-
-const MOCK_APARTMENTS: Apartment[] = [
-  { id: '1', apartment_number: '1', building_id: '1', tenant_id: '1', buildings: { name: null, number: '15', streets: { name: 'Antuna Starčevića', cities: { name: 'Vinkovci' } } } },
-  { id: '2', apartment_number: '2', building_id: '1', tenant_id: '2', buildings: { name: null, number: '15', streets: { name: 'Antuna Starčevića', cities: { name: 'Vinkovci' } } } },
-  { id: '3', apartment_number: '3', building_id: '1', tenant_id: null, buildings: { name: null, number: '15', streets: { name: 'Antuna Starčevića', cities: { name: 'Vinkovci' } } } },
-  { id: '4', apartment_number: '2', building_id: '2', tenant_id: '4', buildings: { name: null, number: '7', streets: { name: 'Ohridska', cities: { name: 'Vinkovci' } } } },
-  { id: '5', apartment_number: '5', building_id: '3', tenant_id: '3', buildings: { name: null, number: '12', streets: { name: 'Marmontova', cities: { name: 'Split' } } } },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apartmentsApi, usersApi } from '@/lib/api';
 
 const AdminTenants = () => {
+  const navigate = useNavigate();
   const { userRole } = useAuth();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [apartments, setApartments] = useState<Apartment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (userRole === 'admin' || userRole === 'upravitelj') {
-      fetchData();
-    }
-  }, [userRole]);
+  const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
+    queryKey: ['users', 'stanar'],
+    queryFn: () => usersApi.getByRole('stanar'),
+    enabled: userRole === 'admin' || userRole === 'upravitelj',
+  });
 
-  const fetchData = async () => {
-    setLoading(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setProfiles(MOCK_PROFILES);
-    setApartments(MOCK_APARTMENTS);
-    setLoading(false);
-  };
+  const { data: apartments = [], isLoading: loadingApartments } = useQuery({
+    queryKey: ['apartments'],
+    queryFn: () => apartmentsApi.getAll(),
+    enabled: userRole === 'admin' || userRole === 'upravitelj',
+  });
 
-  const assignTenant = async (apartmentId: string, tenantId: string | null) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+  const assignMutation = useMutation({
+    mutationFn: ({ apartmentId, userId }: { apartmentId: string; userId: string | null }) =>
+      apartmentsApi.assignTenant(apartmentId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['apartments'] });
+      toast.success('Stanar uspješno dodijeljen');
+    },
+    onError: () => toast.error('Greška pri dodjeljivanju'),
+  });
 
-    // Update local state
-    setApartments(prev => 
-      prev.map(apt => 
-        apt.id === apartmentId 
-          ? { ...apt, tenant_id: tenantId }
-          : apt
-      )
-    );
+  const loading = loadingProfiles || loadingApartments;
 
-    toast.success('Stanar uspješno dodijeljen');
+  const assignTenant = (apartmentId: string, userId: string | null) => {
+    assignMutation.mutate({ apartmentId, userId });
   };
 
   if (userRole !== 'admin' && userRole !== 'upravitelj') {
@@ -104,7 +60,7 @@ const AdminTenants = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Upravljanje stanarima</h1>
+        <h1>Upravljanje stanarima</h1>
         <p className="text-muted-foreground text-sm">Dodijelite stanove registriranim korisnicima</p>
       </div>
 
@@ -116,7 +72,7 @@ const AdminTenants = () => {
           return (
             <Card key={apartment.id}>
               <CardHeader>
-                <CardTitle className="text-lg">{address}</CardTitle>
+                <CardTitle>{address}</CardTitle>
                 <CardDescription>
                   {apartment.tenant_id 
                     ? `Trenutni stanar: ${profiles.find(p => p.id === apartment.tenant_id)?.email || 'Nepoznat'}`
@@ -150,10 +106,12 @@ const AdminTenants = () => {
 
       {apartments.length === 0 && (
         <Card>
-          <CardContent className="py-10 text-center">
-            <p className="text-muted-foreground">
-              Nema dostupnih stanova. Prvo dodajte zgrade i stanove.
-            </p>
+          <CardContent className="py-10">
+            <EmptyState
+              title="Nema dostupnih stanova"
+              description="Prvo dodajte zgrade i stanove u aplikaciji."
+              action={{ label: "Idi na Zgrade", onClick: () => navigate("/buildings") }}
+            />
           </CardContent>
         </Card>
       )}

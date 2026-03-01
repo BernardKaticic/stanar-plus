@@ -122,14 +122,14 @@ export const BuildingsTreeSidebar = ({
                   {/* City */}
                   <div
                     className={cn(
-                      "flex items-center gap-2 px-2 py-2 rounded-md hover:bg-accent/50 cursor-pointer transition-all duration-200",
+                      "group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-accent cursor-pointer transition-colors duration-150",
                       isSelected && "bg-accent/40 shadow-sm"
                     )}
                   >
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-5 w-5 p-0 shrink-0"
+                      className="h-5 w-5 p-0 shrink-0 transition-none group-hover:bg-transparent group-hover:text-accent-foreground hover:bg-transparent [&_svg]:transition-none"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCity(city.id);
@@ -142,15 +142,15 @@ export const BuildingsTreeSidebar = ({
                       )}
                     </Button>
                     <div
-                      className="flex items-center gap-2 flex-1 min-w-0"
+                      className="flex items-center gap-2 flex-1 min-w-0 group-hover:text-accent-foreground"
                       onClick={() => {
                         onSelectCity(city);
                         if (!isExpanded) toggleCity(city.id);
                       }}
                     >
-                      <MapPin className="h-4 w-4 text-primary shrink-0" />
+                      <MapPin className="h-4 w-4 text-primary group-hover:text-accent-foreground shrink-0 transition-colors duration-150" />
                       <span className="text-sm font-medium truncate">{city.name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                      <span className="text-xs text-muted-foreground group-hover:text-accent-foreground ml-auto shrink-0 transition-colors duration-150">
                         {city.streets.length}
                       </span>
                     </div>
@@ -168,14 +168,14 @@ export const BuildingsTreeSidebar = ({
                             {/* Street */}
                             <div
                               className={cn(
-                                "flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/50 cursor-pointer transition-all duration-200",
+                                "group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer transition-colors duration-150",
                                 isStreetSelected && "bg-accent/40 shadow-sm"
                               )}
                             >
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-5 w-5 p-0 shrink-0"
+                                className="h-5 w-5 p-0 shrink-0 transition-none group-hover:bg-transparent group-hover:text-accent-foreground hover:bg-transparent [&_svg]:transition-none"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleStreet(street.id);
@@ -188,14 +188,14 @@ export const BuildingsTreeSidebar = ({
                                 )}
                               </Button>
                               <div
-                                className="flex items-center gap-2 flex-1 min-w-0"
+                                className="flex items-center gap-2 flex-1 min-w-0 group-hover:text-accent-foreground"
                                 onClick={() => {
                                   onSelectStreet(street);
                                   if (!isStreetExpanded) toggleStreet(street.id);
                                 }}
                               >
                                 <span className="text-sm truncate">{street.name}</span>
-                                <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                                <span className="text-xs text-muted-foreground group-hover:text-accent-foreground ml-auto shrink-0 transition-colors duration-150">
                                   {street.buildings.length}
                                 </span>
                               </div>
@@ -211,14 +211,14 @@ export const BuildingsTreeSidebar = ({
                                     <div
                                       key={building.id}
                                       className={cn(
-                                        "flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent/50 cursor-pointer transition-all duration-200",
+                                        "group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer transition-colors duration-150",
                                         isBuildingSelected && "bg-accent/40 shadow-sm"
                                       )}
                                       onClick={() => onSelectBuilding(building)}
                                     >
-                      <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-sm truncate">Ulaz {building.name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                      <Building2 className="h-3 w-3 text-muted-foreground group-hover:text-accent-foreground shrink-0 transition-colors duration-150" />
+                      <span className="text-sm truncate group-hover:text-accent-foreground transition-colors duration-150">Ulaz {building.name}</span>
+                      <span className="text-xs text-muted-foreground group-hover:text-accent-foreground ml-auto shrink-0 transition-colors duration-150">
                         {building.apartments.length} st.
                       </span>
                                     </div>

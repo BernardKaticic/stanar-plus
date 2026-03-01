@@ -1,130 +1,114 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  authLogin,
+  authRegister,
+  authLogout,
+  authMe,
+  getStoredSession,
+  setStoredTokens,
+  clearSession,
+} from '../lib/api';
 
 type UserRole = 'admin' | 'upravitelj' | 'stanar';
 
-interface MockUser {
+interface User {
   id: string;
   email: string;
   user_metadata?: {
     full_name?: string;
   };
+  organization_id?: string | null;
+  organization_name?: string | null;
 }
 
 interface AuthContextType {
-  user: MockUser | null;
-  session: any;
+  user: User | null;
+  session: { user: User } | null;
   userRole: UserRole | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: { message: string } | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: { message: string } | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users
-const MOCK_USERS = [
-  { 
-    id: '1', 
-    email: 'admin@stanar.hr', 
-    password: 'admin123',
-    role: 'admin' as UserRole,
-    user_metadata: { full_name: 'Ivan Horvat' }
-  },
-  { 
-    id: '2', 
-    email: 'upravitelj@stanar.hr', 
-    password: 'upravitelj123',
-    role: 'upravitelj' as UserRole,
-    user_metadata: { full_name: 'Marko Marić' }
-  },
-  { 
-    id: '3', 
-    email: 'stanar@stanar.hr', 
-    password: 'stanar123',
-    role: 'stanar' as UserRole,
-    user_metadata: { full_name: 'Ana Kovač' }
-  },
-];
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<MockUser | null>(null);
-  const [session, setSession] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<{ user: User } | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check localStorage for existing session
-    const savedUser = localStorage.getItem('mock_user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData.user);
-      setUserRole(userData.role);
-      setSession({ user: userData.user });
-    }
-    setLoading(false);
+    const init = async () => {
+      const stored = getStoredSession();
+      if (!stored?.accessToken) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const data = await authMe();
+        setUser(data.user);
+        setUserRole(data.role as UserRole);
+        setSession({ user: data.user });
+      } catch {
+        clearSession();
+        setUser(null);
+        setUserRole(null);
+        setSession(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const mockUser = MOCK_USERS.find(u => u.email === email && u.password === password);
-    
-    if (!mockUser) {
-      return { error: { message: 'Invalid login credentials' } };
+    try {
+      const data = await authLogin(email, password);
+      setStoredTokens(data.accessToken, data.refreshToken, data.user, data.role, data.organization_name);
+      setUser(data.user);
+      setUserRole(data.role as UserRole);
+      setSession({ user: data.user });
+      navigate('/');
+      return { error: null };
+    } catch (err: any) {
+      const message =
+        err?.body?.message ||
+        err?.message ||
+        'Neuspjela prijava. Provjerite email i lozinku.';
+      return { error: { message } };
     }
-
-    const userData = {
-      user: {
-        id: mockUser.id,
-        email: mockUser.email,
-        user_metadata: mockUser.user_metadata,
-      },
-      role: mockUser.role,
-    };
-
-    localStorage.setItem('mock_user', JSON.stringify(userData));
-    setUser(userData.user);
-    setUserRole(userData.role);
-    setSession({ user: userData.user });
-    navigate('/');
-    
-    return { error: null };
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Check if user already exists
-    const exists = MOCK_USERS.find(u => u.email === email);
-    if (exists) {
-      return { error: { message: 'User already registered' } };
+    try {
+      const data = await authRegister(email, password, fullName);
+      setStoredTokens(
+        data.accessToken,
+        data.refreshToken,
+        data.user,
+        data.role,
+        data.organization_name
+      );
+      setUser(data.user);
+      setUserRole(data.role as UserRole);
+      setSession({ user: data.user });
+      navigate('/');
+      return { error: null };
+    } catch (err: any) {
+      const message =
+        err?.body?.message ||
+        err?.message ||
+        'Greška pri registraciji. Pokušajte ponovno.';
+      return { error: { message } };
     }
-
-    const userData = {
-      user: {
-        id: Math.random().toString(36).substr(2, 9),
-        email,
-        user_metadata: { full_name: fullName },
-      },
-      role: 'stanar' as UserRole,
-    };
-
-    localStorage.setItem('mock_user', JSON.stringify(userData));
-    setUser(userData.user);
-    setUserRole(userData.role);
-    setSession({ user: userData.user });
-    navigate('/');
-    
-    return { error: null };
   };
 
   const signOut = async () => {
-    localStorage.removeItem('mock_user');
+    await authLogout();
     setUser(null);
     setUserRole(null);
     setSession(null);

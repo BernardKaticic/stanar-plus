@@ -76,10 +76,11 @@ export const ApartmentDetailDialog = ({
   if (!apartment) return null;
 
   const formatCurrency = (value: number) =>
-    `${value.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €`;
+    `${value.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
   const reserveContribution = fees ? fees.reservePerSqm * apartment.area : null;
-  const totalCharge = fees ? (reserveContribution ?? 0) + fees.cleaning + fees.loan : null;
+  const loanContribution = fees ? fees.loan * apartment.area : null;
+  const totalCharge = fees ? (reserveContribution ?? 0) + (loanContribution ?? 0) + fees.cleaning : null;
   const hasDebt = apartment.debt > 0;
 
   // Calculate running balance
@@ -95,36 +96,40 @@ export const ApartmentDetailDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <Home className="h-5 w-5 text-primary" />
-            Stan {apartment.number}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Ulaz {buildingName}, {streetName}, {cityName}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3 w-full">
+            <div>
+              <DialogTitle className="flex items-center gap-3">
+                <Home className="h-5 w-5 text-primary" />
+                Stan {apartment.number}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Ulaz {buildingName}, {streetName}, {cityName}
+              </p>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto justify-end pr-10 sm:pr-12">
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[28px] gap-2"
+                onClick={() => onEdit(apartment)}
+              >
+                <Edit2 className="h-4 w-4" />
+                Uredi
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[28px] gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/60"
+                onClick={() => onDelete(apartment.id, apartment.number)}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+                Obriši
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="mt-4">
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-6">
-            <Button
-              variant="outline"
-              className="min-h-[44px] sm:flex-1"
-              onClick={() => onEdit(apartment)}
-            >
-              <Edit2 className="h-4 w-4 mr-2" />
-              Uredi
-            </Button>
-            <Button
-              variant="outline"
-              className="min-h-[44px]"
-              onClick={() => onDelete(apartment.id, apartment.number)}
-            >
-              <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-              Obriši
-            </Button>
-          </div>
-
+        <div className="mt-2">
           <Tabs defaultValue="info" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info">
@@ -193,7 +198,9 @@ export const ApartmentDetailDialog = ({
                     </div>
                     <div className="rounded-lg border bg-muted/40 px-3 py-2">
                       <p className="text-muted-foreground">Kredit</p>
-                      <p className="font-medium mt-1">{formatCurrency(fees.loan)}</p>
+                      <p className="font-medium mt-1">
+                        {loanContribution !== null ? formatCurrency(loanContribution) : "-"} ({fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
+                      </p>
                     </div>
                     <div className="rounded-lg border bg-muted/40 px-3 py-2">
                       <p className="text-muted-foreground">Pričuva</p>
@@ -231,25 +238,25 @@ export const ApartmentDetailDialog = ({
                       </div>
                     )}
                     {apartment.phone && (
-                      <div className="flex items-center gap-3">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-muted-foreground">Telefon</p>
-                          <a href={`tel:${apartment.phone}`} className="font-medium hover:text-primary">
-                            {apartment.phone}
-                          </a>
-                        </div>
+                      <div>
+                        <p className="text-muted-foreground">Telefon</p>
+                        <a
+                          href={`tel:${apartment.phone}`}
+                          className="font-medium hover:text-primary"
+                        >
+                          {apartment.phone}
+                        </a>
                       </div>
                     )}
                     {apartment.email && (
-                      <div className="flex items-center gap-3">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-muted-foreground">Email</p>
-                          <a href={`mailto:${apartment.email}`} className="font-medium hover:text-primary">
-                            {apartment.email}
-                          </a>
-                        </div>
+                      <div>
+                        <p className="text-muted-foreground">Email</p>
+                        <a
+                          href={`mailto:${apartment.email}`}
+                          className="font-medium hover:text-primary"
+                        >
+                          {apartment.email}
+                        </a>
                       </div>
                     )}
                     {apartment.contact && (
@@ -279,7 +286,7 @@ export const ApartmentDetailDialog = ({
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold">Pregled transakcija</h3>
-                  <Button size="sm" variant="outline" className="min-h-[44px]">
+                  <Button size="sm" variant="outline" className="min-h-[32px]">
                     <Receipt className="h-4 w-4 mr-2" />
                     Dodaj transakciju
                   </Button>

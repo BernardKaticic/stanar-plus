@@ -1,5 +1,5 @@
 import { Truck, Plus, Mail, Phone, Euro, Search, Filter, Download, Building2 as BuildingIcon, Check, ChevronsUpDown, FileText } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,141 +31,95 @@ import { startOfDay, startOfYear, format } from "date-fns";
 import { hr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useSuppliers } from "@/hooks/useSuppliersData";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { locationsApi, suppliersApi } from "@/lib/api";
+import { SupplierDialog } from "@/components/suppliers/SupplierDialog";
+import { toast } from "sonner";
 
 const Suppliers = () => {
-  const [isLoading] = useState(false);
-  // Initialize dates: from start of year to today
   const [dateFrom, setDateFrom] = useState<Date>(startOfYear(new Date()));
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const queryClient = useQueryClient();
+
+  const createSupplier = useMutation({
+    mutationFn: suppliersApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      toast.success("Dobavljač dodan");
+    },
+    onError: (e: any) => toast.error(e?.body?.message || "Greška"),
+  });
+  const updateSupplier = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => suppliersApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      toast.success("Dobavljač ažuriran");
+    },
+    onError: (e: any) => toast.error(e?.body?.message || "Greška"),
+  });
+
+  const handleSupplierSave = (data: any) => {
+    if (editingSupplier) {
+      updateSupplier.mutate({ id: editingSupplier.id, data });
+    } else {
+      createSupplier.mutate(data);
+    }
+    setEditingSupplier(null);
+  };
   const [dateTo, setDateTo] = useState<Date>(startOfDay(new Date()));
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [buildingSearchOpen, setBuildingSearchOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
+  const { data: suppliers = [], isLoading } = useSuppliers({
+    category: categoryFilter === "all" ? undefined : categoryFilter,
+    search: searchTerm || undefined,
+  });
+  const { data: buildingsList = [] } = useQuery({
+    queryKey: ["locations", "building"],
+    queryFn: () => locationsApi.getByLevel("building"),
+  });
   const buildings = [
     { id: "all", name: "Sve zgrade" },
-    { id: "b1", name: "A.Starčevića 15, Vinkovci" },
-    { id: "b2", name: "Ohridska 7, Vinkovci" },
-    { id: "b3", name: "J.J.Strossmayera 22, Vinkovci" },
-    { id: "b4", name: "Trg kralja Tomislava 12, Vinkovci" },
-    { id: "b5", name: "Antuna Starčevića 23A, Vinkovci" },
-    { id: "b6", name: "Lapovačka 5, Vukovar" },
-    { id: "b7", name: "Nikole Tesle 5, Vukovar" },
-    // ... može biti i 700 zgrada
+    ...buildingsList.map((b: any) => ({ id: b.id, name: b.name })),
   ];
 
-  const suppliers = [
-    {
-      id: 1,
-      name: "HEP - Elektra Zagreb d.o.o.",
-      category: "Energija",
-      iban: "HR1210010051863000160",
-      oib: "45678901234",
-      contact: "+385 1 6301 111",
-      email: "info@hep.hr",
-      monthlyAverage: "2.450,00 €",
-      yearlyTotal: "29.400,00 €",
-      lastInvoice: "15.02.2025.",
-    },
-    {
-      id: 2,
-      name: "Zagrebačke otpadne vode d.o.o.",
-      category: "Komunalije",
-      iban: "HR2323400091110102938",
-      oib: "56789012345",
-      contact: "+385 1 6333 600",
-      email: "info@zov.hr",
-      monthlyAverage: "1.850,00 €",
-      yearlyTotal: "22.200,00 €",
-      lastInvoice: "10.02.2025.",
-    },
-    {
-      id: 3,
-      name: "Čistoća d.o.o.",
-      category: "Čišćenje",
-      iban: "HR5523600001101234567",
-      oib: "67890123456",
-      contact: "+385 1 3650 111",
-      email: "cistoca@zg.hr",
-      monthlyAverage: "1.200,00 €",
-      yearlyTotal: "14.400,00 €",
-      lastInvoice: "05.02.2025.",
-    },
-    {
-      id: 4,
-      name: "Servis lifta Marić d.o.o.",
-      category: "Održavanje",
-      iban: "HR8624020061100000001",
-      oib: "78901234567",
-      contact: "+385 91 567 8901",
-      email: "servis@maric-liftovi.hr",
-      monthlyAverage: "350,00 €",
-      yearlyTotal: "4.200,00 €",
-      lastInvoice: "01.02.2025.",
-    },
-    {
-      id: 5,
-      name: "Vodoinstalater Horvat",
-      category: "Održavanje",
-      iban: "HR4523400091110765432",
-      oib: "89012345678",
-      contact: "+385 98 765 4321",
-      email: "horvat.vodoinstalater@gmail.com",
-      monthlyAverage: "450,00 €",
-      yearlyTotal: "5.400,00 €",
-      lastInvoice: "28.01.2025.",
-    },
-  ];
-
-  const totalYearly = suppliers.reduce((sum, s) => 
-    sum + parseFloat(s.yearlyTotal.replace(/[^\d,]/g, '').replace(',', '.')), 0
+  const totalYearly = suppliers.reduce((sum, s) =>
+    sum + parseFloat(String(s.yearlyTotal || "0").replace(/[^\d,]/g, "").replace(",", ".")),
+    0
   );
-
-  const totalMonthly = suppliers.reduce((sum, s) => 
-    sum + parseFloat(s.monthlyAverage.replace(/[^\d,]/g, '').replace(',', '.')), 0
+  const totalMonthly = suppliers.reduce((sum, s) =>
+    sum + parseFloat(String(s.monthlyAverage || "0").replace(/[^\d,]/g, "").replace(",", ".")),
+    0
   );
-
-  const categories = Array.from(new Set(suppliers.map(s => s.category)));
-
-  // Apply category filter
-  const filteredSuppliers = categoryFilter === 'all' 
-    ? suppliers 
-    : suppliers.filter(s => s.category === categoryFilter);
+  const categories = Array.from(new Set(suppliers.map((s: any) => s.category)));
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Dobavljači</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Pregled dobavljača i troškova po kategorijama
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="hidden sm:flex min-h-[44px]">
-            <FileText className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button className="min-h-[44px]">
-            <Plus className="mr-2 h-4 w-4" />
-            Dodaj dobavljača
-          </Button>
-        </div>
+      <div>
+        <h1>Dobavljači</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Pregled dobavljača i troškova po kategorijama
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ukupno dobavljača</p>
-          <p className="text-2xl font-bold mt-1">{suppliers.length}</p>
+          <p className="text-xl font-semibold mt-1">{suppliers?.length ?? 0}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Kategorija</p>
-          <p className="text-2xl font-bold mt-1">{categories.length}</p>
+          <p className="text-xl font-semibold mt-1">{categories.length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">
             {dateFrom || dateTo ? "Trošak u periodu" : "Mjesečni prosjek"}
           </p>
-          <p className="text-2xl font-bold mt-1 text-primary">
+          <p className="text-xl font-semibold mt-1 text-primary">
             {totalMonthly.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
           </p>
           {(dateFrom || dateTo) && (
@@ -178,20 +132,46 @@ const Suppliers = () => {
           <p className="text-sm text-muted-foreground">
             {dateFrom || dateTo ? "Projekcija godišnje" : "Godišnji trošak"}
           </p>
-          <p className="text-2xl font-bold mt-1 text-warning">
+          <p className="text-xl font-semibold mt-1 text-warning">
             {totalYearly.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
           </p>
         </Card>
       </div>
 
-      <Card className="p-4 sm:p-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+            <div>
+              <CardTitle>Popis dobavljača</CardTitle>
+              <CardDescription>
+                Pretraga, filteri i izvoz
+              </CardDescription>
+            </div>
+            <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
+              <Button variant="outline" className="min-h-[32px] gap-2">
+                <FileText className="h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button type="button" className="gap-2 min-h-[32px]" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
+                <Plus className="h-4 w-4" />
+                Dodaj dobavljača
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
         <div className="space-y-4 mb-6">
           {/* Filters Row */}
           <div className="flex gap-3 flex-wrap">
             {/* Search */}
             <div className="relative flex-1 min-w-[250px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Pretraži dobavljače..." className="pl-10" />
+              <Input
+                placeholder="Pretraži dobavljače..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
 
             {/* Building selector with search */}
@@ -201,7 +181,7 @@ const Suppliers = () => {
                   variant="outline"
                   role="combobox"
                   aria-expanded={buildingSearchOpen}
-                  className="w-[300px] justify-between min-h-[44px]"
+                  className="w-[300px] justify-between min-h-[32px]"
                 >
                   <div className="flex items-center gap-2">
                     <BuildingIcon className="h-4 w-4" />
@@ -262,7 +242,7 @@ const Suppliers = () => {
             {selectedBuilding !== "all" && (
               <Button 
                 variant="ghost" 
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => {
                   setDateFrom(startOfYear(new Date()));
                   setDateTo(startOfDay(new Date()));
@@ -302,7 +282,7 @@ const Suppliers = () => {
             <Button 
               variant={categoryFilter === 'all' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[44px]"
+              className="min-h-[32px]"
               onClick={() => setCategoryFilter('all')}
             >
               Svi
@@ -312,7 +292,7 @@ const Suppliers = () => {
                 key={category} 
                 variant={categoryFilter === category ? 'default' : 'outline'} 
                 size="sm" 
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setCategoryFilter(category)}
               >
                 {category}
@@ -321,7 +301,7 @@ const Suppliers = () => {
           </div>
           {categoryFilter !== 'all' && (
             <div className="text-sm text-muted-foreground">
-              Prikazano {filteredSuppliers.length} od {suppliers.length} dobavljača
+              Prikazano {suppliers.length} od {suppliers.length} dobavljača
             </div>
           )}
         </div>
@@ -361,7 +341,7 @@ const Suppliers = () => {
                     </TableRow>
                   ))}
                 </>
-              ) : filteredSuppliers.length === 0 ? (
+              ) : suppliers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="p-0">
                     <EmptyState
@@ -369,7 +349,7 @@ const Suppliers = () => {
                       title="Nema dobavljača"
                       description={suppliers.length === 0 ? "Dodajte prvog dobavljača klikom na gumb iznad" : "Nema dobavljača koji odgovaraju kriterijima"}
                       action={suppliers.length === 0 ? (
-                        <Button size="sm">
+                        <Button size="sm" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
                           <Plus className="mr-2 h-4 w-4" />
                           Dodaj dobavljača
                         </Button>
@@ -378,7 +358,7 @@ const Suppliers = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredSuppliers.map((supplier) => (
+                suppliers.map((supplier) => (
                 <TableRow key={supplier.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -417,7 +397,7 @@ const Suppliers = () => {
                     {dateFrom || dateTo ? "3" : supplier.yearlyTotal}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="min-h-[44px]">Uredi</Button>
+                    <Button variant="ghost" size="sm" className="min-h-[32px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>Uredi</Button>
                   </TableCell>
                 </TableRow>
                 ))
@@ -425,6 +405,13 @@ const Suppliers = () => {
             </TableBody>
           </Table>
         </div>
+
+        <SupplierDialog
+          open={supplierDialogOpen}
+          onOpenChange={(o) => { setSupplierDialogOpen(o); if (!o) setEditingSupplier(null); }}
+          onSave={handleSupplierSave}
+          editItem={editingSupplier}
+        />
 
         {/* Mobile Card View */}
         <div className="md:hidden space-y-3">
@@ -448,20 +435,20 @@ const Suppliers = () => {
                 </Card>
               ))}
             </>
-          ) : filteredSuppliers.length === 0 ? (
+          ) : suppliers.length === 0 ? (
             <EmptyState
               icon={Truck}
               title="Nema dobavljača"
               description={suppliers.length === 0 ? "Dodajte prvog dobavljača klikom na gumb iznad" : "Nema dobavljača koji odgovaraju kriterijima"}
               action={suppliers.length === 0 ? (
-                <Button size="sm">
+                <Button size="sm" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
                   <Plus className="mr-2 h-4 w-4" />
                   Dodaj dobavljača
                 </Button>
               ) : undefined}
             />
           ) : (
-            filteredSuppliers.map((supplier) => (
+            suppliers.map((supplier) => (
               <Card key={supplier.id} className="p-4 hover:shadow-md transition-shadow">
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
@@ -507,7 +494,7 @@ const Suppliers = () => {
                     </div>
                   </div>
                   
-                  <Button variant="outline" size="sm" className="w-full min-h-[44px]">
+                    <Button variant="outline" size="sm" className="w-full min-h-[32px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
                     Uredi
                   </Button>
                 </div>
@@ -515,6 +502,7 @@ const Suppliers = () => {
             ))
           )}
         </div>
+        </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -532,7 +520,7 @@ const Suppliers = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Euro className="h-4 w-4 text-muted-foreground" />
-                <p className="text-lg font-bold">
+                <p className="text-sm font-semibold">
                   {categoryTotal.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')} €
                 </p>
               </div>

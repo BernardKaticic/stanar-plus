@@ -31,90 +31,80 @@ import { Building2, TrendingUp, TrendingDown, Download, Wallet, Check, ChevronsU
 import { Label } from "@/components/ui/label";
 import { format, startOfDay, startOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { locationsApi, financialApi, suppliersApi } from "@/lib/api";
 
 const FinancialCard = () => {
   const [open, setOpen] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState("split-marmontova-12");
+  const [selectedAddress, setSelectedAddress] = useState<string>("");
   
-  // Initialize dates: from start of year to today
   const [dateFrom, setDateFrom] = useState<Date>(startOfYear(new Date()));
   const [dateTo, setDateTo] = useState<Date>(startOfDay(new Date()));
 
-  // Mock data - puno više lokacija za autocomplete
-  const locations = [
-    { id: "split-marmontova-12", label: "Split, Marmontova 12" },
-    { id: "split-marmontova-14", label: "Split, Marmontova 14" },
-    { id: "split-diocletijanova-5", label: "Split, Dioklecijanova 5" },
-    { id: "zagreb-ilica-23", label: "Zagreb, Ilica 23" },
-    { id: "zagreb-savska-45", label: "Zagreb, Savska 45" },
-    { id: "rijeka-korzo-8", label: "Rijeka, Korzo 8" },
-    { id: "osijek-europska-15", label: "Osijek, Europska 15" },
-    { id: "zadar-kalelarga-34", label: "Zadar, Kalelarga 34" },
-  ];
+  const { data: locationsList = [] } = useQuery({
+    queryKey: ["locations", "building"],
+    queryFn: () => locationsApi.getByLevel("building"),
+  });
+  const locations = locationsList.map((l: any) => ({ id: l.id, label: l.name }));
+  const buildingId = selectedAddress?.startsWith("building-") ? selectedAddress.replace("building-", "") : "";
 
-  // Mock data - dobavljači za odabranu adresu
-  const suppliers = [
-    {
-      name: "HEP",
-      category: "Komunalne usluge",
-      monthlyAvg: "1.234,56 €",
-      yearly: "14.814,72 €",
-      status: "active",
-    },
-    {
-      name: "Vodoopskrba i odvodnja",
-      category: "Komunalne usluge",
-      monthlyAvg: "456,78 €",
-      yearly: "5.481,36 €",
-      status: "active",
-    },
-    {
-      name: "Čistoća",
-      category: "Održavanje",
-      monthlyAvg: "234,50 €",
-      yearly: "2.814,00 €",
-      status: "active",
-    },
-  ];
+  const { data: financial } = useQuery({
+    queryKey: [
+      "financial",
+      buildingId,
+      dateFrom ? dateFrom.toISOString().slice(0, 10) : null,
+      dateTo ? dateTo.toISOString().slice(0, 10) : null,
+    ],
+    queryFn: () =>
+      financialApi.getByBuilding(
+        buildingId,
+        dateFrom ? dateFrom.toISOString().slice(0, 10) : undefined,
+        dateTo ? dateTo.toISOString().slice(0, 10) : undefined
+      ),
+    enabled: !!buildingId,
+  });
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: () => suppliersApi.getAll({}),
+    enabled: !!buildingId,
+  });
 
-  // Mock data - financijsko stanje za odabranu adresu
-  const accountInfo = {
-    currentBalance: "12.456,32 €",
-    previousYearCarryover: "2.345,67 €",
-    totalCharged: "45.567,89 €",
-    totalPaid: "38.234,50 €",
-    totalExpenses: "23.456,78 €",
-  };
+  const accountInfo = financial
+    ? {
+        currentBalance: financial.currentBalance,
+        totalCharged: financial.totalCharged,
+        totalPaid: financial.totalPaid,
+        previousYearCarryover: (financial as any).previousYearCarryover ?? "0,00 €",
+        totalExpenses: (financial as any).totalExpenses ?? "0,00 €",
+      }
+    : {
+        currentBalance: "0,00 €",
+        totalCharged: "0,00 €",
+        totalPaid: "0,00 €",
+        previousYearCarryover: "0,00 €",
+        totalExpenses: "0,00 €",
+      };
+  const transactions = financial?.transactions ?? [];
+  const supplierList = suppliers.map((s: any) => ({
+    name: s.name,
+    category: s.category,
+    monthlyAvg: s.monthlyAverage,
+    yearly: s.yearlyTotal,
+    status: "active",
+  }));
 
-  const transactions = [
-    {
-      date: "15.02.2025.",
-      type: "uplata",
-      description: "Galić Mato - Pričuva 2/2025",
-      amount: "65,55 €",
-      balance: "12.456,32 €",
-    },
-    {
-      date: "14.02.2025.",
-      type: "trošak",
-      description: "HEP - Električna energija",
-      amount: "-1.234,56 €",
-      balance: "12.390,77 €",
-    },
-    {
-      date: "13.02.2025.",
-      type: "uplata",
-      description: "Babić Ana - Pričuva 2/2025",
-      amount: "78,90 €",
-      balance: "13.625,33 €",
-    },
-  ];
+  useEffect(() => {
+    if (locations.length && !selectedAddress) {
+      setSelectedAddress(locations[0]?.id ?? "");
+    }
+  }, [locations, selectedAddress]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Financijska kartica</h1>
+          <h1>Financijska kartica</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Pregled financijskih podataka po adresi
           </p>
@@ -130,7 +120,7 @@ const FinancialCard = () => {
         <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
           {/* Autocomplete za adresu */}
           <div className="space-y-2">
-            <Label className="block">Pretraži adresu</Label>
+            <Label className="block text-sm">Pretraži adresu</Label>
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -185,7 +175,7 @@ const FinancialCard = () => {
 
           {/* Date picker - Datum od */}
           <div className="space-y-2">
-            <Label className="block">Datum od</Label>
+            <Label className="block text-sm">Datum od</Label>
             <DatePicker
               date={dateFrom}
               onDateChange={setDateFrom}
@@ -195,7 +185,7 @@ const FinancialCard = () => {
 
           {/* Date picker - Datum do */}
           <div className="space-y-2">
-            <Label className="block">Datum do</Label>
+            <Label className="block text-sm">Datum do</Label>
             <DatePicker
               date={dateTo}
               onDateChange={setDateTo}
@@ -215,7 +205,7 @@ const FinancialCard = () => {
         {/* Tab: Dobavljači */}
         <TabsContent value="suppliers" className="space-y-6">
           <Card className="p-4 sm:p-6">
-            <h2 className="text-xl font-semibold mb-4">
+            <h2 className="text-base font-semibold mb-4">
               Dobavljači za odabranu adresu
             </h2>
             <div className="rounded-md border">
@@ -234,7 +224,7 @@ const FinancialCard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {suppliers.length === 0 ? (
+                  {supplierList.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-12">
                         <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -244,7 +234,7 @@ const FinancialCard = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    suppliers.map((supplier, i) => (
+                    supplierList.map((supplier, i) => (
                     <TableRow key={i}>
                       <TableCell className="font-medium">{supplier.name}</TableCell>
                       <TableCell>{supplier.category}</TableCell>
@@ -316,7 +306,7 @@ const FinancialCard = () => {
           {/* Transakcije */}
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2 p-6">
-              <h2 className="text-xl font-semibold mb-4">Nedavne transakcije</h2>
+              <h2 className="text-base font-semibold mb-4">Nedavne transakcije</h2>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -377,7 +367,7 @@ const FinancialCard = () => {
             {/* Rekapitulacija */}
             <div className="space-y-6">
               <Card className="p-4 sm:p-6">
-                <h3 className="text-lg font-semibold mb-4">
+                <h3 className="text-base font-semibold mb-4">
                   Rekapitulacija prometa
                 </h3>
                 <div className="space-y-4">

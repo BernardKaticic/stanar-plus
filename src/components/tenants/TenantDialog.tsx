@@ -26,11 +26,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
+import { apartmentsApi } from "@/lib/api";
 
 const tenantSchema = z.object({
-  email: z.string().trim().email("Neispravna email adresa").max(255, "Email je predugačak"),
-  full_name: z.string().trim().min(1, "Ime je obavezno").max(100, "Ime je predugačko"),
-  phone: z.string().trim().max(20, "Broj telefona je predugačak").optional(),
+  name: z.string().trim().min(1, "Ime je obavezno").max(200, "Ime je predugačko"),
+  email: z.preprocess((v) => (v === "" ? undefined : v), z.string().email("Neispravna email adresa").max(255).optional()),
+  phone: z.string().trim().max(50, "Broj telefona je predugačak").optional(),
   apartment_id: z.string().min(1, "Stan je obavezan"),
 });
 
@@ -46,25 +47,16 @@ export const TenantDialog = ({ open, onOpenChange, onSave }: TenantDialogProps) 
   const form = useForm<TenantFormData>({
     resolver: zodResolver(tenantSchema),
     defaultValues: {
+      name: "",
       email: "",
-      full_name: "",
       phone: "",
       apartment_id: "",
     },
   });
 
-  const { data: apartments } = useQuery({
-    queryKey: ["available-apartments"],
-    queryFn: async () => {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      return [
-        { id: '3', apartment_number: '3', tenant_id: null, building: { number: '15', name: null, street: { name: 'Antuna Starčevića', city: { name: 'Vinkovci' } } } },
-        { id: '6', apartment_number: '1', tenant_id: null, building: { number: '7', name: null, street: { name: 'Ohridska', city: { name: 'Vinkovci' } } } },
-        { id: '7', apartment_number: '4', tenant_id: null, building: { number: '12', name: null, street: { name: 'Marmontova', city: { name: 'Split' } } } },
-      ];
-    },
+  const { data: apartments = [] } = useQuery({
+    queryKey: ["apartments"],
+    queryFn: () => apartmentsApi.getAll(),
     enabled: open,
   });
 
@@ -77,16 +69,16 @@ export const TenantDialog = ({ open, onOpenChange, onSave }: TenantDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-lg md:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Dodaj novog stanara</DialogTitle>
+          <DialogTitle>Dodaj suvlasnika</DialogTitle>
           <DialogDescription>
-            Unesite podatke o novom stanaru i dodijelite mu stan.
+            Unesite podatke o novom suvlasniku i dodijelite mu stan.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="full_name"
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Ime i prezime</FormLabel>
@@ -103,7 +95,7 @@ export const TenantDialog = ({ open, onOpenChange, onSave }: TenantDialogProps) 
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email adresa</FormLabel>
+                  <FormLabel>Email adresa (opcionalno)</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="npr@primjer.hr" {...field} />
                   </FormControl>
@@ -139,11 +131,18 @@ export const TenantDialog = ({ open, onOpenChange, onSave }: TenantDialogProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {apartments?.map((apt) => (
-                        <SelectItem key={apt.id} value={apt.id}>
-                          {apt.building?.street?.city?.name} - {apt.building?.street?.name} {apt.building?.number}, Stan {apt.apartment_number}
-                        </SelectItem>
-                      ))}
+                      {apartments.map((apt: any) => {
+                        const b = apt.buildings || apt.building;
+                        const city = b?.streets?.cities?.name || b?.street?.city?.name || "";
+                        const street = b?.streets?.name || b?.street?.name || "";
+                        const num = b?.number || "";
+                        const addr = [city, street, num].filter(Boolean).join(" - ");
+                        return (
+                          <SelectItem key={apt.id} value={apt.id}>
+                            {addr ? `${addr}, Stan ${apt.apartment_number}` : `Stan ${apt.apartment_number}`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -155,7 +154,7 @@ export const TenantDialog = ({ open, onOpenChange, onSave }: TenantDialogProps) 
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Odustani
               </Button>
-              <Button type="submit">Dodaj stanara</Button>
+              <Button type="submit">Dodaj suvlasnika</Button>
             </div>
           </form>
         </Form>

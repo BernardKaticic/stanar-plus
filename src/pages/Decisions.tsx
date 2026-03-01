@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -43,83 +43,19 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { Info } from "lucide-react";
 
 const Decisions = () => {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [decisionStatusFilter, setDecisionStatusFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [contractStatusFilter, setContractStatusFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [isLoading] = useState(false);
 
-  // Mock data - odluke
-  const decisions = [
-    {
-      id: 1,
-      number: "01/2025",
-      title: "Odluka o godišnjem izvještaju",
-      date: "15.01.2025.",
-      building: "Split, Marmontova 12",
-      status: "active",
-      type: "decision",
-    },
-    {
-      id: 2,
-      number: "02/2025",
-      title: "Odluka o izvedbi radova na fasadi",
-      date: "20.01.2025.",
-      building: "Split, Marmontova 12",
-      status: "active",
-      type: "decision",
-    },
-    {
-      id: 3,
-      number: "05/2024",
-      title: "Odluka o nabavi vatrogasnih aparata",
-      date: "10.12.2024.",
-      building: "Split, Dioklecijanova 5",
-      status: "archived",
-      type: "decision",
-    },
-  ];
-
-  // Mock data - ugovori
-  const contracts = [
-    {
-      id: 1,
-      number: "UG-01/2025",
-      title: "Ugovor o održavanju lifta",
-      contractor: "Lift Servis d.o.o.",
-      dateFrom: "01.01.2025.",
-      dateTo: "31.12.2025.",
-      building: "Split, Marmontova 12",
-      amount: "2.400,00 €",
-      status: "active",
-      type: "contract",
-    },
-    {
-      id: 2,
-      number: "UG-02/2025",
-      title: "Ugovor o čišćenju zajedničkih prostorija",
-      contractor: "Čistoća Plus d.o.o.",
-      dateFrom: "01.01.2025.",
-      dateTo: "31.12.2025.",
-      building: "Split, Marmontova 12",
-      amount: "3.600,00 €",
-      status: "active",
-      type: "contract",
-    },
-    {
-      id: 3,
-      number: "UG-15/2024",
-      title: "Ugovor o sanaciji dimnjaka",
-      contractor: "Dimnjačar Pro d.o.o.",
-      dateFrom: "15.11.2024.",
-      dateTo: "15.12.2024.",
-      building: "Split, Dioklecijanova 5",
-      amount: "1.850,00 €",
-      status: "completed",
-      type: "contract",
-    },
-  ];
+  const decisions: { id: number; number: string; title: string; date: string; building: string; status: string; type: string }[] = [];
+  const contracts: { id: number; number: string; title: string; contractor: string; dateFrom: string; dateTo: string; building: string; amount: string; status: string; type: string }[] = [];
 
   const filteredDecisions = decisions.filter(
     (decision) => {
@@ -141,67 +77,36 @@ const Decisions = () => {
 
   return (
     <div className="space-y-6">
+      <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30">
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          Odluke i ugovori – funkcionalnost će biti dostupna u sljedećoj fazi. Prikazani su demo podaci.
+        </AlertDescription>
+      </Alert>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Odluke i ugovori</h1>
+          <h1>Odluke i ugovori</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Upravljanje odlukama skupštine i ugovorima
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="hidden sm:flex min-h-[44px]">
+          <Button 
+            variant="outline" 
+            className="hidden sm:flex min-h-[32px]"
+            onClick={() => toast({ title: "Uskoro", description: "Export CSV bit će dostupan u sljedećoj fazi." })}
+          >
             <FileText className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="min-h-[44px]">
-                <Plus className="mr-2 h-4 w-4" />
-                Dodaj novi
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Dodaj odluku ili ugovor</DialogTitle>
-                <DialogDescription>
-                  Unesite podatke o novoj odluci ili ugovoru
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="type">Tip dokumenta</Label>
-                  <Select defaultValue="decision">
-                    <SelectTrigger id="type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="decision">Odluka</SelectItem>
-                      <SelectItem value="contract">Ugovor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="number">Broj</Label>
-                  <Input id="number" placeholder="01/2025" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Naslov</Label>
-                  <Input id="title" placeholder="Naslov odluke/ugovora" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Opis</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Detaljan opis..."
-                    rows={4}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Spremi</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="min-h-[32px]"
+            onClick={() => toast({ title: "Uskoro", description: "Dodavanje odluka i ugovora bit će dostupno u sljedećoj fazi." })}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Dodaj novi
+          </Button>
         </div>
       </div>
 
@@ -217,7 +122,7 @@ const Decisions = () => {
               className="pl-10"
             />
           </div>
-          <Button variant="outline" className="min-h-[44px]">
+          <Button variant="outline" className="min-h-[32px]">
             <Filter className="mr-2 h-4 w-4" />
             Filtri
           </Button>
@@ -239,15 +144,20 @@ const Decisions = () => {
 
         {/* Tab: Odluke */}
         <TabsContent value="decisions">
-          <Card className="p-4 sm:p-6">
-            <h2 className="text-xl font-semibold mb-4">Odluke skupštine</h2>
-            
+          <Card>
+            <CardHeader>
+              <CardTitle>Odluke skupštine</CardTitle>
+              <CardDescription>
+                Pregled i filtriranje odluka
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             {/* Quick Status Filters */}
             <div className="flex gap-2 mb-4">
               <Button
                 variant={decisionStatusFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setDecisionStatusFilter('all')}
               >
                 Sve
@@ -255,7 +165,7 @@ const Decisions = () => {
               <Button
                 variant={decisionStatusFilter === 'active' ? 'default' : 'outline'}
                 size="sm"
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setDecisionStatusFilter('active')}
               >
                 Aktivne
@@ -263,7 +173,7 @@ const Decisions = () => {
               <Button
                 variant={decisionStatusFilter === 'archived' ? 'default' : 'outline'}
                 size="sm"
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setDecisionStatusFilter('archived')}
               >
                 Arhivirane
@@ -329,10 +239,10 @@ const Decisions = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
@@ -390,10 +300,10 @@ const Decisions = () => {
                       </div>
                       
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]">
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[32px]">
                           Pregled
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]">
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[32px]">
                           PDF
                         </Button>
                       </div>
@@ -402,20 +312,26 @@ const Decisions = () => {
                 ))
               )}
             </div>
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* Tab: Ugovori */}
         <TabsContent value="contracts">
-          <Card className="p-4 sm:p-6">
-            <h2 className="text-xl font-semibold mb-4">Ugovori</h2>
-            
+          <Card>
+            <CardHeader>
+              <CardTitle>Ugovori</CardTitle>
+              <CardDescription>
+                Pregled i filtriranje ugovora
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             {/* Quick Status Filters */}
             <div className="flex gap-2 mb-4">
               <Button
                 variant={contractStatusFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setContractStatusFilter('all')}
               >
                 Svi
@@ -423,7 +339,7 @@ const Decisions = () => {
               <Button
                 variant={contractStatusFilter === 'active' ? 'default' : 'outline'}
                 size="sm"
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setContractStatusFilter('active')}
               >
                 Aktivni
@@ -431,7 +347,7 @@ const Decisions = () => {
               <Button
                 variant={contractStatusFilter === 'archived' ? 'default' : 'outline'}
                 size="sm"
-                className="min-h-[44px]"
+                className="min-h-[32px]"
                 onClick={() => setContractStatusFilter('archived')}
               >
                 Arhivirani
@@ -515,10 +431,10 @@ const Decisions = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[44px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
@@ -588,10 +504,10 @@ const Decisions = () => {
                       </div>
                       
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]">
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[32px]">
                           Pregled
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1 min-h-[44px]">
+                        <Button variant="outline" size="sm" className="flex-1 min-h-[32px]">
                           PDF
                         </Button>
                       </div>
@@ -600,6 +516,7 @@ const Decisions = () => {
                 ))
               )}
             </div>
+            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>

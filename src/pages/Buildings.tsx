@@ -1,9 +1,24 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, MapPin, Plus, Edit2, Trash2, Home, User, Menu, Loader2 } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  Plus,
+  Edit2,
+  Trash2,
+  User,
+  Menu,
+  Loader2,
+  ChevronRight,
+} from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   AlertDialog,
@@ -140,8 +155,12 @@ const Buildings = () => {
   const [apartmentDetailOpen, setApartmentDetailOpen] = useState(false);
 
   // Edit states
-  const [editingCity, setEditingCity] = useState<{ id: string; name: string } | null>(null);
-  const [editingStreet, setEditingStreet] = useState<{ id: string; name: string } | null>(null);
+  const [editingCity, setEditingCity] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [editingStreet, setEditingStreet] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [editingApartment, setEditingApartment] = useState<Apartment | null>(null);
 
@@ -162,12 +181,18 @@ const Buildings = () => {
 
   const handleEditCity = (data: { name: string }) => {
     if (!editingCity) return;
-    updateCity.mutate({ id: editingCity.id, ...data }, {
-      onSuccess: () => {
-        setCityDialogOpen(false);
-        setEditingCity(null);
+    updateCity.mutate(
+      {
+        id: editingCity.id,
+        data,
       },
-    });
+      {
+        onSuccess: () => {
+          setCityDialogOpen(false);
+          setEditingCity(null);
+        },
+      },
+    );
   };
 
   const handleDeleteCity = (id: string) => {
@@ -181,19 +206,31 @@ const Buildings = () => {
   // Street CRUD
   const handleAddStreet = (data: { name: string }) => {
     if (!selectedCity) return;
-    createStreet.mutate({ ...data, city_id: selectedCity.id }, {
-      onSuccess: () => setStreetDialogOpen(false),
-    });
+    createStreet.mutate(
+      {
+        cityId: selectedCity.id,
+        data,
+      },
+      {
+        onSuccess: () => setStreetDialogOpen(false),
+      },
+    );
   };
 
   const handleEditStreet = (data: { name: string }) => {
     if (!editingStreet) return;
-    updateStreet.mutate({ id: editingStreet.id, ...data }, {
-      onSuccess: () => {
-        setStreetDialogOpen(false);
-        setEditingStreet(null);
+    updateStreet.mutate(
+      {
+        id: editingStreet.id,
+        data,
       },
-    });
+      {
+        onSuccess: () => {
+          setStreetDialogOpen(false);
+          setEditingStreet(null);
+        },
+      },
+    );
   };
 
   const handleDeleteStreet = (id: string) => {
@@ -205,21 +242,33 @@ const Buildings = () => {
   };
 
   // Building CRUD
-  const handleAddBuilding = (data: { name: string }) => {
+  const handleAddBuilding = (data: { number: string; name?: string }) => {
     if (!selectedCity || !selectedStreet) return;
-    createBuilding.mutate({ number: data.name, street_id: selectedStreet.id }, {
-      onSuccess: () => setBuildingDialogOpen(false),
-    });
+    createBuilding.mutate(
+      {
+        streetId: selectedStreet.id,
+        data: { number: data.number, name: data.name },
+      },
+      {
+        onSuccess: () => setBuildingDialogOpen(false),
+      },
+    );
   };
 
-  const handleEditBuilding = (data: { name: string }) => {
+  const handleEditBuilding = (data: { number: string; name?: string; iban?: string; oib?: string; representative?: string; representativePhone?: string; cleaningFee?: number; loanFee?: number; reservePerSqm?: number }) => {
     if (!editingBuilding) return;
-    updateBuilding.mutate({ id: editingBuilding.id, number: data.name }, {
-      onSuccess: () => {
-        setBuildingDialogOpen(false);
-        setEditingBuilding(null);
+    updateBuilding.mutate(
+      {
+        id: editingBuilding.id,
+        data,
       },
-    });
+      {
+        onSuccess: () => {
+          setBuildingDialogOpen(false);
+          setEditingBuilding(null);
+        },
+      },
+    );
   };
 
   const handleDeleteBuilding = (id: string) => {
@@ -231,36 +280,60 @@ const Buildings = () => {
   };
 
   // Apartment CRUD
-  const handleAddApartment = (data: Omit<Apartment, 'id' | 'debt' | 'reserve'>) => {
+  const handleAddApartment = (data: Omit<Apartment, "id" | "debt" | "reserve">) => {
     if (!selectedBuilding) return;
-    createApartment.mutate({
-      apartment_number: data.number,
-      floor: 1,
-      size_m2: data.area,
-      building_id: selectedBuilding.id,
-    }, {
-      onSuccess: () => {
-        setApartmentDialogOpen(false);
+    createApartment.mutate(
+      {
+        buildingId: selectedBuilding.id,
+        data: {
+          apartment_number: data.number,
+          floor: 0,
+          size_m2: data.area,
+          rooms: (data as any).rooms ?? null,
+          owner: data.owner,
+          tenant: data.tenant,
+          contact: data.contact,
+          email: data.email,
+          phone: data.phone,
+          notes: data.notes,
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          setApartmentDialogOpen(false);
+        },
+      },
+    );
   };
 
-  const handleEditApartment = (data: Omit<Apartment, 'id' | 'debt' | 'reserve'>) => {
+  const handleEditApartment = (data: Omit<Apartment, "id" | "debt" | "reserve">) => {
     if (!editingApartment) return;
-    updateApartment.mutate({
-      id: editingApartment.id,
-      apartment_number: data.number,
-      floor: 1,
-      size_m2: data.area,
-    }, {
-      onSuccess: () => {
-        setApartmentDialogOpen(false);
-        setEditingApartment(null);
-        if (selectedApartment?.id === editingApartment.id) {
-          setSelectedApartment({ ...selectedApartment, ...data });
-        }
+    updateApartment.mutate(
+      {
+        id: editingApartment.id,
+        data: {
+          apartment_number: data.number,
+          floor: 0,
+          size_m2: data.area,
+          rooms: (data as any).rooms ?? null,
+          owner: data.owner,
+          tenant: data.tenant,
+          contact: data.contact,
+          email: data.email,
+          phone: data.phone,
+          notes: data.notes,
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          setApartmentDialogOpen(false);
+          setEditingApartment(null);
+          if (selectedApartment?.id === editingApartment.id) {
+            setSelectedApartment({ ...selectedApartment, ...data });
+          }
+        },
+      },
+    );
   };
 
   const handleDeleteApartment = (id: string) => {
@@ -283,26 +356,33 @@ const Buildings = () => {
     setDeleteDialog(null);
   };
 
-  const handleSelectCity = (city: City) => {
+  const handleSelectCity = (city: any) => {
     setSelectedCity(city);
     setSelectedStreet(null);
     setSelectedBuilding(null);
   };
 
-  const handleSelectStreet = (street: Street) => {
+  const handleSelectStreet = (street: any) => {
     setSelectedStreet(street);
     setSelectedBuilding(null);
   };
 
-  const handleSelectBuilding = (building: Building) => {
-    // Find parent city and street for this building
+  // Koristi svježe podatke iz cachea – selectedCity/selectedStreet su reference na stare objekte
+  const displayCity = selectedCity && cities
+    ? cities.find((c) => String(c.id) === String(selectedCity.id)) ?? selectedCity
+    : selectedCity;
+  const displayStreet = selectedStreet && displayCity?.streets
+    ? displayCity.streets.find((s) => String(s.id) === String(selectedStreet.id)) ?? selectedStreet
+    : selectedStreet;
+
+  const handleSelectBuilding = (building: any) => {
     let foundCity: City | null = null;
     let foundStreet: Street | null = null;
 
     if (cities) {
       for (const city of cities) {
         for (const street of city.streets) {
-          if (street.buildings.some(b => b.id === building.id)) {
+          if (street.buildings.some((b) => b.id === building.id)) {
             foundCity = city;
             foundStreet = street;
             break;
@@ -347,46 +427,68 @@ const Buildings = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 space-y-6">
+        <div className="max-w-6xl mx-auto px-4 md:px-5 py-4 md:py-5 space-y-4">
+          {/* Header kad nije odabran ulaz */}
           {!selectedBuilding && (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               {/* Mobile navigation button */}
               <Button
                 variant="outline"
                 size="icon"
-                className="lg:hidden min-w-[44px] min-h-[44px]"
+                className="lg:hidden min-w-[40px] min-h-[40px] mt-1"
                 onClick={() => setNavDrawerOpen(true)}
               >
                 <Menu className="h-5 w-5" />
               </Button>
 
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold truncate">
-                  {!selectedCity && "Svi gradovi"}
+                {/* Breadcrumb */}
+                <p className="text-xs text-muted-foreground mb-1">
+                  {!selectedCity && "Gradovi"}
+                  {selectedCity && !selectedStreet && `Gradovi / ${selectedCity.name}`}
+                  {selectedStreet &&
+                    !selectedBuilding &&
+                    `Gradovi / ${selectedCity?.name} / ${selectedStreet.name}`}
+                </p>
+
+                <h1 className="truncate">
+                  {!selectedCity && "Struktura zgrada"}
                   {selectedCity && !selectedStreet && selectedCity.name}
                   {selectedStreet && !selectedBuilding && selectedStreet.name}
                 </h1>
-                <p className="text-muted-foreground mt-1 text-sm hidden sm:block">
-                  {!selectedCity && "Odaberite grad iz navigacije"}
-                  {selectedCity && !selectedStreet && "Odaberite ulicu za pregled ulaza"}
-                  {selectedStreet && !selectedBuilding && "Odaberite ulaz za detaljne informacije"}
+
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {!selectedCity && "Odaberite grad iz stabla lijevo ili dodajte novi."}
+                  {selectedCity &&
+                    !selectedStreet &&
+                    "Odaberite ulicu u gradu ili dodajte novu ulicu."}
+                  {selectedStreet &&
+                    !selectedBuilding &&
+                    "Odaberite ulaz za pregled stanova i financija."}
                 </p>
               </div>
-              <div className="flex gap-2 shrink-0">
+
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                 {!selectedCity && (
-                  <Button className="min-h-[44px]" onClick={() => setCityDialogOpen(true)}>
+                  <Button className="min-h-[28px]" onClick={() => setCityDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Dodaj grad
                   </Button>
                 )}
                 {selectedCity && !selectedStreet && (
-                  <Button className="min-h-[44px]" onClick={() => setStreetDialogOpen(true)}>
+                  <Button
+                    className="min-h-[28px]"
+                    onClick={() => setStreetDialogOpen(true)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Dodaj ulicu
                   </Button>
                 )}
                 {selectedStreet && !selectedBuilding && (
-                  <Button className="min-h-[44px]" onClick={() => setBuildingDialogOpen(true)}>
+                  <Button
+                    className="min-h-[28px]"
+                    onClick={() => setBuildingDialogOpen(true)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Dodaj ulaz
                   </Button>
@@ -396,416 +498,571 @@ const Buildings = () => {
           )}
 
           {/* Overview Cards - All Cities */}
-          {!selectedCity && cities && (
-            cities.length === 0 ? (
+          {!selectedCity &&
+            cities &&
+            (cities.length === 0 ? (
               <EmptyState
                 icon={MapPin}
-                title="Nema gradova"
-                description="Započnite dodavanjem prvog grada u sustav."
-                action={
-                  <Button className="min-h-[44px]" onClick={() => setCityDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Dodaj prvi grad
-                  </Button>
-                }
+                title="Dodajte svoj prvi grad"
+                description="Započnite tako da dodate grad. Nakon toga dodajte ulicu, ulaz i stanove. Svi koraci su jednostavni."
+                action={{
+                  label: "Dodaj prvi grad",
+                  onClick: () => setCityDialogOpen(true),
+                }}
               />
             ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {cities.map((city) => (
-                <Card 
-                  key={city.id} 
-                  className="p-6 cursor-pointer hover:bg-accent/30 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 animate-fade-in"
-                  onClick={() => handleSelectCity(city)}
-                >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg p-2 bg-primary/10">
-                    <MapPin className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{city.name}</h3>
-                    <p className="text-sm text-muted-foreground">{city.streets.length} ulica/e</p>
-                  </div>
-                </div>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="min-w-[44px] min-h-[44px] hover:bg-primary/10 hover:text-primary"
-                    onClick={() => {
-                      setEditingCity({ id: city.id, name: city.name });
-                      setCityDialogOpen(true);
-                    }}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="min-w-[44px] min-h-[44px] hover:bg-destructive/10"
-                    onClick={() => setDeleteDialog({ open: true, type: "city", id: city.id, name: city.name })}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+              <div className="max-w-4xl space-y-2">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {cities.map((city) => (
+                    <Card
+                      key={city.id}
+                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                      onClick={() => handleSelectCity(city)}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="rounded-md p-1.5 bg-primary/10">
+                            <MapPin className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">{city.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {city.streets.length} ulica •{" "}
+                              {formatNumber(city.totalApartments)} stanova
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className="flex gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="min-w-[28px] min-h-[28px] hover:bg-primary/10 hover:text-primary"
+                            onClick={() => {
+                              setEditingCity({ id: city.id, name: city.name });
+                              setCityDialogOpen(true);
+                            }}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="min-w-[28px] min-h-[28px] hover:bg-destructive/10"
+                            onClick={() =>
+                              setDeleteDialog({
+                                open: true,
+                                type: "city",
+                                id: city.id,
+                                name: city.name,
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs mt-1">
+                        <span className="text-muted-foreground">Dugovanja</span>
+                        <span className="font-semibold text-destructive">
+                          {formatCurrency(city.totalDebt)}
+                        </span>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Stanovi</p>
-                    <p className="font-semibold">{formatNumber(city.totalApartments)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Dugovanja</p>
-                    <p className="font-semibold text-destructive">{formatCurrency(city.totalDebt)}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            )
-          )}
+            ))}
 
           {/* Streets Grid */}
-          {selectedCity && !selectedStreet && !selectedBuilding && (
-            selectedCity.streets.length === 0 ? (
+          {selectedCity &&
+            !selectedStreet &&
+            !selectedBuilding &&
+            (displayCity && (displayCity.streets?.length ?? 0) === 0 ? (
               <EmptyState
-                icon={MapPin}
                 title="Nema ulica"
                 description={`Dodajte prvu ulicu u grad ${selectedCity.name}.`}
-                action={
-                  <Button className="min-h-[44px]" onClick={() => setStreetDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Dodaj prvu ulicu
-                  </Button>
-                }
+                action={{
+                  label: "Dodaj prvu ulicu",
+                  onClick: () => setStreetDialogOpen(true),
+                }}
               />
             ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {selectedCity.streets.map((street) => (
-                <Card 
-                  key={street.id} 
-                  className="p-6 cursor-pointer hover:bg-accent/30 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 animate-fade-in"
-                  onClick={() => handleSelectStreet(street)}
-                >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">{street.name}</h3>
-                    <p className="text-sm text-muted-foreground">{street.buildings.length} ulaz/a</p>
-                  </div>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="min-w-[44px] min-h-[44px] hover:bg-primary/10 hover:text-primary"
-                      onClick={() => {
-                        setEditingStreet({ id: street.id, name: street.name });
-                        setStreetDialogOpen(true);
-                      }}
+              <div className="max-w-4xl space-y-2">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {(displayCity?.streets ?? []).map((street) => (
+                    <Card
+                      key={street.id}
+                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                      onClick={() => handleSelectStreet(street)}
                     >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="min-w-[44px] min-h-[44px] hover:bg-destructive/10"
-                      onClick={() => setDeleteDialog({ open: true, type: "street", id: street.id, name: street.name })}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            )
-          )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{street.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {street.buildings.length} ulaz/a
+                          </p>
+                        </div>
+                        <div
+                          className="flex gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="min-w-[28px] min-h-[28px] hover:bg-primary/10 hover:text-primary"
+                            onClick={() => {
+                              setEditingStreet({ id: street.id, name: street.name });
+                              setStreetDialogOpen(true);
+                            }}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="min-w-[28px] min-h-[28px] hover:bg-destructive/10"
+                            onClick={() =>
+                              setDeleteDialog({
+                                open: true,
+                                type: "street",
+                                id: street.id,
+                                name: street.name,
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
 
           {/* Buildings Grid */}
-          {selectedStreet && !selectedBuilding && (
-            selectedStreet.buildings.length === 0 ? (
+          {selectedStreet &&
+            !selectedBuilding &&
+            (displayStreet && (displayStreet.buildings?.length ?? 0) === 0 ? (
               <EmptyState
-                icon={Building2}
                 title="Nema zgrada"
                 description={`Dodajte prvi ulaz u ulicu ${selectedStreet.name}.`}
-                action={
-                  <Button className="min-h-[44px]" onClick={() => setBuildingDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Dodaj prvi ulaz
-                  </Button>
-                }
+                action={{
+                  label: "Dodaj prvi ulaz",
+                  onClick: () => setBuildingDialogOpen(true),
+                }}
               />
             ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {selectedStreet.buildings.map((building) => (
-                <Card 
-                  key={building.id} 
-                  className="p-6 cursor-pointer hover:bg-accent/30 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 animate-fade-in"
-                  onClick={() => handleSelectBuilding(building)}
-                >
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="rounded-lg p-2 bg-primary/10">
-                      <Building2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">Broj {building.name}</h3>
-                      <p className="text-sm text-muted-foreground">{building.apartments.length} stanova</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="min-w-[44px] min-h-[44px] hover:bg-primary/10 hover:text-primary"
-                      onClick={() => {
-                        setEditingBuilding(building);
-                        setBuildingDialogOpen(true);
-                      }}
+              <div className="max-w-4xl space-y-2">
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {(displayStreet?.buildings ?? []).map((building) => (
+                    <Card
+                      key={building.id}
+                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                      onClick={() => handleSelectBuilding(building)}
                     >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="min-w-[44px] min-h-[44px] hover:bg-destructive/10"
-                      onClick={() => setDeleteDialog({ open: true, type: "building", id: building.id, name: building.name })}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
+                      <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="rounded-md p-1.5 bg-primary/10">
+                            <Building2 className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">
+                              Ulaz {building.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {building.apartments.length} stanova
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className="flex gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="min-w-[28px] min-h-[28px] hover:bg-primary/10 hover:text-primary"
+                            onClick={() => {
+                              setEditingBuilding(building);
+                              setBuildingDialogOpen(true);
+                            }}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="min-w-[28px] min-h-[28px] hover:bg-destructive/10"
+                            onClick={() =>
+                              setDeleteDialog({
+                                open: true,
+                                type: "building",
+                                id: building.id,
+                                name: building.name,
+                              })
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid gap-0.5 text-xs mt-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Pričuva</span>
+                          <span className="font-medium">
+                            {formatCurrency(building.reserve)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Dugovanja</span>
+                          <span
+                            className={
+                              building.debt > 0
+                                ? "text-destructive font-semibold"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {formatCurrency(building.debt)}
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Pričuva</span>
-                    <span className="font-medium">{formatCurrency(building.reserve)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Dugovanja</span>
-                    <Badge variant={building.debt > 0 ? "destructive" : "default"}>
-                      {formatCurrency(building.debt)}
-                    </Badge>
-                  </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            )
-          )}
+              </div>
+            ))}
 
           {/* Building Detail View */}
           {selectedBuilding && (
-            <div className="space-y-6 animate-fade-in">
-              <Card className="p-4 sm:p-6">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-lg p-3 bg-primary/10">
-                      <Building2 className="h-8 w-8 text-primary" />
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCity?.name} / {selectedStreet?.name}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg p-3 bg-primary/10 shrink-0">
+                          <Building2 className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle>Ulaz {selectedBuilding.name}</CardTitle>
+                          <CardDescription>
+                            {selectedBuilding.apartments.length} stanova • Dug:{" "}
+                            {formatCurrency(selectedBuilding.debt)}
+                          </CardDescription>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Ulaz {selectedBuilding.name}</h2>
-                      <p className="text-muted-foreground">
-                        {selectedStreet?.name}, {selectedCity?.name}
+                    <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[28px] gap-2"
+                        onClick={() => {
+                          setEditingBuilding(selectedBuilding);
+                          setBuildingDialogOpen(true);
+                        }}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                        Uredi
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[28px] gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/60"
+                        onClick={() =>
+                          setDeleteDialog({
+                            open: true,
+                            type: "building",
+                            id: selectedBuilding.id,
+                            name: selectedBuilding.name,
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                        Obriši
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* KPI tiles – kompaktni */}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">Broj stanova</p>
+                      <p className="text-xl font-semibold mt-1">
+                        {selectedBuilding.apartments.length}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">Pričuva</p>
+                      <p className="text-xl font-semibold mt-1 text-success">
+                        {formatCurrency(selectedBuilding.reserve)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">Dugovanja</p>
+                      <p className="text-xl font-semibold mt-1 text-destructive">
+                        {formatCurrency(selectedBuilding.debt)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="min-h-[44px]"
-                      onClick={() => {
-                        setEditingBuilding(selectedBuilding);
-                        setBuildingDialogOpen(true);
-                      }}
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Uredi
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                    className="min-h-[44px]"
-                      onClick={() => setDeleteDialog({ open: true, type: "building", id: selectedBuilding.id, name: selectedBuilding.name })}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2 text-destructive" />
-                      Obriši
-                    </Button>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <Card className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
-                    <p className="text-sm text-muted-foreground">Broj stanova</p>
-                    <p className="text-2xl font-bold">{selectedBuilding.apartments.length}</p>
-                  </Card>
-                  <Card className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
-                    <p className="text-sm text-muted-foreground">Pričuva</p>
-                    <p className="text-2xl font-bold text-success">
-                      {formatCurrency(selectedBuilding.reserve)}
-                    </p>
-                  </Card>
-                  <Card className="p-4 sm:p-6 hover:shadow-lg transition-shadow">
-                    <p className="text-sm text-muted-foreground">Dugovanja</p>
-                    <p className="text-2xl font-bold text-destructive">
-                      {formatCurrency(selectedBuilding.debt)}
-                    </p>
-                  </Card>
-                </div>
-
-                <div className="mt-6 pt-6 border-t">
-                  <h3 className="font-semibold mb-3">Podaci zgrade</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <span className="text-muted-foreground">IBAN</span>
-                      <span className="font-mono text-xs sm:text-sm">
-                        {selectedBuilding.iban || <span className="text-muted-foreground italic">Nije uneseno</span>}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <span className="text-muted-foreground">OIB</span>
-                      <span className="font-mono">
-                        {selectedBuilding.oib || <span className="text-muted-foreground italic">Nije uneseno</span>}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <span className="text-muted-foreground">Predstavnik</span>
-                      <span>
-                        {selectedBuilding.representative || <span className="text-muted-foreground italic">Nije dodijeljen</span>}
-                      </span>
-                    </div>
-                    {selectedBuilding.representativePhone && (
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <span className="text-muted-foreground">Telefon</span>
-                        <span className="font-mono">{selectedBuilding.representativePhone}</span>
+                  {/* Podaci zgrade – dvostupčano */}
+                  <div className="mt-5 pt-5 border-t">
+                    <h3 className="text-sm font-semibold mb-3">Podaci zgrade</h3>
+                    <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs">IBAN</span>
+                        <span className="font-mono text-xs sm:text-sm">
+                          {selectedBuilding.iban || (
+                            <span className="text-muted-foreground italic">
+                              Nije uneseno
+                            </span>
+                          )}
+                        </span>
                       </div>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2 min-h-[44px]"
-                      onClick={() => {
-                        setEditingBuilding(selectedBuilding);
-                        setBuildingDialogOpen(true);
-                      }}
-                    >
-                      Uredi podatke zgrade
-                    </Button>
-                  </div>
-                </div>
-
-                {selectedBuilding.fees && (
-                  <div className="mt-6 pt-6 border-t">
-                    <h3 className="font-semibold mb-3">Naknade</h3>
-                    <div className="grid gap-4 sm:grid-cols-3 text-sm">
-                      <Card className="p-4">
-                        <p className="text-muted-foreground">Čišćenje (mj.)</p>
-                        <p className="text-lg font-semibold mt-1">{formatCurrency(selectedBuilding.fees.cleaning)}</p>
-                      </Card>
-                      <Card className="p-4">
-                        <p className="text-muted-foreground">Kredit (mj.)</p>
-                        <p className="text-lg font-semibold mt-1">{formatCurrency(selectedBuilding.fees.loan)}</p>
-                      </Card>
-                      <Card className="p-4">
-                        <p className="text-muted-foreground">Pričuva po m²</p>
-                        <p className="text-lg font-semibold mt-1">
-                          {formatCurrency(selectedBuilding.fees.reservePerSqm)} / m²
-                        </p>
-                      </Card>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs">OIB</span>
+                        <span className="font-mono text-xs sm:text-sm">
+                          {selectedBuilding.oib || (
+                            <span className="text-muted-foreground italic">
+                              Nije uneseno
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs">
+                          Predstavnik
+                        </span>
+                        <span className="text-sm">
+                          {selectedBuilding.representative || (
+                            <span className="text-muted-foreground italic">
+                              Nije dodijeljen
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs">
+                          Telefon predstavnika
+                        </span>
+                        <span className="font-mono text-xs sm:text-sm">
+                          {selectedBuilding.representativePhone || (
+                            <span className="text-muted-foreground italic">
+                              Nije uneseno
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                )}
+
+                  {selectedBuilding.fees && (
+                    <div className="mt-5 pt-5 border-t">
+                      <h3 className="text-sm font-semibold mb-3">Naknade</h3>
+                      <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                        <div className="rounded-lg border border-border bg-card p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Čišćenje (mj.)
+                          </p>
+                          <p className="text-xl font-semibold mt-1">
+                            {formatCurrency(selectedBuilding.fees.cleaning)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border bg-card p-3">
+                          <p className="text-xs text-muted-foreground">Kredit (mj.)</p>
+                          <p className="text-xl font-semibold mt-1">
+                            {formatCurrency(selectedBuilding.fees.loan)}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-border bg-card p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Pričuva po m²
+                          </p>
+                          <p className="text-xl font-semibold mt-1">
+                            {formatCurrency(
+                              selectedBuilding.fees.reservePerSqm,
+                            )}{" "}
+                            / m²
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
               </Card>
 
-              <Card className="p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Stanovi</h3>
-                  <Button 
-                    size="sm" 
-                    className="min-h-[44px]"
-                    onClick={() => setApartmentDialogOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Dodaj stan
-                  </Button>
-                </div>
-                
-                {selectedBuilding.apartments.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Home className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Nema dodanih stanova</p>
-                    <p className="text-sm mt-2">Kliknite "Dodaj stan" za početak</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {selectedBuilding.apartments.map((apartment) => (
-                      <Card 
-                        key={apartment.id}
-                        className="p-4 cursor-pointer hover:bg-accent/30 hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 transition-all duration-300"
-                        onClick={() => {
-                          setSelectedApartment(apartment);
-                          setApartmentDetailOpen(true);
-                        }}
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                    <div>
+                      <CardTitle className="text-base">Stanovi</CardTitle>
+                      <CardDescription>Popis stanova u ulazu.</CardDescription>
+                    </div>
+                    <div className="flex justify-end w-full sm:w-auto shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-2 min-h-[28px]"
+                        onClick={() => setApartmentDialogOpen(true)}
                       >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-primary" />
-                            <span className="font-semibold">Stan {apartment.number}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{apartment.area} m²</span>
-                        </div>
-                        <div className="space-y-1 text-sm">
-                          {apartment.owner && (
-                            <p className="text-muted-foreground truncate">
-                              <span className="font-medium">Vlasnik:</span> {apartment.owner}
-                            </p>
-                          )}
-                          {apartment.tenant && apartment.tenant !== apartment.owner && (
-                            <p className="text-muted-foreground truncate">
-                              <span className="font-medium">Stanar:</span> {apartment.tenant}
-                            </p>
-                          )}
-                          <div className="flex justify-between pt-2">
-                            <span className={apartment.debt > 0 ? "text-destructive font-medium" : "text-muted-foreground"}>
-                              Dug: {formatCurrency(apartment.debt)}
-                            </span>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
+                        <Plus className="h-4 w-4" />
+                        Dodaj stan
+                      </Button>
+                    </div>
                   </div>
-                )}
+                </CardHeader>
+                <CardContent>
+                  {selectedBuilding.apartments.length === 0 ? (
+                    <EmptyState
+                      title="Nema dodanih stanova"
+                      description="Dodajte prvi stan da biste započeli evidenciju."
+                      action={{
+                        label: "Dodaj stan",
+                        onClick: () => setApartmentDialogOpen(true),
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {/* Desktop table */}
+                      <div className="hidden md:block rounded-md border max-w-3xl">
+                        <table className="data-table table-density-normal">
+                          <thead>
+                            <tr>
+                              <th>Stan</th>
+                              <th>Vlasnik</th>
+                              <th className="text-right">Dug</th>
+                              <th className="w-8 text-right"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedBuilding.apartments.map((apartment) => (
+                              <tr
+                                key={apartment.id}
+                                className="group cursor-pointer hover:bg-muted/30"
+                                onClick={() => {
+                                  setSelectedApartment(apartment);
+                                  setApartmentDetailOpen(true);
+                                }}
+                              >
+                                <td className="font-medium">
+                                  Stan {apartment.number}
+                                </td>
+                                <td className="text-sm text-muted-foreground">
+                                  {apartment.owner || "-"}
+                                </td>
+                                <td
+                                  className={`text-right text-sm font-semibold ${
+                                    apartment.debt > 0
+                                      ? "text-destructive"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {formatCurrency(apartment.debt)}
+                                </td>
+                                <td className="text-right text-muted-foreground">
+                                  <ChevronRight className="inline h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Mobile cards */}
+                      <div className="md:hidden space-y-3 mt-3">
+                        {selectedBuilding.apartments.map((apartment) => (
+                          <Card
+                            key={apartment.id}
+                            className="p-4 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                            onClick={() => {
+                              setSelectedApartment(apartment);
+                              setApartmentDetailOpen(true);
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-primary" />
+                                <span className="font-semibold">
+                                  Stan {apartment.number}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {apartment.area} m²
+                              </span>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                              {apartment.owner && (
+                                <p className="text-muted-foreground truncate">
+                                  <span className="font-medium">Vlasnik:</span>{" "}
+                                  {apartment.owner}
+                                </p>
+                              )}
+                              {apartment.tenant &&
+                                apartment.tenant !== apartment.owner && (
+                                  <p className="text-muted-foreground truncate">
+                                    <span className="font-medium">Stanar:</span>{" "}
+                                    {apartment.tenant}
+                                  </p>
+                                )}
+                              <div className="flex justify-between pt-2">
+                                <span
+                                  className={
+                                    apartment.debt > 0
+                                      ? "text-destructive font-medium"
+                                      : "text-muted-foreground"
+                                  }
+                                >
+                                  Dug: {formatCurrency(apartment.debt)}
+                                </span>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
               </Card>
             </div>
           )}
 
           {/* Dialogs */}
           <CityDialog
-        open={cityDialogOpen}
-        onOpenChange={(open) => {
-          setCityDialogOpen(open);
-          if (!open) setEditingCity(null);
-        }}
+            open={cityDialogOpen}
+            onOpenChange={(open) => {
+              setCityDialogOpen(open);
+              if (!open) setEditingCity(null);
+            }}
             onSave={editingCity ? handleEditCity : handleAddCity}
             editCity={editingCity}
           />
 
           <StreetDialog
-        open={streetDialogOpen}
-        onOpenChange={(open) => {
-          setStreetDialogOpen(open);
-          if (!open) setEditingStreet(null);
-        }}
+            open={streetDialogOpen}
+            onOpenChange={(open) => {
+              setStreetDialogOpen(open);
+              if (!open) setEditingStreet(null);
+            }}
             onSave={editingStreet ? handleEditStreet : handleAddStreet}
             editStreet={editingStreet}
             cityName={selectedCity?.name || ""}
           />
 
           <BuildingDialog
-        open={buildingDialogOpen}
-        onOpenChange={(open) => {
-          setBuildingDialogOpen(open);
-          if (!open) setEditingBuilding(null);
-        }}
+            open={buildingDialogOpen}
+            onOpenChange={(open) => {
+              setBuildingDialogOpen(open);
+              if (!open) setEditingBuilding(null);
+            }}
             onSave={editingBuilding ? handleEditBuilding : handleAddBuilding}
             editBuilding={editingBuilding}
             streetName={selectedStreet?.name || ""}
@@ -815,7 +1072,12 @@ const Buildings = () => {
             open={apartmentDialogOpen}
             onOpenChange={(open) => {
               setApartmentDialogOpen(open);
-              if (!open) setEditingApartment(null);
+              if (!open) {
+                if (editingApartment) {
+                  setApartmentDetailOpen(true);
+                }
+                setEditingApartment(null);
+              }
             }}
             onSave={editingApartment ? handleEditApartment : handleAddApartment}
             editApartment={editingApartment}
@@ -833,7 +1095,12 @@ const Buildings = () => {
               setApartmentDetailOpen(false);
             }}
             onDelete={(id, number) => {
-              setDeleteDialog({ open: true, type: "apartment", id, name: number });
+              setDeleteDialog({
+                open: true,
+                type: "apartment",
+                id,
+                name: number,
+              });
               setApartmentDetailOpen(false);
             }}
             buildingName={selectedBuilding?.name || ""}
@@ -874,20 +1141,31 @@ const Buildings = () => {
           </Sheet>
 
           {/* Delete Confirmation */}
-          <AlertDialog open={deleteDialog?.open || false} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+          <AlertDialog
+            open={deleteDialog?.open || false}
+            onOpenChange={(open) => !open && setDeleteDialog(null)}
+          >
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Jeste li sigurni?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Ova akcija je nepovratna. {deleteDialog?.type === "city" && "Brisat će se i sve ulice i ulazi u gradu."}
-                  {deleteDialog?.type === "street" && "Brisat će se i svi ulazi na ulici."}
-                  {deleteDialog?.type === "building" && "Brisat će se i svi stanovi u ulazu."}
-                  {deleteDialog?.type === "apartment" && "Stan će biti trajno obrisan."}
+                  Ova akcija je nepovratna.{" "}
+                  {deleteDialog?.type === "city" &&
+                    "Brisat će se i sve ulice i ulazi u gradu."}
+                  {deleteDialog?.type === "street" &&
+                    "Brisat će se i svi ulazi na ulici."}
+                  {deleteDialog?.type === "building" &&
+                    "Brisat će se i svi stanovi u ulazu."}
+                  {deleteDialog?.type === "apartment" &&
+                    "Stan će biti trajno obrisan."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Odustani</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
                   Obriši
                 </AlertDialogAction>
               </AlertDialogFooter>
