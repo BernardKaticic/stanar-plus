@@ -34,6 +34,7 @@ interface Apartment {
   number: string;
   area: number;
   owner?: string;
+  ownerOib?: string | null;
   tenant?: string;
   contact?: string;
   email?: string;
@@ -48,6 +49,10 @@ interface BuildingFees {
   cleaning: number;
   loan: number;
   reservePerSqm: number;
+  savingsFixed?: number;
+  extraFixed?: number;
+  electricityFixed?: number;
+  savingsPerSqm?: number;
 }
 
 interface ApartmentDetailDialogProps {
@@ -78,9 +83,15 @@ export const ApartmentDetailDialog = ({
   const formatCurrency = (value?: number | null) =>
     `${(typeof value === "number" && !Number.isNaN(value) ? value : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
-  const reserveContribution = fees ? fees.reservePerSqm * apartment.area : null;
-  const loanContribution = fees ? fees.loan * apartment.area : null;
-  const totalCharge = fees ? (reserveContribution ?? 0) + (loanContribution ?? 0) + fees.cleaning : null;
+  const reserveContribution = fees ? (fees.reservePerSqm ?? 0) * apartment.area : null;
+  const loanContribution = fees ? (fees.loan ?? 0) * apartment.area : null;
+  const savingsPerSqmContribution = fees ? (fees.savingsPerSqm ?? 0) * apartment.area : null;
+  const fixedFees = fees
+    ? (fees.cleaning ?? 0) + (fees.savingsFixed ?? 0) + (fees.extraFixed ?? 0) + (fees.electricityFixed ?? 0)
+    : 0;
+  const totalCharge = fees
+    ? (reserveContribution ?? 0) + (loanContribution ?? 0) + (savingsPerSqmContribution ?? 0) + fixedFees
+    : null;
   const hasDebt = apartment.debt > 0;
 
   // Calculate running balance
@@ -188,37 +199,35 @@ export const ApartmentDetailDialog = ({
                 </Card>
               </div>
 
-              {fees && (
-                <Card className="p-4">
-                  <h3 className="font-semibold">Naknade po stavkama</h3>
-                  <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-                    <div className="rounded-lg border bg-muted/40 px-3 py-2">
-                      <p className="text-muted-foreground">Čišćenje</p>
-                      <p className="font-medium mt-1">{formatCurrency(fees.cleaning)}</p>
+              {fees && (() => {
+                const items = [
+                  { label: "Čišćenje", show: (fees.cleaning ?? 0) !== 0, fmt: () => formatCurrency(fees.cleaning) },
+                  { label: "Kredit", show: (fees.loan ?? 0) !== 0, fmt: () => `${formatCurrency(loanContribution ?? 0)} (${(fees.loan ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)` },
+                  { label: "Pričuva", show: (fees.reservePerSqm ?? 0) !== 0, fmt: () => `${formatCurrency(reserveContribution ?? 0)} (${(fees.reservePerSqm ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)` },
+                  { label: "Štednja (fiksno)", show: (fees.savingsFixed ?? 0) !== 0, fmt: () => formatCurrency(fees.savingsFixed) },
+                  { label: "Izvanredni", show: (fees.extraFixed ?? 0) !== 0, fmt: () => formatCurrency(fees.extraFixed) },
+                  { label: "Struja", show: (fees.electricityFixed ?? 0) !== 0, fmt: () => formatCurrency(fees.electricityFixed) },
+                  { label: "Štednja (€/m²)", show: (fees.savingsPerSqm ?? 0) !== 0, fmt: () => `${formatCurrency(savingsPerSqmContribution ?? 0)} (${(fees.savingsPerSqm ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)` },
+                ].filter((x) => x.show);
+                const total = totalCharge ?? 0;
+                if (total !== 0) items.push({ label: "Ukupno mjesečno", show: true, fmt: () => formatCurrency(total), isTotal: true });
+                if (items.length === 0) return null;
+                return (
+                  <Card className="p-4">
+                    <h3 className="font-semibold">Naknade po stavkama</h3>
+                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+                      {items.map(({ label, fmt, isTotal }) => (
+                        <div key={label} className="rounded-lg border bg-muted/40 px-3 py-2">
+                          <p className="text-muted-foreground">{label}</p>
+                          <p className={`mt-1 ${isTotal ? "font-semibold" : "font-medium"}`}>{fmt()}</p>
+                        </div>
+                      ))}
                     </div>
-                    <div className="rounded-lg border bg-muted/40 px-3 py-2">
-                      <p className="text-muted-foreground">Kredit</p>
-                      <p className="font-medium mt-1">
-                        {formatCurrency(loanContribution ?? 0)} ({fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/40 px-3 py-2">
-                      <p className="text-muted-foreground">Pričuva</p>
-                      <p className="font-medium mt-1">
-                        {formatCurrency(reserveContribution ?? 0)} ({fees.reservePerSqm.toLocaleString("hr-HR", { minimumFractionDigits: 2 })} €/m²)
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/40 px-3 py-2">
-                      <p className="text-muted-foreground">Ukupno mjesečno</p>
-                      <p className="font-semibold mt-1">
-                        {formatCurrency(totalCharge ?? 0)}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
+                  </Card>
+                );
+              })()}
 
-              {(apartment.owner || apartment.phone || apartment.email || apartment.contact) && (
+              {(apartment.owner || apartment.ownerOib || apartment.phone || apartment.email || apartment.contact) && (
                 <Card className="p-4">
                   <h3 className="font-semibold mb-4 flex items-center gap-2">
                     <User className="h-4 w-4" />
@@ -229,6 +238,15 @@ export const ApartmentDetailDialog = ({
                       <div>
                         <p className="text-muted-foreground">Suvlasnik</p>
                         <p className="font-medium mt-1">{apartment.owner}</p>
+                        {apartment.ownerOib && (
+                          <p className="text-muted-foreground font-mono text-xs mt-0.5">OIB: {apartment.ownerOib}</p>
+                        )}
+                      </div>
+                    )}
+                    {apartment.ownerOib && !apartment.owner && (
+                      <div>
+                        <p className="text-muted-foreground">OIB suvlasnika</p>
+                        <p className="font-mono font-medium mt-1">{apartment.ownerOib}</p>
                       </div>
                     )}
                     {apartment.phone && (

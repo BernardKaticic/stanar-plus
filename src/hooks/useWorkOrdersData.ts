@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { workOrdersApi } from "@/lib/api";
 
@@ -27,6 +27,7 @@ export const useWorkOrders = ({
         status: statusFilter !== "all" ? statusFilter : undefined,
         priority: priorityFilter !== "all" ? priorityFilter : undefined,
       }),
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -47,6 +48,7 @@ export const useCreateWorkOrder = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["work-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["work-orders", "stats"] });
       toast({ title: "Radni nalog kreiran", description: "Novi radni nalog je uspješno kreiran." });
     },
     onError: () => {
@@ -69,6 +71,7 @@ export const useUpdateWorkOrder = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["work-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["work-orders", "stats"] });
       toast({ title: "Radni nalog ažuriran", description: "Radni nalog je uspješno ažuriran." });
     },
     onError: () => {

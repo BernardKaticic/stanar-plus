@@ -137,7 +137,7 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Uredi podatke zgrade" : "Dodaj novi ulaz"}</DialogTitle>
           <DialogDescription>
@@ -190,9 +190,9 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                   />
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 min-w-0">
                   <div className="text-sm font-medium text-muted-foreground">Osnovne naknade (€/mjesec)</div>
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-3">
                     <FormField
                       control={form.control}
                       name="cleaningFee"
@@ -271,8 +271,8 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="dodatne-naknade">
                     <AccordionTrigger>Dodatne naknade (€/mjesec)</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid gap-4 sm:grid-cols-2 pt-1">
+                    <AccordionContent className="pb-2 pt-1">
+                      <div className="grid gap-4 grid-cols-1 min-[500px]:grid-cols-2 pt-1 min-w-0">
                         <FormField
                           control={form.control}
                           name="savingsFixed"

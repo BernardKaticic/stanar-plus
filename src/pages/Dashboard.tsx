@@ -6,72 +6,90 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useDashboardStats, useDashboardActivities, useDashboardDebtors } from "@/hooks/useDashboardData";
-import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid } from "recharts";
-import { 
-  ChartContainer, 
-  ChartTooltip, 
-  ChartTooltipContent, 
-  ChartLegend, 
+import { useNavigate, Link } from "react-router-dom";
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
   ChartLegendContent,
-  type ChartConfig 
-} from '@/components/ui/chart';
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  formatCurrency,
+  formatNumber,
+  formatCurrencyShort,
+  getStatCards,
+  getCollectionData,
+  getExpenseStructure,
+  getCashFlowData,
+  getPortfolioOverview,
+  EXPENSE_CHART_CONFIG,
+  COLLECTION_CHART_CONFIG,
+  type Stats,
+} from "@/lib/dashboardAdapters";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { data: stats, isLoading: statsLoading, isError: statsError } = useDashboardStats();
+  const { data: stats, isLoading: statsLoading, isFetching: statsFetching, isError: statsError, refetch: refetchStats } = useDashboardStats();
   const { data: activities, isLoading: activitiesLoading, isError: activitiesError } = useDashboardActivities();
   const { data: debtors, isLoading: debtorsLoading, isError: debtorsError } = useDashboardDebtors();
 
-  const formatCurrency = (value?: number) => {
-    if (typeof value !== "number") {
-      return "0,00 €";
-    }
-    return value.toLocaleString("hr-HR", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 2,
-    });
+  const hasDebtorsFromList = Boolean(debtors && debtors.length > 0);
+  const hasDebtorsFromStats = (stats?.outstandingBalance ?? 0) > 0;
+  const hasDebtors = hasDebtorsFromList || (debtorsLoading ? hasDebtorsFromStats : hasDebtorsFromList);
+
+  const statCards = getStatCards(stats as Stats | undefined, statsLoading, !!statsError, formatCurrency, hasDebtors);
+  const collectionData = getCollectionData(stats as Stats | undefined);
+  const expenseStructure = getExpenseStructure(stats as Stats | undefined);
+  const cashFlowData = getCashFlowData(stats as Stats | undefined);
+  const portfolioOverview = getPortfolioOverview(stats as Stats | undefined, formatNumber);
+
+  const collectionLabels: Record<string, string> = {
+    zaduzeno: COLLECTION_CHART_CONFIG.zaduzeno.label,
+    uplaceno: COLLECTION_CHART_CONFIG.uplaceno.label,
   };
 
-  const formatNumber = (value?: number) => {
-    if (typeof value !== "number") {
-      return "0";
-    }
-    return value.toLocaleString("hr-HR");
+  const renderCollectionTooltipItem = (rawValue: number | string, dataKey?: string) => {
+    const key = dataKey && collectionLabels[dataKey] ? dataKey : "zaduzeno";
+    const label = collectionLabels[key];
+    const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+    return (
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: `var(--color-${key})` } as CSSProperties} />
+          <span className="text-muted-foreground">{label}</span>
+        </div>
+        <span className="font-mono font-medium text-foreground">{formatCurrency(safeValue)}</span>
+      </div>
+    );
   };
 
-  const hasDebtors = (stats?.outstandingBalance ?? 0) > 0;
-  const statCards = [
-    {
-      title: "Ukupno zaduženo ove godine",
-      value: statsLoading ? "..." : formatCurrency(stats?.totalCharged),
-      change: statsLoading ? "" : ((stats?.upcomingCharges ?? 0) > 0 ? `Planirano ovaj mjesec ${formatCurrency(stats?.upcomingCharges)}` : ""),
-      changeType: "neutral" as const,
-      icon: null,
-    },
-    {
-      title: "Ukupno naplaćeno ove godine",
-      value: statsLoading ? "..." : formatCurrency(stats?.totalPaid),
-      change: statsLoading ? "" : `Stopa naplate ${(stats?.collectionRate ?? 0).toFixed(1)}%`,
-      changeType: "neutral" as const,
-      icon: null,
-    },
-    {
-      title: "Aktivna dugovanja",
-      value: statsLoading ? "..." : formatCurrency(stats?.outstandingBalance),
-      change: statsLoading ? "" : (hasDebtors && (stats?.averageDaysOverdue ?? 0) > 0 ? `Prosječno kašnjenje ${stats?.averageDaysOverdue} dana` : ""),
-      changeType: "negative" as const,
-      icon: null,
-    },
-    {
-      title: "Otvoreni radni nalozi",
-      value: statsLoading ? "..." : `${stats?.openWorkOrders ?? 0}`,
-      change: statsLoading ? "" : `Hitni nalozi ${stats?.urgentWorkOrders ?? 0}`,
-      changeType: "neutral" as const,
-      icon: null,
-    },
-  ];
+  const expenseLabels = expenseStructure.reduce<Record<string, string>>((acc, item) => {
+    acc[item.legendKey] = item.name;
+    return acc;
+  }, {});
+
+  const renderExpenseTooltipItem = (rawValue: number | string, legendKey?: string) => {
+    const safeKey = legendKey != null && String(legendKey).trim() !== "" ? legendKey : "other";
+    const label = expenseLabels[safeKey] ?? EXPENSE_CHART_CONFIG.other?.label ?? "Ostalo";
+    const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+    const colorVar = Object.prototype.hasOwnProperty.call(EXPENSE_CHART_CONFIG, safeKey)
+      ? `var(--color-${safeKey})`
+      : "hsl(var(--border))";
+    return (
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: colorVar } as CSSProperties} />
+          <span className="text-muted-foreground">{label}</span>
+        </div>
+        <span className="font-mono font-medium text-foreground">{formatCurrency(safeValue)}</span>
+      </div>
+    );
+  };
 
   const quickActions = [
     { 
@@ -96,129 +114,43 @@ const Dashboard = () => {
     },
   ];
 
-  const portfolioOverview = [
-    {
-      label: "Zgrade",
-      value: stats?.buildingCount,
-      helper: `Gradovi ${formatNumber(stats?.cityCount ?? 0)}`,
-    },
-    {
-      label: "Stanovi",
-      value: stats?.apartmentCount,
-      helper: `Stanara ${formatNumber(stats?.tenantCount ?? 0)}`,
-    },
-    {
-      label: "Popunjenost",
-      value: stats?.occupancyRate ? `${stats.occupancyRate}%` : "0%",
-      helper: `Praznih ${formatNumber(stats?.emptyUnits ?? 0)}`,
-    },
-  ];
-
-  const collectionData: { month: string; zaduzeno: number; uplaceno: number }[] =
-    (stats?.monthlyCollections?.map((m: { month: string; charged: number; paid: number }) => ({
-      month: m.month,
-      zaduzeno: m.charged,
-      uplaceno: m.paid,
-    })) as { month: string; zaduzeno: number; uplaceno: number }[]) ?? [];
-
-  const expenseColors: Record<string, string> = {
-    odrzavanje: "hsl(var(--primary))",
-    komunalije: "hsl(var(--info))",
-    zajednicke_usluge: "hsl(var(--warning))",
-    osiguranje: "hsl(var(--success))",
-  };
-  const expenseStructure: { legendKey: string; name: string; value: number; color: string }[] =
-    (stats?.expenseBreakdown?.map((e: { key: string; label: string; value: number }) => ({
-      legendKey: e.key ?? "other",
-      name: e.label ?? "Ostalo",
-      value: Number(e.value) || 0,
-      color: expenseColors[e.key] ?? "hsl(var(--muted-foreground))",
-    })) as { legendKey: string; name: string; value: number; color: string }[]) ?? [];
-
-  const cashFlowData: { building: string; amount: number }[] =
-    (stats?.topBuildings?.map((b: { building: string; amount: number }) => ({
-      building: b.building ?? "",
-      amount: Number(b.amount) || 0,
-    })) as { building: string; amount: number }[]) ?? [];
-
-  const expenseChartConfig: ChartConfig = {
-    odrzavanje: { label: "Održavanje", color: "hsl(var(--primary))" },
-    komunalije: { label: "Komunalije", color: "hsl(var(--info))" },
-    zajednicke_usluge: { label: "Zajedničke usluge", color: "hsl(var(--warning))" },
-    osiguranje: { label: "Osiguranje", color: "hsl(var(--success))" },
-  };
-
-  const collectionLabels: Record<string, string> = {
-    zaduzeno: "Zaduženo",
-    uplaceno: "Uplaćeno",
-  };
-
-  const renderCollectionTooltipItem = (rawValue: number | string, dataKey?: string) => {
-    const key = dataKey && collectionLabels[dataKey] ? dataKey : "zaduzeno";
-    const label = collectionLabels[key];
-    const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
-    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-
-    return (
-      <div className="flex w-full items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: `var(--color-${key})` } as CSSProperties}
-          />
-          <span className="text-muted-foreground">{label}</span>
-        </div>
-        <span className="font-mono font-medium text-foreground">
-          {formatCurrency(safeValue)}
-        </span>
-      </div>
-    );
-  };
-
-  const expenseLabels = expenseStructure.reduce<Record<string, string>>((acc, item) => {
-    acc[item.legendKey] = item.name;
-    return acc;
-  }, {});
-
-  const renderExpenseTooltipItem = (rawValue: number | string, legendKey?: string) => {
-    const safeLegendKey = legendKey != null && String(legendKey).trim() !== "" ? legendKey : expenseStructure[0]?.legendKey ?? "";
-    const key = safeLegendKey && expenseLabels[safeLegendKey] ? safeLegendKey : expenseStructure[0]?.legendKey ?? "";
-    const label = (key && expenseLabels[key]) ?? expenseStructure.find((e) => e.legendKey === key)?.name ?? "Kategorija";
-    const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
-    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-    const indicatorStyle: CSSProperties =
-      key !== "" ? { backgroundColor: `var(--color-${key})` } : { backgroundColor: "hsl(var(--border))" };
-
-    return (
-      <div className="flex w-full items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-sm" style={indicatorStyle} />
-          <span className="text-muted-foreground">{label}</span>
-        </div>
-        <span className="font-mono font-medium text-foreground">
-          {formatCurrency(safeValue)}
-        </span>
-      </div>
-    );
-  };
-
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1>Nadzorna ploča</h1>
+          <div className="flex items-center gap-2">
+            <h1>Nadzorna ploča</h1>
+            {statsFetching && !statsLoading && (
+              <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
+            )}
+          </div>
           <p className="text-muted-foreground mt-1 text-sm">
             Pregled ključnih podataka i aktivnosti.
           </p>
         </div>
       </div>
 
+      {statsError && (
+        <EmptyState
+          title="Neuspješno učitavanje statistike"
+          description="Podaci nadzorne ploče nisu učitani. Pokušajte ponovno."
+          action={{
+            label: "Pokušaj ponovno",
+            onClick: () => refetchStats(),
+          }}
+          className="py-6"
+        />
+      )}
       <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="p-4">
+        {statCards.map((stat, idx) => (
+          <Card key={stat.title} className="p-4 transition-all duration-200 hover:shadow-sm animate-fade-in-up" style={{ animationDelay: `${Math.min(idx * 50, 150)}ms` }}>
             <p className="text-xs text-muted-foreground">{stat.title}</p>
-            <p className="text-lg font-semibold mt-1">{stat.value}</p>
-            {stat.change && (
+            {statsLoading ? (
+              <Skeleton className="h-7 w-20 mt-2" />
+            ) : (
+              <p className="text-lg font-semibold mt-1">{stat.value}</p>
+            )}
+            {!statsError && stat.change && !statsLoading && (
               <p className={`mt-1 text-xs font-medium ${
                 (stat.changeType as string) === "positive" ? "text-success" :
                 stat.changeType === "negative" ? "text-destructive" : "text-muted-foreground"
@@ -232,7 +164,7 @@ const Dashboard = () => {
 
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4 sm:space-y-6">
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <CardTitle>Nedavne aktivnosti</CardTitle>
             </CardHeader>
@@ -258,7 +190,7 @@ const Dashboard = () => {
                 </>
               ) : activities && activities.length > 0 ? (
                 activities.slice(0, 6).map((activity, i) => (
-                  <div key={i} className="flex items-start gap-3 pb-4 border-b last:border-0">
+                  <div key={i} className="flex items-start gap-3 pb-4 border-b last:border-0 animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 40, 120)}ms` }}>
                     <div
                       className={`mt-0.5 h-2 w-2 rounded-full ${
                         activity.status === "success"
@@ -284,7 +216,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <CardTitle>Naplata po mjesecima</CardTitle>
             </CardHeader>
@@ -303,17 +235,8 @@ const Dashboard = () => {
               />
             ) : (
             <div className="space-y-6">
-              <ChartContainer 
-                config={{
-                  zaduzeno: {
-                    label: "Zaduženo",
-                    color: "hsl(var(--primary))",
-                  },
-                  uplaceno: {
-                    label: "Uplaćeno",
-                    color: "hsl(var(--success))",
-                  },
-                } satisfies ChartConfig}
+              <ChartContainer
+                config={COLLECTION_CHART_CONFIG as ChartConfig}
                 className="h-[320px] w-full"
               >
                 <BarChart 
@@ -339,10 +262,10 @@ const Dashboard = () => {
                     tickLine={false}
                     axisLine={false}
                   />
-                  <YAxis 
+                  <YAxis
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => formatCurrencyShort(Number(value))}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -375,11 +298,11 @@ const Dashboard = () => {
               </ChartContainer>
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "hsl(var(--primary))" } as CSSProperties} />
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--color-zaduzeno)" } as CSSProperties} />
                   <span>Zaduženo</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "hsl(var(--success))" } as CSSProperties} />
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--color-uplaceno)" } as CSSProperties} />
                   <span>Uplaćeno</span>
                 </div>
               </div>
@@ -388,7 +311,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <CardTitle>Struktura troškova</CardTitle>
             </CardHeader>
@@ -406,7 +329,7 @@ const Dashboard = () => {
                   className="py-12"
                 />
               ) : (
-              <ChartContainer config={expenseChartConfig} className="h-[320px] w-full">
+              <ChartContainer config={EXPENSE_CHART_CONFIG as ChartConfig} className="h-[320px] w-full">
                 <PieChart>
                   <defs>
                     {expenseStructure.map((entry, index) => (
@@ -459,7 +382,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <CardTitle>Top 5 zgrada po pričuvi</CardTitle>
             </CardHeader>
@@ -478,13 +401,8 @@ const Dashboard = () => {
                 />
               ) : (
               <div className="min-w-0 w-full overflow-x-auto">
-              <ChartContainer 
-                config={{
-                  amount: {
-                    label: "Pričuva",
-                    color: "hsl(var(--primary))",
-                  },
-                } satisfies ChartConfig}
+              <ChartContainer
+                config={{ amount: { label: "Pričuva", color: "hsl(var(--primary))" } } as ChartConfig}
                 className="h-[280px] w-full min-h-[280px]"
               >
                 <BarChart 
@@ -499,11 +417,11 @@ const Dashboard = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} horizontal={false} />
-                  <XAxis 
-                    type="number" 
+                  <XAxis
+                    type="number"
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => formatCurrencyShort(Number(value))}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -516,11 +434,9 @@ const Dashboard = () => {
                     tickLine={false}
                     axisLine={false}
                   />
-                  <ChartTooltip 
-                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.15 }}
-                    content={<ChartTooltipContent 
-                      formatter={(value: number) => `${value.toLocaleString('hr-HR')} €`}
-                    />}
+                  <ChartTooltip
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
+                    content={<ChartTooltipContent formatter={(value: number) => formatCurrency(Number(value))} />}
                   />
                   <Bar 
                     dataKey="amount" 
@@ -538,7 +454,7 @@ const Dashboard = () => {
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <CardTitle className="">Pregled portfelja</CardTitle>
             </CardHeader>
@@ -561,8 +477,8 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {portfolioOverview.map((item) => (
-                  <div key={item.label} className="space-y-1.5 rounded-lg border p-3">
+                {portfolioOverview.map((item, idx) => (
+                  <div key={item.label} className="space-y-1.5 rounded-lg border p-3 animate-fade-in-up transition-colors duration-150 hover:bg-muted/30" style={{ animationDelay: `${Math.min(idx * 40, 120)}ms` }}>
                     <p
                       className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate"
                       title={item.label}
@@ -584,17 +500,18 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <CardTitle className="">Brze akcije</CardTitle>
             </CardHeader>
             <CardContent>
             <div className="space-y-2">
-              {quickActions.map((action) => (
+              {quickActions.map((action, idx) => (
                 <Button
                   key={action.label}
                   variant="secondary"
-                  className="w-full justify-between h-auto py-2.5 px-3"
+                  className="w-full justify-between h-auto py-2.5 px-3 transition-colors duration-150 animate-fade-in-up"
+                  style={{ animationDelay: `${Math.min(idx * 50, 150)}ms` }}
                   onClick={() => navigate(action.to)}
                 >
                   <div className="text-left flex-1 min-w-0">
@@ -610,7 +527,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="transition-all duration-200 hover:shadow-sm">
             <CardHeader>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -643,24 +560,40 @@ const Dashboard = () => {
                   </div>
                 ))
               ) : debtors && debtors.length > 0 ? (
-                debtors.slice(0, 5).map((debt) => (
-                  <div
-                    key={debt.id || debt.name}
-                    className="rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => debt.id && navigate(`/persons/${debt.id}`, { state: { from: "/" } })}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold leading-tight">{debt.name}</p>
-                        {debt.location && (
-                          <p className="text-xs text-muted-foreground">{debt.location}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">{debt.months}</p>
+                debtors.slice(0, 5).map((debt, idx) => {
+                  const stableKey = debt.id ?? `debt-${String(debt.name)}-${String(debt.location ?? "")}`;
+                  const content = (
+                    <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold leading-tight">{debt.name}</p>
+                          {debt.location && (
+                            <p className="text-xs text-muted-foreground">{debt.location}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">{debt.months}</p>
+                        </div>
+                        <span className="text-sm font-semibold text-destructive">{debt.amount}</span>
                       </div>
-                      <span className="text-sm font-semibold text-destructive">{debt.amount}</span>
+                    </>
+                  );
+                  const wrapperClass = "block rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring animate-fade-in-up";
+                  const style = { animationDelay: `${Math.min(idx * 40, 120)}ms` };
+                  return debt.id ? (
+                    <Link
+                      key={stableKey}
+                      to={`/persons/${debt.id}`}
+                      state={{ from: "/" }}
+                      className={wrapperClass}
+                      style={style}
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={stableKey} className={`rounded-lg border p-3 animate-fade-in-up`} style={style}>
+                      {content}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <EmptyState
                   title="Nema dužnika"

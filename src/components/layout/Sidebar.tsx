@@ -17,6 +17,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
+/** Za testiranje: prikaži samo dovršene ekrane. Postavi VITE_MENU_READY_ONLY=false za puni meni. */
+const showOnlyReadyScreens = import.meta.env.VITE_MENU_READY_ONLY !== "false";
+
 const primaryNav = [
   { name: "Nadzorna ploča", href: "/", icon: LayoutDashboard },
   { name: "Zgrade", href: "/buildings", icon: Building2 },
@@ -122,8 +125,12 @@ export const Sidebar = () => {
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-2.5 py-2">
         <NavSection label="Osnovno" items={primaryNav} userRole={userRole} pathname={pathname} />
-        <NavSection label="Financije" items={financeNav} userRole={userRole} pathname={pathname} />
-        <NavSection label="Ostalo" items={peopleNav} userRole={userRole} pathname={pathname} />
+        {!showOnlyReadyScreens && (
+          <>
+            <NavSection label="Financije" items={financeNav} userRole={userRole} pathname={pathname} />
+            <NavSection label="Ostalo" items={peopleNav} userRole={userRole} pathname={pathname} />
+          </>
+        )}
       </nav>
 
       <div className="border-t px-3 py-2.5">

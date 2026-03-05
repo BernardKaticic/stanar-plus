@@ -31,6 +31,7 @@ import { ApartmentMultiSelect } from "./ApartmentMultiSelect";
 
 const tenantSchema = z.object({
   name: z.string().trim().min(1, "Ime je obavezno").max(200, "Ime je predugačko"),
+  oib: z.string().trim().max(11, "OIB ima 11 znamenki").optional().or(z.literal("")),
   email: z.preprocess((v) => (v === "" ? undefined : v), z.string().email("Neispravna email adresa").max(255).optional()),
   phone: z.string().trim().max(50, "Broj telefona je predugačak").optional(),
   apartment_ids: z.array(z.string()).min(1, "Odaberi barem jedan stan"),
@@ -51,6 +52,7 @@ export const TenantDialog = ({ open, onOpenChange, onSave, isPending }: TenantDi
     resolver: zodResolver(tenantSchema),
     defaultValues: {
       name: "",
+      oib: "",
       email: "",
       phone: "",
       apartment_ids: [],
@@ -88,6 +90,19 @@ export const TenantDialog = ({ open, onOpenChange, onSave, isPending }: TenantDi
                   <FormLabel className="text-sm font-medium">Ime i prezime *</FormLabel>
                   <FormControl>
                     <Input placeholder="Npr. Marko Marić" {...field} className="min-w-0" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="oib"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">OIB</FormLabel>
+                  <FormControl>
+                    <Input placeholder="11 znamenki (opcionalno)" {...field} className="min-w-0 font-mono" maxLength={11} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

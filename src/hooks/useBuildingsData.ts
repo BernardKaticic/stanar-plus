@@ -236,18 +236,12 @@ export const useCreateApartment = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: ({ buildingId, data }: { buildingId: string; data: any }) =>
+    mutationFn: ({ buildingId, data }: { buildingId: string; data: { number: string; floor?: string | null; area_m2?: number; notes?: string | null } }) =>
       buildingsApi.createApartment({
-        buildingId,
-        number: data.apartment_number,
-        area: data.size_m2,
-        floor: data.floor ?? 0,
-        rooms: data.rooms ?? null,
-        owner: data.owner ?? null,
-        tenant: data.tenant ?? null,
-        contact: data.contact ?? null,
-        email: data.email || null,
-        phone: data.phone ?? null,
+        building_id: buildingId,
+        number: data.number,
+        floor: data.floor != null ? String(data.floor) : null,
+        area_m2: data.area_m2 ?? 0,
         notes: data.notes ?? null,
       }),
     onSuccess: async () => {
@@ -264,17 +258,11 @@ export const useUpdateApartment = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: { number: string; floor?: string | null; area_m2?: number; notes?: string | null } }) =>
       buildingsApi.updateApartment(id, {
-        number: data.apartment_number,
-        area: data.size_m2,
-        floor: data.floor ?? 0,
-        rooms: data.rooms ?? null,
-        owner: data.owner ?? null,
-        tenant: data.tenant ?? null,
-        contact: data.contact ?? null,
-        email: data.email || null,
-        phone: data.phone ?? null,
+        number: data.number,
+        floor: data.floor != null ? String(data.floor) : null,
+        area_m2: data.area_m2,
         notes: data.notes ?? null,
       }),
     onSuccess: async () => {

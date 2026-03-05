@@ -103,18 +103,19 @@ export const BuildingsTreeSidebar = ({
       "border-r flex flex-col h-full transition-all duration-300",
       collapsed ? "w-14" : "w-72"
     )}>
-      <div className="p-3 border-b flex items-center justify-between">
+      <div className="p-3 border-b flex items-center justify-between gap-2 min-w-0">
         {!collapsed && (
-          <div className="flex-1">
-            <h2 className="font-semibold text-base">Struktura zgrada</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Gradovi → Ulice → Ulazi</p>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <h2 className="font-semibold text-base truncate">Struktura zgrada</h2>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">Gradovi → Ulice → Ulazi</p>
           </div>
         )}
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onToggleCollapse}
           className="h-8 w-8 shrink-0"
+          title={collapsed ? "Proširi strukturu" : "Suzi strukturu"}
         >
           {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </Button>

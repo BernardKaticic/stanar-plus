@@ -33,6 +33,7 @@ const NONE_APARTMENT = "__none__";
 
 const tenantEditSchema = z.object({
   name: z.string().trim().min(1, "Ime je obavezno").max(200, "Ime je predugačko"),
+  oib: z.string().trim().max(11, "OIB ima 11 znamenki").optional().or(z.literal("")),
   email: z.preprocess((v) => (v === "" ? undefined : v), z.string().email("Neispravna email adresa").max(255).optional()),
   phone: z.string().trim().max(50, "Broj telefona je predugačak").optional(),
   apartment_id: z.string().optional(),
@@ -47,6 +48,7 @@ interface TenantEditDialogProps {
   tenant: {
     id: string;
     name: string;
+    oib?: string | null;
     email?: string;
     phone?: string;
     apartment_id?: string | null;
@@ -67,6 +69,7 @@ export const TenantEditDialog = ({
     resolver: zodResolver(tenantEditSchema),
     defaultValues: {
       name: "",
+      oib: "",
       email: "",
       phone: "",
       apartment_id: "",
@@ -90,6 +93,7 @@ export const TenantEditDialog = ({
     if (tenant && open) {
       form.reset({
         name: tenant.name || "",
+        oib: tenant.oib || "",
         email: tenant.email || "",
         phone: tenant.phone || "",
         apartment_id: tenant.apartment_id || NONE_APARTMENT,
@@ -106,6 +110,7 @@ export const TenantEditDialog = ({
   const handleSubmit = (data: TenantEditFormData) => {
     onSave({
       ...data,
+      oib: data.oib?.trim() || null,
       apartment_id: data.apartment_id && data.apartment_id !== NONE_APARTMENT ? data.apartment_id : null,
       delivery_method: data.delivery_method || null,
     });
@@ -141,6 +146,19 @@ export const TenantEditDialog = ({
                   <FormLabel className="text-sm font-medium">Ime i prezime *</FormLabel>
                   <FormControl>
                     <Input placeholder="Npr. Marko Marić" {...field} className="min-w-0" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="oib"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">OIB</FormLabel>
+                  <FormControl>
+                    <Input placeholder="11 znamenki (opcionalno)" {...field} className="min-w-0 font-mono" maxLength={11} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

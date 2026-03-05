@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { debtorsApi } from "@/lib/api";
 
 interface UseDebtorsParams {
@@ -11,5 +11,6 @@ export const useDebtors = ({ page = 1, pageSize = 25, search = "" }: UseDebtorsP
   return useQuery({
     queryKey: ["debtors", page, pageSize, search],
     queryFn: () => debtorsApi.getAll({ page, pageSize, search }),
+    placeholderData: keepPreviousData,
   });
 };

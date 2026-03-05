@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Mail, Download, Send, Loader2, ChevronLeft, Calendar } from "lucide-react";
+import { User, Mail, Download, Send, Loader2, ChevronLeft, Calendar, Edit2, ChevronDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +22,12 @@ import {
 } from "@/components/ui/popover";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
-import { personsApi } from "@/lib/api";
+import { personsApi, tenantsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { generatePersonCardPdf } from "@/lib/personCardPdf";
+import { TenantEditDialog } from "@/components/tenants/TenantEditDialog";
+import { useUpdateTenant } from "@/hooks/useTenantsManagement";
+import { useQueryClient } from "@tanstack/react-query";
 
 const formatDelivery = (dm: string | null | undefined) => {
   if (dm === "email") return "E-mail";
@@ -41,6 +45,18 @@ const PersonDetail = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [selectedAptIndex, setSelectedAptIndex] = useState(0);
+  const [editingTenant, setEditingTenant] = useState<{
+    id: string;
+    name: string;
+    oib?: string | null;
+    email?: string;
+    phone?: string;
+    apartment_id?: string | null;
+    deliveryMethod?: string | null;
+  } | null>(null);
+
+  const queryClient = useQueryClient();
+  const updateTenant = useUpdateTenant();
 
   const { data: person, isLoading } = useQuery({
     queryKey: ["person-detail", id],
@@ -101,9 +117,11 @@ const PersonDetail = () => {
               </div>
               <div className="min-w-0">
                 <CardTitle>{person.name}</CardTitle>
-                <CardDescription className="truncate">
-                  {person.apartments[0]?.address || person.apartments.map((a) => a.address || a.city).filter(Boolean).join(", ") || "–"}
-                </CardDescription>
+                {person.apartments.length === 1 && (person.apartments[0]?.address || person.apartments[0]?.city) && (
+                  <CardDescription className="truncate">
+                    {[person.apartments[0].address, person.apartments[0].city].filter(Boolean).join(", ")}
+                  </CardDescription>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -117,13 +135,45 @@ const PersonDetail = () => {
                 <span className="text-muted-foreground">Telefon:</span>
                 <span className="font-medium">{person.phone || "–"}</span>
               </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">OIB:</span>
+                <span className="font-medium font-mono">{person.oib || "–"}</span>
+              </div>
               <div className="flex justify-between py-2">
                 <span className="text-muted-foreground">Način slanja:</span>
                 <Badge variant="outline">{formatDelivery(person.deliveryMethod)}</Badge>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 pt-3 mt-3 border-t justify-end">
-              <Button variant="outline" size="sm" className="gap-2">
+              {person.apartments.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={async () => {
+                    const tenantId = person.apartments[0]?.tenantId;
+                    if (!tenantId) return;
+                    try {
+                      const tenant = await tenantsApi.getById(tenantId);
+                      setEditingTenant({
+                        id: String(tenant.id),
+                        name: tenant.name ?? person.name,
+                        oib: tenant.oib ?? person.oib ?? null,
+                        email: tenant.email ?? person.email ?? undefined,
+                        phone: tenant.phone ?? person.phone ?? undefined,
+                        apartment_id: tenant.apartment_id ?? tenant.apartmentId ?? null,
+                        deliveryMethod: tenant.deliveryMethod ?? person.deliveryMethod ?? null,
+                      });
+                    } catch {
+                      setEditingTenant(null);
+                    }
+                  }}
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Uredi
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => void generatePersonCardPdf(person)}>
                 <Download className="h-4 w-4" />
                 Ispis kartice
               </Button>
@@ -145,6 +195,8 @@ const PersonDetail = () => {
                 <TableRow>
                   <TableHead className="text-xs font-medium">Stan</TableHead>
                   <TableHead className="text-xs font-medium">Adresa</TableHead>
+                  <TableHead className="text-xs font-medium">Grad</TableHead>
+                  <TableHead className="text-right text-xs font-medium">Kvadratura</TableHead>
                   <TableHead className="text-right text-xs font-medium">Mjesečna rata</TableHead>
                   <TableHead className="text-right text-xs font-medium">Saldo</TableHead>
                 </TableRow>
@@ -160,7 +212,11 @@ const PersonDetail = () => {
                     onClick={() => setSelectedAptIndex(i)}
                   >
                     <TableCell className="font-medium">Stan {apt.apartmentNumber || i + 1}</TableCell>
-                    <TableCell className="text-muted-foreground">{apt.address || apt.city || "–"}</TableCell>
+                    <TableCell className="text-muted-foreground">{apt.address || "–"}</TableCell>
+                    <TableCell className="text-muted-foreground">{apt.city || "–"}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {apt.area ?? apt.size_m2 ? `${apt.area ?? apt.size_m2} m²` : "–"}
+                    </TableCell>
                     <TableCell className="text-right font-medium">{apt.monthlyRate ?? "–"}</TableCell>
                     <TableCell className={cn("text-right font-semibold", apt.balanceNum < 0 ? "text-destructive" : "text-success")}>
                       {apt.balance}
@@ -203,50 +259,55 @@ const PersonDetail = () => {
               {activeApt.feeBreakdown ? (
                 <>
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Naknade po m²</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Pričuva</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.reservePerSqm ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Kredit</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.loanPerSqm ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Štednja</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.savingsPerSqm ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-                          <p className="text-xs text-muted-foreground mb-0.5">Ukupno/m²</p>
-                          <p className="font-bold text-primary">
-                            {((activeApt.feeBreakdown.reservePerSqm || 0) + (activeApt.feeBreakdown.loanPerSqm || 0) + (activeApt.feeBreakdown.savingsPerSqm || 0)).toFixed(2).replace(".", ",")} €
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Fiksne naknade (po stanu)</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Čišćenje</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.cleaningFee ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Štednja</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.savingsFixed ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Izvanredni</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.extraFixed ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                        <div className="p-3 bg-muted/50 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-0.5">Struja</p>
-                          <p className="font-semibold">{(activeApt.feeBreakdown.electricityFixed ?? 0).toFixed(2).replace(".", ",")} €</p>
-                        </div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const fb = activeApt.feeBreakdown;
+                      const perSqm = [
+                        { label: "Pričuva", v: fb.reservePerSqm ?? 0 },
+                        { label: "Kredit", v: fb.loanPerSqm ?? 0 },
+                        { label: "Štednja", v: fb.savingsPerSqm ?? 0 },
+                      ].filter((x) => x.v !== 0);
+                      const totalPerSqm = (fb.reservePerSqm || 0) + (fb.loanPerSqm || 0) + (fb.savingsPerSqm || 0);
+                      if (totalPerSqm !== 0) perSqm.push({ label: "Ukupno/m²", v: totalPerSqm, isTotal: true } as const);
+                      const fixed = [
+                        { label: "Čišćenje", v: fb.cleaningFee ?? 0 },
+                        { label: "Štednja", v: fb.savingsFixed ?? 0 },
+                        { label: "Izvanredni", v: fb.extraFixed ?? 0 },
+                        { label: "Struja", v: fb.electricityFixed ?? 0 },
+                      ].filter((x) => x.v !== 0);
+                      return (
+                        <>
+                          {perSqm.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Naknade po m²</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {perSqm.map(({ label, v, isTotal }) => (
+                                  <div
+                                    key={label}
+                                    className={isTotal ? "p-3 bg-primary/10 rounded-lg border border-primary/20" : "p-3 bg-muted/50 rounded-lg"}
+                                  >
+                                    <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+                                    <p className={isTotal ? "font-bold text-primary" : "font-semibold"}>{v.toFixed(2).replace(".", ",")} €</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {fixed.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Fiksne naknade (po stanu)</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {fixed.map(({ label, v }) => (
+                                  <div key={label} className="p-3 bg-muted/50 rounded-lg">
+                                    <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+                                    <p className="font-semibold">{v.toFixed(2).replace(".", ",")} €</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="mt-6 flex flex-wrap items-center justify-between gap-3 p-4 bg-primary/5 rounded-lg border-2 border-primary/20">
                     <span className="font-semibold">Mjesečna rata</span>
@@ -276,17 +337,10 @@ const PersonDetail = () => {
                 <div>
                   <h3 className="text-base font-semibold">Pregled zaduženja i uplata</h3>
                   <p className="text-sm text-muted-foreground">
-                    {dateFrom || dateTo ? (
-                      <>
-                        Period: {dateFrom ? format(dateFrom, "d.M.yyyy.", { locale: hr }) : "..."} –{" "}
-                        {dateTo ? format(dateTo, "d.M.yyyy.", { locale: hr }) : "danas"}
-                      </>
-                    ) : (
-                      "Sve transakcije"
-                    )}
+                    Filtriraj transakcije po datumu
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className={cn(
                     "text-sm font-semibold",
                     activeApt.balanceNum < 0 ? "text-destructive" : "text-primary"
@@ -295,16 +349,33 @@ const PersonDetail = () => {
                   </span>
                   <Popover open={periodOpen} onOpenChange={setPeriodOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="min-h-[36px] gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Prilagodi period
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[36px] gap-2 font-normal justify-between min-w-[200px] sm:min-w-[240px]"
+                        aria-expanded={periodOpen}
+                        aria-haspopup="dialog"
+                      >
+                        <span className="flex items-center gap-2 truncate">
+                          <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {!dateFrom && !dateTo ? (
+                            "Sve transakcije"
+                          ) : dateFrom && dateTo ? (
+                            `${format(dateFrom, "d.M.yyyy.", { locale: hr })} – ${format(dateTo, "d.M.yyyy.", { locale: hr })}`
+                          ) : dateFrom ? (
+                            `Od ${format(dateFrom, "d.M.yyyy.", { locale: hr })}`
+                          ) : dateTo ? (
+                            `Do ${format(dateTo, "d.M.yyyy.", { locale: hr })}`
+                          ) : (
+                            "Odaberi period"
+                          )}
+                        </span>
+                        <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", periodOpen && "rotate-180")} />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-4" align="end">
                       <div className="space-y-4">
-                        <p className="text-xs text-muted-foreground">
-                          {!dateFrom && !dateTo ? "Trenutno: Sve transakcije" : dateFrom && dateTo ? `Trenutno: ${format(dateFrom, "d.M.yyyy.", { locale: hr })} – ${format(dateTo, "d.M.yyyy.", { locale: hr })}` : "Odaberi period"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">Odabir perioda</p>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label className="block text-sm font-medium">Od</Label>
@@ -381,7 +452,7 @@ const PersonDetail = () => {
               </div>
 
               <div className="flex flex-wrap justify-end gap-3 pt-2">
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => void generatePersonCardPdf(person)}>
                   <Download className="h-4 w-4" />
                   Ispis kartice
                 </Button>
@@ -394,6 +465,35 @@ const PersonDetail = () => {
           </Card>
         </div>
       )}
+
+      <TenantEditDialog
+        open={!!editingTenant}
+        onOpenChange={(open) => !open && setEditingTenant(null)}
+        tenant={editingTenant}
+        onSave={(data) => {
+          if (!editingTenant) return;
+          updateTenant.mutate(
+            {
+              id: editingTenant.id,
+              data: {
+                name: data.name,
+                oib: data.oib ?? undefined,
+                email: data.email || undefined,
+                phone: data.phone || undefined,
+                apartment_id: data.apartment_id && data.apartment_id !== "__none__" ? data.apartment_id : null,
+                delivery_method: data.delivery_method || null,
+              },
+            },
+            {
+              onSuccess: () => {
+                setEditingTenant(null);
+                queryClient.invalidateQueries({ queryKey: ["person-detail", id] });
+              },
+            }
+          );
+        }}
+        isPending={updateTenant.isPending}
+      />
     </div>
   );
 };

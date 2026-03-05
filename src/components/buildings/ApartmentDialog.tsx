@@ -36,20 +36,30 @@ import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { personsApi } from "@/lib/api";
 import { useState } from "react";
 
 const apartmentAddSchema = z.object({
   number: z.string().trim().min(1, "Broj stana je obavezan").max(20, "Broj stana je predug"),
+  floor: z.string().trim().max(20, "Kat je predug").optional(),
   area: z.string().trim().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Površina mora biti pozitivan broj",
   }),
   ownerMode: z.enum(["existing", "new"]),
   personId: z.string().optional(),
   ownerName: z.string().trim().max(200, "Ime je predugo").optional(),
+  ownerOib: z.string().trim().max(11, "OIB ima 11 znamenki").optional().or(z.literal("")),
   email: z.string().trim().email("Neispravna email adresa").max(255, "Email je predug").optional().or(z.literal("")),
   phone: z.string().trim().max(50, "Telefon je predug").optional(),
+  delivery_method: z.enum(["email", "pošta", "both"]).optional(),
   notes: z.string().trim().max(1000, "Bilješke su predugo").optional(),
 }).refine(
   (data) => {
@@ -61,6 +71,7 @@ const apartmentAddSchema = z.object({
 
 const apartmentEditSchema = z.object({
   number: z.string().trim().min(1, "Broj stana je obavezan").max(20, "Broj stana je predug"),
+  floor: z.string().trim().max(20, "Kat je predug").optional(),
   area: z.string().trim().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Površina mora biti pozitivan broj",
   }),
@@ -75,6 +86,10 @@ interface BuildingFees {
   cleaning: number;
   loan: number;
   reservePerSqm: number;
+  savingsFixed?: number;
+  extraFixed?: number;
+  electricityFixed?: number;
+  savingsPerSqm?: number;
 }
 
 interface Apartment {
@@ -103,8 +118,8 @@ interface ApartmentDialogProps {
 }
 
 export type ApartmentFormPayload =
-  | { mode: "add"; number: string; area: number; personId?: string; tenantId?: string; ownerName?: string; email?: string; phone?: string; notes?: string }
-  | { mode: "edit"; number: string; area: number; personId?: string; tenantId?: string; notes?: string };
+  | { mode: "add"; number: string; floor?: string | null; area: number; personId?: string; tenantId?: string; ownerName?: string; ownerOib?: string; email?: string; phone?: string; delivery_method?: "email" | "pošta" | "both"; notes?: string }
+  | { mode: "edit"; number: string; floor?: string | null; area: number; personId?: string; tenantId?: string; notes?: string };
 
 export const ApartmentDialog = ({
   open,
@@ -121,12 +136,14 @@ export const ApartmentDialog = ({
     resolver: zodResolver(apartmentAddSchema),
     defaultValues: {
       number: "",
+      floor: "",
       area: "",
       ownerMode: "new",
       personId: "",
       ownerName: "",
       email: "",
       phone: "",
+      delivery_method: "email",
       notes: "",
     },
   });
@@ -135,6 +152,7 @@ export const ApartmentDialog = ({
     resolver: zodResolver(apartmentEditSchema),
     defaultValues: {
       number: "",
+      floor: "",
       area: "",
       personId: "",
       notes: "",
@@ -153,49 +171,62 @@ export const ApartmentDialog = ({
   useEffect(() => {
     if (editApartment && open) {
       const tenantId = (editApartment as Apartment & { tenant_id?: string }).tenant_id;
-      // Pronađi person_id za trenutnog tenant-a (osoba s više stanova ima više apartments)
       const matchingPerson = tenantId && persons.length
         ? persons.find((p: { apartments?: { tenantId?: string }[] }) =>
             p.apartments?.some((a) => a.tenantId === tenantId)
           )
         : null;
+      const aptWithFloor = editApartment as Apartment & { floor?: string | null };
       editForm.reset({
         number: editApartment.number,
+        floor: aptWithFloor.floor ?? "",
         area: editApartment.area.toString(),
         personId: matchingPerson?.id ?? "",
         notes: editApartment.notes || "",
       });
-    } else if (!editApartment) {
+    } else if (!editApartment && open) {
       addForm.reset({
         number: "",
+        floor: "",
         area: "",
         ownerMode: "new",
         personId: "",
         ownerName: "",
+        ownerOib: "",
         email: "",
         phone: "",
+        delivery_method: "email",
         notes: "",
       });
     }
-  }, [editApartment, addForm, editForm, open, persons]);
+    // personsData (ne persons) da izbjegnemo novi [] ref svaki render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editApartment?.id, open, personsData]);
 
   const form = isEdit ? editForm : addForm;
   const rawArea = form.watch("area");
   const areaValue = parseFloat(rawArea || "0");
   const hasValidArea = !Number.isNaN(areaValue) && areaValue > 0;
-  const reserveCharge = fees && hasValidArea ? fees.reservePerSqm * areaValue : 0;
-  const loanCharge = fees && hasValidArea ? fees.loan * areaValue : 0;
-  const totalCharge = fees ? reserveCharge + loanCharge + fees.cleaning : 0;
+  const reserveCharge = fees && hasValidArea ? (fees.reservePerSqm ?? 0) * areaValue : 0;
+  const loanCharge = fees && hasValidArea ? (fees.loan ?? 0) * areaValue : 0;
+  const savingsPerSqmCharge = fees && hasValidArea ? (fees.savingsPerSqm ?? 0) * areaValue : 0;
+  const fixedFees = fees
+    ? (fees.cleaning ?? 0) + (fees.savingsFixed ?? 0) + (fees.extraFixed ?? 0) + (fees.electricityFixed ?? 0)
+    : 0;
+  const totalCharge = fees ? reserveCharge + loanCharge + savingsPerSqmCharge + fixedFees : 0;
 
   const onSubmitAdd = (data: ApartmentAddFormData) => {
     onSave({
       mode: "add",
       number: data.number,
+      floor: data.floor?.trim() || null,
       area: Number(data.area),
       personId: data.ownerMode === "existing" ? data.personId : undefined,
       ownerName: data.ownerMode === "new" ? data.ownerName || undefined : undefined,
+      ownerOib: data.ownerMode === "new" ? (data.ownerOib?.trim() || undefined) : undefined,
       email: data.ownerMode === "new" ? data.email || undefined : undefined,
       phone: data.ownerMode === "new" ? data.phone || undefined : undefined,
+      delivery_method: data.ownerMode === "new" ? data.delivery_method : undefined,
       notes: data.notes || undefined,
     });
   };
@@ -204,6 +235,7 @@ export const ApartmentDialog = ({
     onSave({
       mode: "edit",
       number: data.number,
+      floor: data.floor?.trim() || null,
       area: Number(data.area),
       personId: data.personId || undefined,
       notes: data.notes || undefined,
@@ -224,7 +256,7 @@ export const ApartmentDialog = ({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="number"
@@ -233,6 +265,19 @@ export const ApartmentDialog = ({
                     <FormLabel>Broj stana *</FormLabel>
                     <FormControl>
                       <Input placeholder="1, 2A, prizemlje..." {...field} className="w-full" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="floor"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>Kat</FormLabel>
+                    <FormControl>
+                      <Input placeholder="0, 1, P+1..." {...field} className="w-full" value={field.value ?? ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -253,39 +298,32 @@ export const ApartmentDialog = ({
               />
             </div>
 
-            {fees && (
-              <div className="rounded-lg border bg-muted/40 p-4">
-                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Procjena mjesečnih naknada
-                </h4>
-                <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Čišćenje</span>
-                    <span className="font-medium">
-                      {fees.cleaning.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Kredit</span>
-                    <span className="font-medium">
-                      {(hasValidArea ? loanCharge : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({fees.loan.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/m²)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Pričuva</span>
-                    <span className="font-medium">
-                      {(hasValidArea ? reserveCharge : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({fees.reservePerSqm.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/m²)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Ukupno mjesečno</span>
-                    <span className="font-semibold">
-                      {totalCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </span>
+            {fees && (() => {
+              const items = [
+                { label: "Čišćenje", show: (fees.cleaning ?? 0) !== 0, fmt: () => (fees.cleaning ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" },
+                { label: "Kredit", show: (fees.loan ?? 0) !== 0, fmt: () => (hasValidArea ? loanCharge : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " € (" + (fees.loan ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €/m²)" },
+                { label: "Pričuva", show: (fees.reservePerSqm ?? 0) !== 0, fmt: () => (hasValidArea ? reserveCharge : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " € (" + (fees.reservePerSqm ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €/m²)" },
+                { label: "Štednja (fiksno)", show: (fees.savingsFixed ?? 0) !== 0, fmt: () => (fees.savingsFixed ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" },
+                { label: "Izvanredni", show: (fees.extraFixed ?? 0) !== 0, fmt: () => (fees.extraFixed ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" },
+                { label: "Struja", show: (fees.electricityFixed ?? 0) !== 0, fmt: () => (fees.electricityFixed ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" },
+                { label: "Štednja (€/m²)", show: (fees.savingsPerSqm ?? 0) !== 0, fmt: () => (hasValidArea ? savingsPerSqmCharge : 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " € (" + (fees.savingsPerSqm ?? 0).toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €/m²)" },
+              ].filter((x) => x.show);
+              if (totalCharge !== 0) items.push({ label: "Ukupno mjesečno", val: totalCharge, fmt: () => totalCharge.toLocaleString("hr-HR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €", isTotal: true });
+              if (items.length === 0) return null;
+              return (
+                <div className="rounded-lg border bg-muted/40 p-4">
+                  <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Procjena mjesečnih naknada</h4>
+                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    {items.map(({ label, fmt, isTotal }) => (
+                      <div key={label} className="flex items-center justify-between">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className={isTotal ? "font-semibold" : "font-medium"}>{fmt()}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {isEdit ? (
               <FormField
@@ -475,6 +513,21 @@ export const ApartmentDialog = ({
                       />
                       <FormField
                         control={addForm.control}
+                        name="ownerOib"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel>OIB</FormLabel>
+                            <FormControl>
+                              <Input placeholder="11 znamenki" {...field} className="w-full font-mono" maxLength={11} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={addForm.control}
                         name="phone"
                         render={({ field }) => (
                           <FormItem className="space-y-2">
@@ -486,16 +539,38 @@ export const ApartmentDialog = ({
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={addForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="email@example.com" {...field} className="w-full" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     <FormField
                       control={addForm.control}
-                      name="email"
+                      name="delivery_method"
                       render={({ field }) => (
                         <FormItem className="space-y-2">
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="email@example.com" {...field} className="w-full" />
-                          </FormControl>
+                          <FormLabel>Način dostave</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || "email"}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Odaberite način" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="email">E-mail</SelectItem>
+                              <SelectItem value="pošta">Pošta</SelectItem>
+                              <SelectItem value="both">E-mail i pošta</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}

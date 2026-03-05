@@ -1,4 +1,4 @@
-import { Plus, Search, FileText, Filter, X, MapPin, AlertCircle, Edit2, MoreVertical } from "lucide-react";
+import { Plus, Search, FileText, Filter, X, MapPin, AlertCircle, Edit2, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown, Send, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { usePersons } from "@/hooks/usePersonsData";
 import { useCreateTenant, useUpdateTenant } from "@/hooks/useTenantsManagement";
@@ -33,7 +43,7 @@ import { TenantDialog } from "@/components/tenants/TenantDialog";
 import { TenantEditDialog } from "@/components/tenants/TenantEditDialog";
 import { AddApartmentToPersonDialog } from "@/components/tenants/AddApartmentToPersonDialog";
 import { TempPasswordModal } from "@/components/TempPasswordModal";
-import { usersApi, buildingsApi, tenantsApi } from "@/lib/api";
+import { usersApi, buildingsApi, tenantsApi, debtorsApi } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { exportTableToCSV } from "@/lib/export";
@@ -56,12 +66,20 @@ const Tenants = () => {
   }>({ open: false, email: "", tempPassword: "" });
   
   const navigate = useNavigate();
-  const { data: personsData, isLoading } = usePersons({ page, pageSize, search: searchTerm });
+  const { data: personsData, isLoading, isFetching } = usePersons({
+    page,
+    pageSize,
+    search: searchTerm,
+    status: statusFilter,
+    deliveryMethod: deliveryFilter,
+    city: cityFilter !== "all" ? cityFilter : undefined,
+  });
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
   const [editingTenant, setEditingTenant] = useState<{
     id: string;
     name: string;
+    oib?: string | null;
     email?: string;
     phone?: string;
     apartment_id?: string | null;
@@ -73,11 +91,44 @@ const Tenants = () => {
     name: string;
     email?: string | null;
     phone?: string | null;
+    oib?: string | null;
     deliveryMethod?: string | null;
     apartments: { apartmentId: string }[];
   } | null>(null);
   const [addApartmentPending, setAddApartmentPending] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'balance' | 'monthlyRate'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [deleteTenantConfirm, setDeleteTenantConfirm] = useState<{
+    tenantId: string;
+    personName: string;
+    address?: string | null;
+  } | null>(null);
+  const [deleteTenantPending, setDeleteTenantPending] = useState(false);
   const { toast } = useToast();
+
+  const handleDeleteTenantConfirm = async () => {
+    if (!deleteTenantConfirm) return;
+    setDeleteTenantPending(true);
+    try {
+      await tenantsApi.delete(deleteTenantConfirm.tenantId);
+      queryClient.invalidateQueries({ queryKey: ["persons"] });
+      queryClient.invalidateQueries({ queryKey: ["cities"] });
+      toast({
+        title: "Suvlasnik uklonjen",
+        description: `Veza suvlasnika ${deleteTenantConfirm.personName} s stanom je uklonjena.`,
+      });
+      setDeleteTenantConfirm(null);
+    } catch {
+      toast({
+        title: "Greška",
+        description: "Nije moguće ukloniti vezu suvlasnika.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteTenantPending(false);
+    }
+  };
 
   const formatDelivery = (dm: string | null | undefined) => {
     const v = typeof dm === 'string' ? dm : null;
@@ -122,25 +173,36 @@ const Tenants = () => {
   const allPersons = personsData?.data || [];
   const totalCount = personsData?.totalCount || 0;
 
-  // Get unique cities from all apartments
+  // Get unique cities from current data (for filter dropdown; backend filters by city when selected)
   const cities = Array.from(new Set(allPersons.flatMap(p => p.apartments.map(a => a.city).filter(Boolean)))).sort() as string[];
 
-  // Apply filters
-  const persons = allPersons.filter(person => {
-    if (statusFilter !== 'all' && person.status !== statusFilter) return false;
-    if (deliveryFilter === 'email' && person.deliveryMethod !== 'email' && person.deliveryMethod !== 'both') return false;
-    if (deliveryFilter === 'pošta' && person.deliveryMethod !== 'pošta' && person.deliveryMethod !== 'both') return false;
-    if (cityFilter !== 'all') {
-      const hasCity = person.apartments.some(a => a.city === cityFilter);
-      if (!hasCity) return false;
+  // Sort (filtering is done by backend via usePersons params)
+  const persons = [...allPersons].sort((a, b) => {
+    const mul = sortDir === 'asc' ? 1 : -1;
+    if (sortBy === 'name') {
+      return mul * (a.name.localeCompare(b.name, 'hr'));
     }
-    return true;
+    if (sortBy === 'balance') {
+      const va = a.totalBalanceNum ?? 0;
+      const vb = b.totalBalanceNum ?? 0;
+      return mul * (va - vb);
+    }
+    if (sortBy === 'monthlyRate') {
+      const parseRate = (s: string | null | undefined) =>
+        parseFloat((s || '0').replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+      const va = parseRate(a.totalMonthlyRate);
+      const vb = parseRate(b.totalMonthlyRate);
+      return mul * (va - vb);
+    }
+    return 0;
   });
 
-  const activeFiltersCount = 
-    (statusFilter !== 'all' ? 1 : 0) + 
+  const activeFiltersCount =
+    (statusFilter !== 'all' ? 1 : 0) +
     (deliveryFilter !== 'all' ? 1 : 0) +
     (cityFilter !== 'all' ? 1 : 0);
+
+  const hasActiveFilters = activeFiltersCount > 0;
 
   const clearFilters = () => {
     setStatusFilter('all');
@@ -148,11 +210,34 @@ const Tenants = () => {
     setCityFilter('all');
   };
 
+  const handleSendReminder = async (personId: string, personName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSendingReminder(personId);
+    try {
+      await debtorsApi.sendReminderByPerson(personId);
+      queryClient.invalidateQueries({ queryKey: ["persons"] });
+      queryClient.invalidateQueries({ queryKey: ["debtors"] });
+      queryClient.invalidateQueries({ queryKey: ["debtors", "reminders"] });
+      toast({
+        title: "Opomena poslana",
+        description: `Opomena za ${personName} je zabilježena.`,
+      });
+    } catch {
+      toast({
+        title: "Greška",
+        description: "Nije moguće poslati opomenu",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReminder(null);
+    }
+  };
+
   const stats = {
     total: totalCount,
     paid: persons.filter(p => p.status === 'paid').length,
     overdue: persons.filter(p => p.status === 'overdue').length,
-    email: persons.filter(p => p.deliveryMethod === 'email' || p.deliveryMethod === 'both').length,
+    totalApartments: persons.reduce((s, p) => s + (p.apartmentsCount ?? p.apartments?.length ?? 0), 0),
   };
 
   return (
@@ -165,38 +250,34 @@ const Tenants = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Ukupno suvlasnika</p>
-          <p className="text-xl font-semibold mt-1">{isLoading ? "..." : stats.total}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Uredno plaćaju</p>
-          <p className="text-xl font-semibold mt-1 text-success">
-            {isLoading ? "..." : stats.paid}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">U dugu</p>
-          <p className="text-xl font-semibold mt-1 text-destructive">
-            {isLoading ? "..." : stats.overdue}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">E-mail dostava</p>
-          <p className="text-xl font-semibold mt-1">
-            {isLoading ? "..." : stats.email}
-          </p>
-        </Card>
+        {[
+          { label: "Ukupno suvlasnika", value: stats.total, className: "" },
+          { label: "Uredno plaćaju", value: stats.paid, className: "text-success" },
+          { label: "U dugu", value: stats.overdue, className: "text-destructive" },
+          { label: "Ukupno stanova", value: stats.totalApartments, className: "" },
+        ].map((stat, i) => (
+          <Card key={stat.label} className="p-4 transition-all duration-200 hover:shadow-sm">
+            <p className="text-sm text-muted-foreground">{stat.label}</p>
+            {isLoading ? (
+              <Skeleton className="h-8 w-12 mt-2" />
+            ) : (
+              <p className={`text-xl font-semibold mt-1 ${stat.className}`}>{stat.value}</p>
+            )}
+          </Card>
+        ))}
       </div>
 
-      <Card>
+      <Card className="transition-opacity duration-200" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             <div>
-              <CardTitle>Popis suvlasnika</CardTitle>
-              <CardDescription>
-                Pretraga, filteri i izvoz
-              </CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle>Popis suvlasnika</CardTitle>
+                {isFetching && !isLoading && (
+                  <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
+                )}
+              </div>
+              <CardDescription>Pretraga, filteri i izvoz</CardDescription>
             </div>
             {persons.length > 0 && (
             <div className="flex justify-end w-full sm:w-auto shrink-0">
@@ -218,7 +299,7 @@ const Tenants = () => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input 
               placeholder="Pretraži po imenu ili adresi..." 
-              className="pl-9"
+              className="pl-9 transition-colors duration-150 focus-visible:ring-2"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -298,13 +379,58 @@ const Tenants = () => {
           <Table className="table-fixed min-w-[700px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[22%] text-xs font-medium">Suvlasnik</TableHead>
-                <TableHead className="w-[18%] text-xs font-medium">Email</TableHead>
-                <TableHead className="w-[20%] text-xs font-medium">Stan</TableHead>
-                <TableHead className="w-[12%] text-right text-xs font-medium">Mjesečna rata</TableHead>
-                <TableHead className="w-[10%] text-right text-xs font-medium">Saldo</TableHead>
-                <TableHead className="w-[10%] text-xs font-medium">Dostava</TableHead>
-                <TableHead className="w-[8%] text-right text-xs font-medium">Akcije</TableHead>
+                <TableHead className="w-[24%]">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
+                    onClick={() => {
+                      if (sortBy === 'name') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+                      else {
+                        setSortBy('name');
+                        setSortDir('asc');
+                      }
+                    }}
+                  >
+                    Suvlasnik
+                    {sortBy === 'name' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                  </button>
+                </TableHead>
+                <TableHead className="w-[18%] text-xs font-medium">Stan</TableHead>
+                <TableHead className="w-[14%] text-xs font-medium">Grad</TableHead>
+                <TableHead className="w-[12%]">
+                  <button
+                    type="button"
+                    className="flex items-center justify-end gap-1 w-full text-xs font-medium hover:text-foreground"
+                    onClick={() => {
+                      if (sortBy === 'monthlyRate') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+                      else {
+                        setSortBy('monthlyRate');
+                        setSortDir('desc');
+                      }
+                    }}
+                  >
+                    Mjesečna rata
+                    {sortBy === 'monthlyRate' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                  </button>
+                </TableHead>
+                <TableHead className="w-[10%]">
+                  <button
+                    type="button"
+                    className="flex items-center justify-end gap-1 w-full text-xs font-medium hover:text-foreground"
+                    onClick={() => {
+                      if (sortBy === 'balance') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+                      else {
+                        setSortBy('balance');
+                        setSortDir('asc');
+                      }
+                    }}
+                  >
+                    Saldo
+                    {sortBy === 'balance' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                  </button>
+                </TableHead>
+                <TableHead className="w-[12%] text-xs font-medium">Dostava</TableHead>
+                <TableHead className="w-[10%] text-right text-xs font-medium">Akcije</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -313,8 +439,8 @@ const Tenants = () => {
                   {[1, 2, 3, 4, 5].map((i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20" /></TableCell>
@@ -326,19 +452,20 @@ const Tenants = () => {
                 <TableRow>
                   <TableCell colSpan={7} className="p-0">
                     <EmptyState
-                      title="Nema suvlasnika"
-                      description="Dodajte prvog suvlasnika da biste započeli s evidencijom."
-                      action={{ label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
+                      title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"}
+                      description={hasActiveFilters ? "Pokušajte promijeniti ili ukloniti filtere." : "Dodajte prvog suvlasnika da biste započeli s evidencijom."}
+                      action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
                     />
                   </TableCell>
                 </TableRow>
               ) : (
-                persons.map((person) => {
+                persons.map((person, idx) => {
                   const firstApt = person.apartments[0];
                   return (
                   <TableRow
                     key={person.id}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    className="hover:bg-muted/30 transition-colors duration-150 cursor-pointer animate-fade-in-up"
+                    style={{ animationDelay: `${Math.min(idx * 25, 150)}ms` }}
                     onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
                   >
                     <TableCell className="font-medium text-sm">
@@ -347,20 +474,22 @@ const Tenants = () => {
                           <AlertCircle className="h-4 w-4 text-destructive" />
                         )}
                         {person.name}
-                        {person.apartmentsCount > 1 && (
-                          <Badge variant="secondary" className="text-xs px-1.5">
-                            {person.apartmentsCount} stana
-                          </Badge>
-                        )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs truncate" title={person.email || "-"}>{person.email || "-"}</TableCell>
                     <TableCell className="text-xs truncate" title={person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : "-"}>
                       {person.apartmentsCount === 1 && firstApt?.address
                         ? firstApt.address
                         : person.apartmentsCount > 1
                         ? `${person.apartmentsCount} stana`
                         : "-"}
+                    </TableCell>
+                    <TableCell className="text-xs truncate">
+                      {person.apartmentsCount === 1
+                        ? (firstApt?.city || "–")
+                        : (() => {
+                            const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))];
+                            return cities.length === 1 ? cities[0] : "–";
+                          })()}
                     </TableCell>
                     <TableCell className="text-right text-xs font-medium">{person.totalMonthlyRate ?? "-"}</TableCell>
                     <TableCell className={`text-right text-xs font-semibold ${
@@ -385,6 +514,21 @@ const Tenants = () => {
                             <FileText className="h-4 w-4 mr-2" />
                             Pregled detalja
                           </DropdownMenuItem>
+                          {person.status === 'overdue' && (
+                            <DropdownMenuItem
+                              onClick={(e) => handleSendReminder(person.id, person.name, e)}
+                              disabled={sendingReminder === person.id}
+                            >
+                              {sendingReminder === person.id ? (
+                                <span className="animate-pulse">Slanje...</span>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Pošalji opomenu
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          )}
                           {person.apartments.length > 0 && (
                             <>
                               {person.apartmentsCount === 1 ? (
@@ -393,6 +537,7 @@ const Tenants = () => {
                                     setEditingTenant({
                                       id: firstApt!.tenantId,
                                       name: person.name,
+                                      oib: person.oib ?? undefined,
                                       email: person.email,
                                       phone: person.phone,
                                       apartment_id: firstApt!.apartmentId,
@@ -418,6 +563,7 @@ const Tenants = () => {
                                           setEditingTenant({
                                             id: apt.tenantId,
                                             name: person.name,
+                                            oib: person.oib ?? undefined,
                                             email: person.email,
                                             phone: person.phone,
                                             apartment_id: apt.apartmentId,
@@ -439,6 +585,7 @@ const Tenants = () => {
                                     name: person.name,
                                     email: person.email,
                                     phone: person.phone,
+                                    oib: person.oib,
                                     deliveryMethod: person.deliveryMethod,
                                     apartments: person.apartments,
                                   })
@@ -447,6 +594,45 @@ const Tenants = () => {
                                 <Plus className="h-4 w-4 mr-2" />
                                 Dodaj stan
                               </DropdownMenuItem>
+                              {person.apartmentsCount === 1 ? (
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() =>
+                                    setDeleteTenantConfirm({
+                                      tenantId: firstApt!.tenantId,
+                                      personName: person.name,
+                                      address: firstApt?.address,
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Obriši suvlasnika
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Obriši vezu s stanom
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                    {person.apartments.map((apt) => (
+                                      <DropdownMenuItem
+                                        key={apt.tenantId}
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() =>
+                                          setDeleteTenantConfirm({
+                                            tenantId: apt.tenantId,
+                                            personName: person.name,
+                                            address: apt.address,
+                                          })
+                                        }
+                                      >
+                                        {apt.address ?? apt.apartmentId ?? apt.tenantId}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                              )}
                             </>
                           )}
                         </DropdownMenuContent>
@@ -497,21 +683,29 @@ const Tenants = () => {
             </>
           ) : persons.length === 0 ? (
             <EmptyState
-              title="Nema suvlasnika"
-              description="Dodajte prvog suvlasnika da biste započeli s evidencijom."
-              action={{ label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
+              title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"}
+              description={hasActiveFilters ? "Pokušajte promijeniti ili ukloniti filtere." : "Dodajte prvog suvlasnika da biste započeli s evidencijom."}
+              action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
             />
           ) : (
-            persons.map((person) => {
+            persons.map((person, idx) => {
               const firstApt = person.apartments[0];
               const addressStr = person.apartmentsCount === 1 && firstApt?.address
                 ? firstApt.address
-                : person.apartments.map(a => a.address || a.city).filter(Boolean).slice(0, 2).join(' • ') || '-';
-              const cityStr = [...new Set(person.apartments.map(a => a.city).filter(Boolean))].join(', ') || '';
+                : person.apartmentsCount > 1
+                ? `${person.apartmentsCount} stana`
+                : '-';
+              const cityStr = person.apartmentsCount === 1
+                ? (firstApt?.city || '')
+                : (() => {
+                    const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))];
+                    return cities.length === 1 ? cities[0] : '';
+                  })();
               return (
               <Card
                 key={person.id}
-                className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md transition-shadow cursor-pointer"
+                className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md hover:border-primary/20 transition-all duration-200 cursor-pointer animate-fade-in-up"
+                style={{ animationDelay: `${Math.min(idx * 35, 200)}ms` }}
                 onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
               >
                 <div className="flex items-start justify-between mb-3">
@@ -521,14 +715,8 @@ const Tenants = () => {
                         <AlertCircle className="h-4 w-4 text-destructive" />
                       )}
                       <h3 className="font-semibold">{person.name}</h3>
-                      {person.apartmentsCount > 1 && (
-                        <Badge variant="secondary" className="text-xs">{person.apartmentsCount} stana</Badge>
-                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">{addressStr}{cityStr ? `, ${cityStr}` : ''}</p>
-                    {person.email && (
-                      <p className="text-xs text-muted-foreground mt-1">{person.email}</p>
-                    )}
                   </div>
                   <div onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
@@ -542,6 +730,24 @@ const Tenants = () => {
                         <FileText className="h-4 w-4 mr-2" />
                         Pregled detalja
                       </DropdownMenuItem>
+                      {person.status === 'overdue' && (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendReminder(person.id, person.name, e);
+                          }}
+                          disabled={sendingReminder === person.id}
+                        >
+                          {sendingReminder === person.id ? (
+                            <span className="animate-pulse">Slanje...</span>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-2" />
+                              Pošalji opomenu
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      )}
                       {person.apartments.length > 0 && (
                         <>
                           {person.apartmentsCount === 1 ? (
@@ -550,6 +756,7 @@ const Tenants = () => {
                                 setEditingTenant({
                                   id: firstApt!.tenantId,
                                   name: person.name,
+                                  oib: person.oib ?? undefined,
                                   email: person.email,
                                   phone: person.phone,
                                   apartment_id: firstApt!.apartmentId,
@@ -575,6 +782,7 @@ const Tenants = () => {
                                       setEditingTenant({
                                         id: apt.tenantId,
                                         name: person.name,
+                                        oib: person.oib ?? undefined,
                                         email: person.email,
                                         phone: person.phone,
                                         apartment_id: apt.apartmentId,
@@ -596,6 +804,7 @@ const Tenants = () => {
                                 name: person.name,
                                 email: person.email,
                                 phone: person.phone,
+                                oib: person.oib,
                                 deliveryMethod: person.deliveryMethod,
                                 apartments: person.apartments,
                               })
@@ -604,6 +813,45 @@ const Tenants = () => {
                             <Plus className="h-4 w-4 mr-2" />
                             Dodaj stan
                           </DropdownMenuItem>
+                          {person.apartmentsCount === 1 ? (
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() =>
+                                setDeleteTenantConfirm({
+                                  tenantId: firstApt!.tenantId,
+                                  personName: person.name,
+                                  address: firstApt?.address,
+                                })
+                              }
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Obriši suvlasnika
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Obriši vezu s stanom
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                {person.apartments.map((apt) => (
+                                  <DropdownMenuItem
+                                    key={apt.tenantId}
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() =>
+                                      setDeleteTenantConfirm({
+                                        tenantId: apt.tenantId,
+                                        personName: person.name,
+                                        address: apt.address,
+                                      })
+                                    }
+                                  >
+                                    {apt.address ?? apt.apartmentId ?? apt.tenantId}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          )}
                         </>
                       )}
                     </DropdownMenuContent>
@@ -684,40 +932,30 @@ const Tenants = () => {
                 delivery_method: data.delivery_method || undefined,
               },
               {
-                onSuccess: async (firstTenant) => {
-                  const personId = firstTenant?.person_id ? String(firstTenant.person_id) : undefined;
+                onSuccess: async (firstTenant: unknown) => {
+                  const res = firstTenant as { person_id?: string } | null;
+                  const personId = res?.person_id ? String(res.person_id) : undefined;
                   for (let i = 1; i < aptIds.length; i++) {
                     try {
                       await tenantsApi.create({
                         name: data.name,
+                        oib: data.oib?.trim() || undefined,
                         email: data.email || undefined,
                         phone: data.phone || undefined,
                         apartment_id: aptIds[i],
                         delivery_method: data.delivery_method || undefined,
                         person_id: personId,
                       });
-                    } catch {
+                    } catch (err: any) {
+                      const msg = err?.status === 409
+                        ? `Suvlasnik je već dodan na stan ${i + 1}.`
+                        : `Greška pri dodavanju na stan ${i + 1}.`;
                       toast({
                         title: "Upozorenje",
-                        description: `Suvlasnik je dodan na prvi stan, ali greška pri dodavanju na stan ${i + 1}.`,
+                        description: msg,
                         variant: "destructive",
                       });
                       break;
-                    }
-                  }
-                  for (const aptId of aptIds) {
-                    try {
-                      await buildingsApi.updateApartment(aptId, {
-                        owner: data.name,
-                        email: data.email || null,
-                        phone: data.phone || null,
-                      });
-                    } catch (err) {
-                      toast({
-                        title: "Upozorenje",
-                        description: `Suvlasnik je dodan, ali ažuriranje podataka stana nije uspjelo: ${(err as Error)?.message ?? "nepoznata greška"}`,
-                        variant: "destructive",
-                      });
                     }
                   }
                   await queryClient.invalidateQueries({ queryKey: ["tenants"] });
@@ -745,6 +983,36 @@ const Tenants = () => {
         tempPassword={tempPasswordModal.tempPassword}
       />
 
+      <AlertDialog open={!!deleteTenantConfirm} onOpenChange={(open) => !open && setDeleteTenantConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Obriši suvlasnika?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTenantConfirm && (
+                <>
+                  Veza suvlasnika <strong>{deleteTenantConfirm.personName}</strong>
+                  {deleteTenantConfirm.address ? ` s stanom ${deleteTenantConfirm.address}` : ""} bit će uklonjena.
+                  Osoba ostaje u sustavu; uklanja se samo veza s ovim stanom.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTenantPending}>Odustani</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteTenantConfirm();
+              }}
+              disabled={deleteTenantPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteTenantPending ? "Brisanje..." : "Obriši"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <TenantEditDialog
         open={!!editingTenant}
         onOpenChange={(open) => !open && setEditingTenant(null)}
@@ -757,6 +1025,7 @@ const Tenants = () => {
               id: editingTenant.id,
               data: {
                 name: data.name,
+                oib: data.oib ?? undefined,
                 email: data.email || undefined,
                 phone: data.phone || undefined,
                 apartment_id: apartmentId,
@@ -764,24 +1033,7 @@ const Tenants = () => {
               },
             },
             {
-              onSuccess: async () => {
-                if (apartmentId) {
-                  try {
-                    await buildingsApi.updateApartment(apartmentId, {
-                      owner: data.name,
-                      email: data.email || null,
-                      phone: data.phone || null,
-                    });
-                  } catch (err) {
-                    toast({
-                      title: "Upozorenje",
-                      description: `Suvlasnik je ažuriran, ali ažuriranje podataka stana nije uspjelo: ${(err as Error)?.message ?? "nepoznata greška"}`,
-                      variant: "destructive",
-                    });
-                  }
-                }
-                setEditingTenant(null);
-              },
+              onSuccess: () => setEditingTenant(null),
             }
           );
         }}
@@ -796,36 +1048,38 @@ const Tenants = () => {
           if (!addApartmentPerson) return;
           setAddApartmentPending(true);
           try {
-            for (const aptId of apartmentIds) {
-              await tenantsApi.create({
-                name: addApartmentPerson.name,
-                email: addApartmentPerson.email || undefined,
-                phone: addApartmentPerson.phone || undefined,
-                apartment_id: aptId,
-                delivery_method: addApartmentPerson.deliveryMethod || undefined,
-                person_id: addApartmentPerson.id,
-              });
-            }
+            let added = 0;
+            let skipped = 0;
             for (const aptId of apartmentIds) {
               try {
-                await buildingsApi.updateApartment(aptId, {
-                  owner: addApartmentPerson.name,
-                  email: addApartmentPerson.email || null,
-                  phone: addApartmentPerson.phone || null,
+                await tenantsApi.create({
+                  name: addApartmentPerson.name,
+                  oib: addApartmentPerson.oib || undefined,
+                  email: addApartmentPerson.email || undefined,
+                  phone: addApartmentPerson.phone || undefined,
+                  apartment_id: aptId,
+                  delivery_method: (addApartmentPerson.deliveryMethod === 'email' || addApartmentPerson.deliveryMethod === 'pošta' || addApartmentPerson.deliveryMethod === 'both')
+                    ? addApartmentPerson.deliveryMethod
+                    : undefined,
+                  person_id: addApartmentPerson.id,
                 });
-              } catch (err) {
-                toast({
-                  title: "Upozorenje",
-                  description: `Stanovi su dodani, ali ažuriranje podataka stana nije uspjelo: ${(err as Error)?.message ?? "nepoznata greška"}`,
-                  variant: "destructive",
-                });
+                added++;
+              } catch (err: any) {
+                if (err?.status === 409) {
+                  skipped++;
+                } else {
+                  throw err;
+                }
               }
             }
             await queryClient.invalidateQueries({ queryKey: ["tenants"] });
             await queryClient.invalidateQueries({ queryKey: ["persons"] });
             await queryClient.invalidateQueries({ queryKey: ["cities"] });
             setAddApartmentPerson(null);
-            toast({ title: "Stanovi dodani", description: `Suvlasnik je dodan na ${apartmentIds.length} stanova.` });
+            const msg = skipped > 0
+              ? `Suvlasnik dodan na ${added} stanova, ${skipped} već zauzet${skipped === 1 ? "" : "a"}.`
+              : `Suvlasnik je dodan na ${added} stanova.`;
+            toast({ title: "Stanovi dodani", description: msg });
           } catch (err) {
             toast({
               title: "Greška",

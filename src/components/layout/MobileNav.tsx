@@ -20,11 +20,19 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 
+/** Usklađeno sa Sidebar: samo dovršeni ekrani kada je VITE_MENU_READY_ONLY !== "false". */
+const showOnlyReadyScreens = import.meta.env.VITE_MENU_READY_ONLY !== "false";
+
 const mobileNavigation = [
   { name: "Početna", href: "/", icon: LayoutDashboard },
   { name: "Zgrade", href: "/buildings", icon: Building2 },
   { name: "Suvlasnici", href: "/tenants", icon: Users, activePaths: ["/persons"] },
   { name: "Dužnici", href: "/debtors", icon: AlertCircle },
+];
+
+const mobileNavigationReadyOnly = [
+  ...mobileNavigation,
+  { name: "Radni nalozi", href: "/work-orders", icon: ClipboardCheck },
 ];
 
 const moreNavigation = [
@@ -47,7 +55,7 @@ export const MobileNav = () => {
     <>
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background safe-bottom">
         <div className="grid grid-cols-5 gap-1">
-          {mobileNavigation.map((item) => {
+          {(showOnlyReadyScreens ? mobileNavigationReadyOnly : mobileNavigation).map((item) => {
             const isActiveByPath = (item as { activePaths?: string[] }).activePaths?.some((p) =>
               pathname.startsWith(p)
             );
@@ -70,18 +78,21 @@ export const MobileNav = () => {
             </NavLink>
             );
           })}
-          <Button
-            variant="ghost"
-            onClick={() => setMoreOpen(true)}
-            className="flex flex-col items-center justify-center py-3 text-xs font-medium min-h-[60px] h-auto rounded-none"
-          >
-            <Menu className="h-5 w-5 mb-1" />
-            Više
-          </Button>
+          {!showOnlyReadyScreens && (
+            <Button
+              variant="ghost"
+              onClick={() => setMoreOpen(true)}
+              className="flex flex-col items-center justify-center py-3 text-xs font-medium min-h-[60px] h-auto rounded-none"
+            >
+              <Menu className="h-5 w-5 mb-1" />
+              Više
+            </Button>
+          )}
         </div>
       </nav>
 
-      {/* More Menu Sheet */}
+      {/* More Menu Sheet – skriven kada je samo dovršeni ekrani */}
+      {!showOnlyReadyScreens && (
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent side="bottom" className="h-[80vh]">
           <SheetHeader>
@@ -115,6 +126,7 @@ export const MobileNav = () => {
           </nav>
         </SheetContent>
       </Sheet>
+      )}
     </>
   );
 };

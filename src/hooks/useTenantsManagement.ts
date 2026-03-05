@@ -54,6 +54,7 @@ export const useUpdateTenant = () => {
       id: string;
       data: {
         name?: string;
+        oib?: string | null;
         email?: string;
         phone?: string;
         apartment_id?: string | null;

@@ -30,15 +30,16 @@ function Calendar({ className, classNames, showOutsideDays = true, locale, ...pr
         head_row: "flex",
         head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:rounded-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
-          buttonVariants({ variant: "ghost" }), 
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 transition-all duration-200 hover:bg-accent hover:border hover:border-primary/30 hover:scale-105"
+          buttonVariants({ variant: "ghost" }),
+          "h-9 w-9 p-0 font-normal transition-all duration-200 hover:bg-accent hover:text-accent-foreground hover:border hover:border-primary/30 hover:scale-105"
         ),
         day_range_end: "day-range-end",
         day_selected:
-          "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground hover:scale-105",
-        day_today: "bg-accent text-accent-foreground font-semibold ring-1 ring-primary/30",
+          "!bg-primary !text-primary-foreground hover:!bg-primary/90 hover:!text-primary-foreground focus:!bg-primary focus:!text-primary-foreground",
+        day_today:
+          "font-semibold ring-1 ring-primary/30 ring-inset aria-selected:!ring-primary aria-selected:ring-2",
         day_outside:
           "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
         day_disabled: "text-muted-foreground opacity-50",

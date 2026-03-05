@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -21,6 +22,7 @@ import {
   Search,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   AlertDialog,
@@ -53,7 +55,7 @@ import {
   useUpdateApartment,
   useDeleteApartment,
 } from "@/hooks/useBuildingsData";
-import { tenantsApi, usersApi, buildingsApi, personsApi } from "@/lib/api";
+import { tenantsApi, usersApi, personsApi } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { TempPasswordModal } from "@/components/TempPasswordModal";
@@ -70,8 +72,10 @@ interface Transaction {
 interface Apartment {
   id: string;
   number: string;
+  floor?: string | null;
   area: number;
   owner?: string;
+  ownerOib?: string | null;
   tenant?: string;
   contact?: string;
   email?: string;
@@ -81,6 +85,16 @@ interface Apartment {
   notes?: string;
   transactions: Transaction[];
   tenant_id?: string;
+}
+
+interface BuildingFees {
+  cleaning: number;
+  loan: number;
+  reservePerSqm: number;
+  savingsFixed?: number;
+  extraFixed?: number;
+  electricityFixed?: number;
+  savingsPerSqm?: number;
 }
 
 interface Building {
@@ -93,11 +107,7 @@ interface Building {
   oib?: string;
   representative?: string;
   representativePhone?: string;
-  fees?: {
-    cleaning: number;
-    loan: number;
-    reservePerSqm: number;
-  };
+  fees?: BuildingFees;
 }
 
 interface Street {
@@ -149,6 +159,7 @@ const Buildings = () => {
   const updateApartment = useUpdateApartment();
   const deleteApartment = useDeleteApartment();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [selectedStreet, setSelectedStreet] = useState<Street | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
@@ -156,6 +167,68 @@ const Buildings = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const [cardSearch, setCardSearch] = useState("");
+
+  // Sinkronizacija URL ↔ odabir (da osvježavanje zadrži grad/ulicu/zgradu)
+  const cityIdFromUrl = searchParams.get("city");
+  const streetIdFromUrl = searchParams.get("street");
+  const buildingIdFromUrl = searchParams.get("building");
+
+  useEffect(() => {
+    if (!cities?.length) return;
+    const cityId = cityIdFromUrl;
+    const streetId = streetIdFromUrl;
+    const buildingId = buildingIdFromUrl;
+    if (!cityId) {
+      setSelectedCity(null);
+      setSelectedStreet(null);
+      setSelectedBuilding(null);
+      return;
+    }
+    const city = cities.find((c) => String(c.id) === String(cityId));
+    if (!city) return;
+    setSelectedCity(city);
+    if (!streetId) {
+      setSelectedStreet(null);
+      setSelectedBuilding(null);
+      return;
+    }
+    const street = city.streets?.find((s) => String(s.id) === String(streetId));
+    if (!street) {
+      setSelectedStreet(null);
+      setSelectedBuilding(null);
+      return;
+    }
+    setSelectedStreet(street);
+    if (!buildingId) {
+      setSelectedBuilding(null);
+      return;
+    }
+    const building = street.buildings?.find((b) => String(b.id) === String(buildingId));
+    if (building) setSelectedBuilding(building);
+    else setSelectedBuilding(null);
+    // Jednokratno iz URL-a; dalje se vodi kroz setSelected* + update URL u handlerima
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cities, cityIdFromUrl, streetIdFromUrl, buildingIdFromUrl]);
+
+  const updateUrlFromSelection = (city: City | null, street: Street | null, building: Building | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (!city) {
+      next.delete("city");
+      next.delete("street");
+      next.delete("building");
+    } else {
+      next.set("city", city.id);
+      if (!street) {
+        next.delete("street");
+        next.delete("building");
+      } else {
+        next.set("street", street.id);
+        if (!building) next.delete("building");
+        else next.set("building", building.id);
+      }
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   // Reset search kad se mijenja razina (grad → ulica → ulaz)
   useEffect(() => {
@@ -220,7 +293,12 @@ const Buildings = () => {
   const handleDeleteCity = (id: string) => {
     deleteCity.mutate(id, {
       onSuccess: () => {
-        if (selectedCity?.id === id) setSelectedCity(null);
+        if (selectedCity?.id === id) {
+          setSelectedCity(null);
+          setSelectedStreet(null);
+          setSelectedBuilding(null);
+          updateUrlFromSelection(null, null, null);
+        }
       },
     });
   };
@@ -258,7 +336,11 @@ const Buildings = () => {
   const handleDeleteStreet = (id: string) => {
     deleteStreet.mutate(id, {
       onSuccess: () => {
-        if (selectedStreet?.id === id) setSelectedStreet(null);
+        if (selectedStreet?.id === id) {
+          setSelectedStreet(null);
+          setSelectedBuilding(null);
+          updateUrlFromSelection(selectedCity ?? null, null, null);
+        }
       },
     });
   };
@@ -301,7 +383,10 @@ const Buildings = () => {
   const handleDeleteBuilding = (id: string) => {
     deleteBuilding.mutate(id, {
       onSuccess: () => {
-        if (selectedBuilding?.id === id) setSelectedBuilding(null);
+        if (selectedBuilding?.id === id) {
+          setSelectedBuilding(null);
+          updateUrlFromSelection(selectedCity ?? null, selectedStreet ?? null, null);
+        }
       },
     });
   };
@@ -314,21 +399,15 @@ const Buildings = () => {
         {
           buildingId: displayBuilding.id,
           data: {
-            apartment_number: payload.number,
-            floor: 0,
-            size_m2: payload.area,
-            rooms: null,
-            owner: payload.tenantId ? null : (payload.ownerName ?? null),
-            tenant: null,
-            contact: null,
-            email: payload.tenantId ? null : (payload.email ?? null),
-            phone: payload.tenantId ? null : (payload.phone ?? null),
+            number: payload.number,
+            floor: payload.floor ?? null,
+            area_m2: payload.area,
             notes: payload.notes ?? null,
           },
         },
         {
-          onSuccess: async (created) => {
-            const aptId = created?.id ?? (created as any)?.id;
+          onSuccess: async (created: unknown) => {
+            const aptId = (created as { id?: string } | null)?.id;
             if (!aptId) {
               await queryClient.refetchQueries({ queryKey: ["cities"] });
               setApartmentDialogOpen(false);
@@ -344,11 +423,6 @@ const Buildings = () => {
                   email: person.email ?? undefined,
                   phone: person.phone ?? undefined,
                   person_id: payload.personId,
-                });
-                await buildingsApi.updateApartment(aptId, {
-                  owner: person.name ?? null,
-                  email: person.email ?? null,
-                  phone: person.phone ?? null,
                 });
               } catch (err) {
                 toast({
@@ -377,14 +451,11 @@ const Buildings = () => {
                 await tenantsApi.create({
                   apartment_id: String(aptId),
                   name: payload.ownerName,
+                  oib: payload.ownerOib ?? undefined,
                   email: payload.email,
                   phone: payload.phone,
                   user_id: userId ?? undefined,
-                });
-                await buildingsApi.updateApartment(aptId, {
-                  owner: payload.ownerName,
-                  email: payload.email ?? null,
-                  phone: payload.phone ?? null,
+                  delivery_method: payload.delivery_method ?? undefined,
                 });
               } catch (err) {
                 toast({
@@ -421,15 +492,9 @@ const Buildings = () => {
         await updateApartment.mutateAsync({
           id: editingApartment.id,
           data: {
-            apartment_number: payload.number,
-            floor: 0,
-            size_m2: payload.area,
-            rooms: null,
-            owner: ownerName,
-            tenant: null,
-            contact: null,
-            email: tenantEmail,
-            phone: tenantPhone,
+            number: payload.number,
+            floor: payload.floor ?? null,
+            area_m2: payload.area,
             notes: payload.notes ?? null,
           },
         });
@@ -458,6 +523,7 @@ const Buildings = () => {
             number: payload.number,
             area: payload.area,
             notes: payload.notes,
+            floor: payload.floor ?? undefined,
           });
         }
       };
@@ -503,12 +569,14 @@ const Buildings = () => {
     setSelectedCity(city);
     setSelectedStreet(null);
     setSelectedBuilding(null);
+    updateUrlFromSelection(city, null, null);
     openTreeSidebar();
   };
 
   const handleSelectStreet = (street: any) => {
     setSelectedStreet(street);
     setSelectedBuilding(null);
+    updateUrlFromSelection(selectedCity ?? null, street, null);
     openTreeSidebar();
   };
 
@@ -526,42 +594,56 @@ const Buildings = () => {
     ? displayBuilding.apartments.find((a) => String(a.id) === String(selectedApartment.id)) ?? selectedApartment
     : selectedApartment;
 
-  const handleSelectBuilding = (building: any) => {
-    let foundCity: City | null = null;
-    let foundStreet: Street | null = null;
-
-    if (cities) {
-      for (const city of cities) {
-        for (const street of city.streets) {
-          if (street.buildings.some((b) => b.id === building.id)) {
-            foundCity = city;
-            foundStreet = street;
-            break;
-          }
+  const buildingToLocation = useMemo(() => {
+    const map = new Map<string, { city: City; street: Street }>();
+    if (!cities) return map;
+    for (const city of cities) {
+      for (const street of city.streets) {
+        for (const b of street.buildings) {
+          map.set(String(b.id), { city, street });
         }
-        if (foundCity) break;
       }
     }
+    return map;
+  }, [cities]);
 
-    setSelectedCity(foundCity);
-    setSelectedStreet(foundStreet);
+  const handleSelectBuilding = (building: any) => {
+    const location = buildingToLocation.get(String(building.id));
+    const city = location?.city ?? null;
+    const street = location?.street ?? null;
+    setSelectedCity(city);
+    setSelectedStreet(street);
     setSelectedBuilding(building);
+    updateUrlFromSelection(city, street, building);
     openTreeSidebar();
   };
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Učitavanje...</p>
+      <div className="flex h-[calc(100vh-4rem)] animate-fade-in">
+        <div className="hidden lg:block w-64 border-r bg-muted/20 p-3">
+          <Skeleton className="h-8 w-32 mb-4" />
+          <div className="space-y-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-md" />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 p-4 md:p-5 max-w-6xl mx-auto w-full space-y-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-72" />
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 mt-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-lg" />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
+    <div className="flex h-[calc(100vh-4rem)] animate-fade-in">
       {/* Tree Sidebar - Desktop only */}
       <div className="hidden lg:block">
         <BuildingsTreeSidebar
@@ -579,7 +661,7 @@ const Buildings = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-4 md:px-5 py-4 md:py-5 space-y-4">
+        <div className="max-w-6xl mx-auto px-4 md:px-5 py-4 md:py-5 space-y-4 transition-opacity duration-200">
           {/* Header kad nije odabran ulaz */}
           {!selectedBuilding && (
             <div className="flex items-start justify-between gap-3">
@@ -595,12 +677,31 @@ const Buildings = () => {
 
               <div className="flex-1 min-w-0">
                 {/* Breadcrumb */}
-                <p className="text-xs text-muted-foreground mb-1">
-                  {!selectedCity && "Gradovi"}
-                  {selectedCity && !selectedStreet && `Gradovi / ${selectedCity.name}`}
-                  {selectedStreet &&
-                    !selectedBuilding &&
-                    `Gradovi / ${selectedCity?.name} / ${selectedStreet.name}`}
+                <p className="text-xs text-muted-foreground mb-1 flex flex-wrap items-center gap-1">
+                  {!selectedCity ? (
+                    "Gradovi"
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCity(null);
+                          setSelectedStreet(null);
+                          setSelectedBuilding(null);
+                          setSelectedApartment(null);
+                          setApartmentDetailOpen(false);
+                          updateUrlFromSelection(null, null, null);
+                        }}
+                        className="underline underline-offset-2 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      >
+                        Gradovi
+                      </button>
+                      {!selectedStreet && ` / ${selectedCity.name}`}
+                      {selectedStreet && !selectedBuilding && ` / ${selectedCity?.name} / ${selectedStreet.name}`}
+                      {selectedBuilding &&
+                        ` / ${selectedCity?.name} / ${selectedStreet?.name} / Ulaz ${displayBuilding?.name}`}
+                    </>
+                  )}
                 </p>
 
                 <h1 className="truncate">
@@ -670,7 +771,7 @@ const Buildings = () => {
                     placeholder="Pretraži gradove..."
                     value={cardSearch}
                     onChange={(e) => setCardSearch(e.target.value)}
-                    className="pl-9 max-w-sm"
+                    className="pl-9 max-w-sm transition-colors duration-150 focus-visible:ring-2"
                   />
                 </div>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -680,17 +781,23 @@ const Buildings = () => {
                         ? true
                         : city.name.toLowerCase().includes(cardSearch.trim().toLowerCase())
                     )
-                    .map((city) => (
+                    .map((city, idx) => (
                     <Card
                       key={city.id}
-                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-200 ease-out animate-fade-in-up"
+                      style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                       onClick={() => handleSelectCity(city)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleSelectCity(city);
+                        }
+                      }}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="rounded-md p-1.5 bg-primary/10">
-                            <MapPin className="h-4 w-4 text-primary" />
-                          </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           <div className="min-w-0">
                             <p className="font-semibold truncate">{city.name}</p>
                             <p className="text-xs text-muted-foreground truncate">
@@ -764,7 +871,7 @@ const Buildings = () => {
                     placeholder="Pretraži ulice..."
                     value={cardSearch}
                     onChange={(e) => setCardSearch(e.target.value)}
-                    className="pl-9 max-w-sm"
+                    className="pl-9 max-w-sm transition-colors duration-150 focus-visible:ring-2"
                   />
                 </div>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -774,11 +881,20 @@ const Buildings = () => {
                         ? true
                         : street.name.toLowerCase().includes(cardSearch.trim().toLowerCase())
                     )
-                    .map((street) => (
+                    .map((street, idx) => (
                     <Card
                       key={street.id}
-                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-200 ease-out animate-fade-in-up"
+                      style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                       onClick={() => handleSelectStreet(street)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleSelectStreet(street);
+                        }
+                      }}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
@@ -855,17 +971,23 @@ const Buildings = () => {
                         ? true
                         : building.name.toLowerCase().includes(cardSearch.trim().toLowerCase())
                     )
-                    .map((building) => (
+                    .map((building, idx) => (
                     <Card
                       key={building.id}
-                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                      role="button"
+                      tabIndex={0}
+                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-200 ease-out animate-fade-in-up"
+                      style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                       onClick={() => handleSelectBuilding(building)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleSelectBuilding(building);
+                        }
+                      }}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="rounded-md p-1.5 bg-primary/10">
-                            <Building2 className="h-4 w-4 text-primary" />
-                          </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           <div className="min-w-0">
                             <p className="font-semibold truncate">
                               Ulaz {building.name}
@@ -1062,38 +1184,32 @@ const Buildings = () => {
                     </div>
                   </div>
 
-                  {displayBuilding.fees && (
-                    <div className="mt-5 pt-5 border-t">
-                      <h3 className="text-sm font-semibold mb-3">Naknade</h3>
-                      <div className="grid gap-3 sm:grid-cols-3 text-sm">
-                        <div className="rounded-lg border border-border bg-card p-3">
-                          <p className="text-xs text-muted-foreground">
-                            Čišćenje (mj.)
-                          </p>
-                          <p className="text-xl font-semibold mt-1">
-                            {formatCurrency(displayBuilding.fees.cleaning)}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-border bg-card p-3">
-                          <p className="text-xs text-muted-foreground">Kredit (mj.)</p>
-                          <p className="text-xl font-semibold mt-1">
-                            {formatCurrency(displayBuilding.fees.loan)}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-border bg-card p-3">
-                          <p className="text-xs text-muted-foreground">
-                            Pričuva po m²
-                          </p>
-                          <p className="text-xl font-semibold mt-1">
-                            {formatCurrency(
-                              displayBuilding.fees.reservePerSqm,
-                            )}{" "}
-                            / m²
-                          </p>
+                  {displayBuilding.fees && (() => {
+                    const f = displayBuilding.fees;
+                    const items = [
+                      { label: "Čišćenje (mj.)", val: f.cleaning, fmt: () => formatCurrency(f.cleaning) },
+                      { label: "Kredit (mj.)", val: f.loan, fmt: () => formatCurrency(f.loan) },
+                      { label: "Pričuva po m²", val: f.reservePerSqm, fmt: () => `${formatCurrency(f.reservePerSqm)} / m²` },
+                      { label: "Štednja (fiksno)", val: f.savingsFixed, fmt: () => formatCurrency(f.savingsFixed) },
+                      { label: "Izvanredni", val: f.extraFixed, fmt: () => formatCurrency(f.extraFixed) },
+                      { label: "Struja", val: f.electricityFixed, fmt: () => formatCurrency(f.electricityFixed) },
+                      { label: "Štednja (€/m²)", val: f.savingsPerSqm, fmt: () => `${formatCurrency(f.savingsPerSqm)} / m²` },
+                    ].filter((x) => (x.val ?? 0) !== 0);
+                    if (items.length === 0) return null;
+                    return (
+                      <div className="mt-5 pt-5 border-t">
+                        <h3 className="text-sm font-semibold mb-3">Naknade</h3>
+                        <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                          {items.map(({ label, fmt }) => (
+                            <div key={label} className="rounded-lg border border-border bg-card p-3">
+                              <p className="text-xs text-muted-foreground">{label}</p>
+                              <p className="text-xl font-semibold mt-1">{fmt()}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
@@ -1104,8 +1220,7 @@ const Buildings = () => {
                       <CardTitle className="text-base">Stanovi</CardTitle>
                       <CardDescription>Popis stanova u ulazu.</CardDescription>
                     </div>
-                    {displayBuilding.apartments.length > 0 && (
-                    <div className="flex justify-end w-full sm:w-auto shrink-0">
+                                        <div className="flex justify-end w-full sm:w-auto shrink-0">
                       <Button
                         type="button"
                         size="sm"
@@ -1116,7 +1231,6 @@ const Buildings = () => {
                         Dodaj stan
                       </Button>
                     </div>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1138,7 +1252,7 @@ const Buildings = () => {
                             <tr>
                               <th>Stan</th>
                               <th>Vlasnik</th>
-                              <th className="text-right">Dug</th>
+                              <th className="text-right min-w-[90px]">Dug</th>
                               <th className="w-8 text-right"></th>
                             </tr>
                           </thead>
@@ -1146,20 +1260,38 @@ const Buildings = () => {
                             {displayBuilding.apartments.map((apartment) => (
                               <tr
                                 key={apartment.id}
-                                className="group cursor-pointer hover:bg-muted/30"
+                                role="button"
+                                tabIndex={0}
+                                className="group cursor-pointer hover:bg-muted/30 transition-colors duration-150"
                                 onClick={() => {
                                   setSelectedApartment(apartment);
                                   setApartmentDetailOpen(true);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSelectedApartment(apartment);
+                                    setApartmentDetailOpen(true);
+                                  }
                                 }}
                               >
                                 <td className="font-medium">
                                   Stan {apartment.number}
                                 </td>
                                 <td className="text-sm text-muted-foreground">
-                                  {apartment.owner || "-"}
+                                  {apartment.owner ? (
+                                    <>
+                                      {apartment.owner}
+                                      {apartment.ownerOib && (
+                                        <span className="block font-mono text-xs mt-0.5">{apartment.ownerOib}</span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    "-"
+                                  )}
                                 </td>
                                 <td
-                                  className={`text-right text-sm font-semibold ${
+                                  className={`text-right text-sm font-semibold tabular-nums min-w-[90px] ${
                                     apartment.debt > 0
                                       ? "text-destructive"
                                       : "text-muted-foreground"
@@ -1178,13 +1310,23 @@ const Buildings = () => {
 
                       {/* Mobile cards */}
                       <div className="md:hidden space-y-3 mt-3">
-                        {displayBuilding.apartments.map((apartment) => (
+                        {displayBuilding.apartments.map((apartment, idx) => (
                           <Card
                             key={apartment.id}
-                            className="p-4 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 transition-colors"
+                            role="button"
+                            tabIndex={0}
+                            className="p-4 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-sm transition-all duration-200 ease-out animate-fade-in-up"
+                            style={{ animationDelay: `${Math.min(idx * 35, 180)}ms` }}
                             onClick={() => {
                               setSelectedApartment(apartment);
                               setApartmentDetailOpen(true);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSelectedApartment(apartment);
+                                setApartmentDetailOpen(true);
+                              }
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
@@ -1203,6 +1345,9 @@ const Buildings = () => {
                                 <p className="text-muted-foreground truncate">
                                   <span className="font-medium">Vlasnik:</span>{" "}
                                   {apartment.owner}
+                                  {apartment.ownerOib && (
+                                    <span className="block font-mono text-xs mt-0.5">OIB: {apartment.ownerOib}</span>
+                                  )}
                                 </p>
                               )}
                               {apartment.tenant &&

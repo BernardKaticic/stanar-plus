@@ -17,6 +17,7 @@ import AdminTenants from "./pages/AdminTenants";
 import Debtors from "./pages/Debtors";
 import PaymentSlips from "./pages/PaymentSlips";
 import WorkOrders from "./pages/WorkOrders";
+import WorkOrderDetail from "./pages/WorkOrderDetail";
 import FinancialCard from "./pages/FinancialCard";
 import Representatives from "./pages/Representatives";
 import Suppliers from "./pages/Suppliers";
@@ -73,6 +74,7 @@ const App = () => (
                           <Route path="/payment-slips" element={<PaymentSlips />} />
                           <Route path="/debtors" element={<Debtors />} />
                           <Route path="/work-orders" element={<WorkOrders />} />
+                          <Route path="/work-orders/:id" element={<WorkOrderDetail />} />
                           <Route path="/financial-card" element={<FinancialCard />} />
                           <Route path="/map" element={<MapPage />} />
                           <Route path="/e-invoices" element={<EInvoices />} />

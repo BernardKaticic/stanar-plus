@@ -160,50 +160,57 @@ const TenantDetail = () => {
           {tenant.feeBreakdown ? (
             <>
               <div className="space-y-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Naknade po m²</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Pričuva</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.reservePerSqm.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Kredit</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.loanPerSqm.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Štednja</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.savingsPerSqm.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                    <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                      <p className="text-xs text-muted-foreground mb-1">Ukupno/m²</p>
-                      <p className="text-lg font-bold text-primary">
-                        {(tenant.feeBreakdown.reservePerSqm + tenant.feeBreakdown.loanPerSqm + tenant.feeBreakdown.savingsPerSqm).toFixed(2).replace(".", ",")} €
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Fiksne naknade (po stanu)</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Čišćenje</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.cleaningFee.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Štednja</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.savingsFixed.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Izvanredni</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.extraFixed.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Struja</p>
-                      <p className="text-lg font-semibold">{tenant.feeBreakdown.electricityFixed.toFixed(2).replace(".", ",")} €</p>
-                    </div>
-                  </div>
-                </div>
+                {(() => {
+                  const fb = tenant.feeBreakdown;
+                  const perSqm = [
+                    { label: "Pričuva", v: fb.reservePerSqm ?? 0 },
+                    { label: "Kredit", v: fb.loanPerSqm ?? 0 },
+                    { label: "Štednja", v: fb.savingsPerSqm ?? 0 },
+                  ].filter((x) => x.v !== 0);
+                  const totalPerSqm = (fb.reservePerSqm ?? 0) + (fb.loanPerSqm ?? 0) + (fb.savingsPerSqm ?? 0);
+                  if (totalPerSqm !== 0) perSqm.push({ label: "Ukupno/m²", v: totalPerSqm, isTotal: true });
+                  const fixed = [
+                    { label: "Čišćenje", v: fb.cleaningFee ?? 0 },
+                    { label: "Štednja", v: fb.savingsFixed ?? 0 },
+                    { label: "Izvanredni", v: fb.extraFixed ?? 0 },
+                    { label: "Struja", v: fb.electricityFixed ?? 0 },
+                  ].filter((x) => x.v !== 0);
+                  return (
+                    <>
+                      {perSqm.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Naknade po m²</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {perSqm.map(({ label, v, isTotal }) => (
+                              <div
+                                key={label}
+                                className={isTotal ? "p-4 bg-primary/10 rounded-lg border border-primary/20" : "p-4 bg-muted/50 rounded-lg"}
+                              >
+                                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                                <p className={isTotal ? "text-lg font-bold text-primary" : "text-lg font-semibold"}>
+                                  {v.toFixed(2).replace(".", ",")} €
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {fixed.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Fiksne naknade (po stanu)</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {fixed.map(({ label, v }) => (
+                              <div key={label} className="p-4 bg-muted/50 rounded-lg">
+                                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                                <p className="text-lg font-semibold">{v.toFixed(2).replace(".", ",")} €</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </>
           ) : (

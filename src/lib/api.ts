@@ -212,17 +212,53 @@ export const buildingsApi = {
   createBuilding: (data: any) => api('/buildings', { method: 'POST', body: JSON.stringify(data) }),
   updateBuilding: (id: string, data: any) => api(`/buildings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteBuilding: (id: string) => api(`/buildings/${id}`, { method: 'DELETE' }),
-  createApartment: (data: any) => api('/apartments', { method: 'POST', body: JSON.stringify(data) }),
-  updateApartment: (id: string, data: any) => api(`/apartments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createApartment: (data: {
+    building_id: string;
+    number: string;
+    floor?: string | null;
+    area_m2?: number;
+    area?: number;
+    notes?: string | null;
+  }) =>
+    api('/apartments', {
+      method: 'POST',
+      body: JSON.stringify({
+        building_id: data.building_id,
+        number: data.number,
+        floor: data.floor ?? null,
+        area_m2: data.area_m2 ?? data.area ?? 0,
+        notes: data.notes ?? null,
+      }),
+    }),
+  updateApartment: (id: string, data: { number?: string; floor?: string | null; area_m2?: number; area?: number; notes?: string | null }) =>
+    api(`/apartments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        number: data.number,
+        floor: data.floor ?? null,
+        area_m2: data.area_m2 ?? data.area,
+        notes: data.notes ?? null,
+      }),
+    }),
   deleteApartment: (id: string) => api(`/apartments/${id}`, { method: 'DELETE' }),
 };
 
 export const personsApi = {
-  getAll: (params?: { page?: number; pageSize?: number; search?: string }) => {
+  getAll: (params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: 'all' | 'paid' | 'overdue' | 'pending';
+    deliveryMethod?: 'all' | 'email' | 'pošta';
+    city?: string;
+  }) => {
     const sp = new URLSearchParams();
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
     if (params?.search) sp.set('search', params.search || '');
+    if (params?.status && params.status !== 'all') sp.set('status', params.status);
+    if (params?.deliveryMethod && params.deliveryMethod !== 'all') sp.set('deliveryMethod', params.deliveryMethod);
+    if (params?.city) sp.set('city', params.city);
     return api<{ data: Person[]; totalCount: number }>('/persons?' + sp.toString());
   },
   getById: (id: string) => api<PersonDetail>('/persons/' + id),
@@ -239,7 +275,7 @@ export type Person = {
   apartmentsCount: number;
   totalBalance: string;
   totalBalanceNum: number;
-  totalMonthlyRate: string | null;
+  totalMonthlyRate: string;
   status: string;
 };
 
@@ -280,6 +316,7 @@ export const tenantsApi = {
   create: (data: {
     apartment_id: string;
     name: string;
+    oib?: string | null;
     email?: string;
     phone?: string;
     user_id?: string;
@@ -290,6 +327,7 @@ export const tenantsApi = {
     id: string,
     data: {
       name?: string;
+      oib?: string | null;
       email?: string;
       phone?: string;
       apartment_id?: string | null;
@@ -315,7 +353,9 @@ export const debtorsApi = {
     if (params?.offset) sp.set('offset', String(params.offset));
     return api<{ data: any[]; totalCount: number }>('/debtors/reminders' + (sp.toString() ? '?' + sp.toString() : ''));
   },
-  sendReminder: (personId: string) =>
+  sendReminder: (tenantId: string) =>
+    api<{ message: string }>(`/debtors/${tenantId}/send-reminder`, { method: 'POST' }),
+  sendReminderByPerson: (personId: string) =>
     api<{ message: string }>(`/debtors/person/${personId}/send-reminder`, { method: 'POST' }),
 };
 
@@ -329,6 +369,16 @@ export const workOrdersApi = {
     if (params?.priority) sp.set('priority', params.priority);
     return api<{ data: any[]; totalCount: number }>('/work-orders?' + sp.toString());
   },
+  getStats: (params?: { search?: string; status?: string; priority?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.search) sp.set('search', params.search || '');
+    if (params?.status) sp.set('status', params.status);
+    if (params?.priority) sp.set('priority', params.priority);
+    return api<{ total: number; open: number; inProgress: number; completed: number; urgent: number }>(
+      '/work-orders/stats' + (sp.toString() ? '?' + sp.toString() : '')
+    );
+  },
+  getById: (id: string) => api<any>(`/work-orders/${id}`),
   create: (data: any) => api('/work-orders', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => api(`/work-orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 };

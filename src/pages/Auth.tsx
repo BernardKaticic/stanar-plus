@@ -122,13 +122,13 @@ const Auth = () => {
             <CardDescription>Prijavite se ili registrirajte svoj račun</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full min-w-0">
-              <TabsList className="grid w-full min-w-0 grid-cols-2 h-10 mb-6 overflow-hidden">
-                <TabsTrigger value="login" className="min-w-0 shrink">Prijava</TabsTrigger>
-                <TabsTrigger value="signup" className="min-w-0 shrink">Registracija</TabsTrigger>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 h-12 p-1.5 mb-6 rounded-lg overflow-hidden shrink-0">
+                <TabsTrigger value="login" className="w-full rounded-md py-2 text-sm">Prijava</TabsTrigger>
+                <TabsTrigger value="signup" className="w-full rounded-md py-2 text-sm">Registracija</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="login">
+              <TabsContent value="login" className="mt-0 pt-3">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
@@ -162,7 +162,7 @@ const Auth = () => {
                 </form>
               </TabsContent>
 
-              <TabsContent value="signup">
+              <TabsContent value="signup" className="mt-0 pt-3">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Puno ime</Label>
@@ -215,9 +215,6 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Demo: admin@stanar.hr / admin123
-        </p>
       </div>
     </div>
   );
