@@ -484,19 +484,9 @@ const Buildings = () => {
     } else {
       if (!editingApartment) return;
       const prevTenantId = (editingApartment as Apartment & { tenant_id?: string }).tenant_id;
+      const editPayload = payload as { personId?: string; ownerMode?: "existing" | "new"; ownerName?: string; ownerOib?: string; email?: string; phone?: string; delivery_method?: "email" | "pošta" | "both" };
 
       const runUpdates = async () => {
-        const newPersonId = payload.personId || null;
-        let ownerName: string | null = null;
-        let tenantEmail: string | null = null;
-        let tenantPhone: string | null = null;
-        if (newPersonId) {
-          const person = await personsApi.getById(newPersonId);
-          ownerName = person?.name ?? null;
-          tenantEmail = person?.email ?? null;
-          tenantPhone = person?.phone ?? null;
-        }
-
         await updateApartment.mutateAsync({
           id: editingApartment.id,
           data: {
@@ -510,7 +500,11 @@ const Buildings = () => {
         if (prevTenantId) {
           await tenantsApi.update(prevTenantId, { apartment_id: null });
         }
-        if (newPersonId) {
+
+        const newPersonId = editPayload.personId || null;
+        const isNewOwner = editPayload.ownerMode === "new" && editPayload.ownerName;
+
+        if (newPersonId && !isNewOwner) {
           const person = await personsApi.getById(newPersonId);
           await tenantsApi.create({
             apartment_id: editingApartment.id,
@@ -519,10 +513,36 @@ const Buildings = () => {
             phone: person.phone ?? undefined,
             person_id: newPersonId,
           });
+        } else if (isNewOwner && editPayload.ownerName) {
+          let userId: string | null = null;
+          if (editPayload.email) {
+            const userRes = await usersApi.createStanar({
+              email: editPayload.email,
+              full_name: editPayload.ownerName,
+            });
+            userId = userRes.id;
+            if (userRes.tempPassword && !userRes.existing) {
+              setTempPasswordModal({
+                open: true,
+                email: editPayload.email,
+                tempPassword: userRes.tempPassword,
+              });
+            }
+          }
+          await tenantsApi.create({
+            apartment_id: editingApartment.id,
+            name: editPayload.ownerName,
+            oib: editPayload.ownerOib ?? undefined,
+            email: editPayload.email ?? undefined,
+            phone: editPayload.phone ?? undefined,
+            user_id: userId ?? undefined,
+            delivery_method: editPayload.delivery_method ?? undefined,
+          });
         }
 
         await queryClient.refetchQueries({ queryKey: ["cities"] });
         await queryClient.refetchQueries({ queryKey: ["tenants"] });
+        await queryClient.refetchQueries({ queryKey: ["persons"] });
         setApartmentDialogOpen(false);
         setEditingApartment(null);
         if (selectedApartment?.id === editingApartment.id) {
