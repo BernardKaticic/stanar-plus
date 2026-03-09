@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit2, Trash2, Home, User, Mail, Phone, FileText, Receipt, UserCog, UserPlus, Pencil, UserMinus } from "lucide-react";
-import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
 import { AddCoOwnerDialog } from "./AddCoOwnerDialog";
 import { EditShareDialog } from "./EditShareDialog";
 import { useState } from "react";
@@ -114,7 +113,6 @@ export const ApartmentDetailDialog = ({
   cityName,
   fees,
 }: ApartmentDetailDialogProps) => {
-  const [changeOwnerOpen, setChangeOwnerOpen] = useState(false);
 
   const { data: ownershipHistoryRaw, refetch: refetchHistory } = useQuery({
     queryKey: ["apartment-ownership-history", apartment?.id],
@@ -216,15 +214,6 @@ export const ApartmentDetailDialog = ({
               <Button
                 variant="outline"
                 size="sm"
-                className="min-h-[28px] gap-1.5"
-                onClick={() => setChangeOwnerOpen(true)}
-              >
-                <UserCog className="h-4 w-4" />
-                Promjena vlasnika
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
                 className="min-h-[28px] gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/60"
                 onClick={() => onDelete(String(apartment.id), apartmentNumber)}
               >
@@ -234,17 +223,6 @@ export const ApartmentDetailDialog = ({
             </div>
           </div>
         </DialogHeader>
-
-        <ChangeOwnerDialog
-          apartmentId={String(apartment.id)}
-          apartmentNumber={apartmentNumber}
-          open={changeOwnerOpen}
-          onOpenChange={setChangeOwnerOpen}
-          onSuccess={() => {
-            onOwnerChangeSuccess?.();
-            refetchHistory();
-          }}
-        />
 
         <AddCoOwnerDialog
           apartmentId={String(apartment.id)}
