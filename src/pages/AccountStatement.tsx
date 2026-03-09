@@ -53,14 +53,9 @@ const AccountStatement = () => {
   const expenseBreakdown: { name: string; value: number; color: string }[] = [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1>Stanje računa</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Pregled financijskih transakcija i stanja
-          </p>
-        </div>
+    <div className="page">
+      <header className="page-header">
+        <h1 className="page-title">Stanje računa</h1>
         <div className="flex gap-2">
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
@@ -70,7 +65,7 @@ const AccountStatement = () => {
             Uvoz izvadka
           </Button>
         </div>
-      </div>
+      </header>
 
       <div className="grid gap-4 md:grid-cols-5">
         <Card className="p-4 md:col-span-2">
@@ -133,11 +128,13 @@ const AccountStatement = () => {
                   </TableRow>
                 ) : transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
-                      <Wallet className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                      <p className="text-sm text-muted-foreground">
-                        Nema transakcija za prikaz
-                      </p>
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={Wallet}
+                        title="Nema transakcija"
+                        description="Nema transakcija za prikaz"
+                        className="py-12"
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -178,28 +175,29 @@ const AccountStatement = () => {
                 const remaining = Math.max(0, charged - paid);
                 const remainingStr = remaining.toLocaleString('hr-HR', { minimumFractionDigits: 2 }) + ' €';
                 return (
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Naplata</span>
-                  <span className="font-semibold">{rate.toFixed(1)}%</span>
-                </div>
-                <Progress value={rate} className="h-2" />
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ukupno zaduženo:</span>
-                  <span className="font-semibold">{accountInfo.totalCharged}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ukupno uplaćeno:</span>
-                  <span className="font-semibold text-success">{accountInfo.totalPaid}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Preostalo:</span>
-                  <span className="font-semibold text-warning">{remainingStr}</span>
-                </div>
-              </div>
+                  <>
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-muted-foreground">Naplata</span>
+                        <span className="font-semibold">{rate.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={rate} className="h-2" />
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ukupno zaduženo:</span>
+                        <span className="font-semibold">{accountInfo.totalCharged}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ukupno uplaćeno:</span>
+                        <span className="font-semibold text-success">{accountInfo.totalPaid}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Preostalo:</span>
+                        <span className="font-semibold text-warning">{remainingStr}</span>
+                      </div>
+                    </div>
+                  </>
                 );
               })()}
             </div>
@@ -232,6 +230,13 @@ const AccountStatement = () => {
               <div className="h-1 w-8 bg-gradient-to-r from-primary to-success rounded-full" />
               Trend stanja računa
             </h3>
+            {statementLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : balanceTrend.length === 0 ? (
+              <EmptyState title="Nema podataka za trend" className="py-12" />
+            ) : (
             <ChartContainer 
               config={{
                 stanje: {
@@ -315,7 +320,7 @@ const AccountStatement = () => {
               Struktura troškova
             </h3>
             {expenseBreakdown.length === 0 ? (
-              <EmptyState title="Nema podataka za strukturu troškova" description="Struktura troškova će se prikazati kada budu evidentirani" className="py-12" />
+              <EmptyState title="Nema podataka za strukturu troškova" className="py-12" />
             ) : (
             <ChartContainer 
               config={{

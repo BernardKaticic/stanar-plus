@@ -5,11 +5,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormSection } from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -79,76 +79,79 @@ export const RepresentativeDialog = ({ open, onOpenChange, onSave, editItem, isP
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{editItem ? "Uredi predstavnika" : "Dodaj predstavnika"}</DialogTitle>
-          <DialogDescription>
-            {editItem ? "Izmijeni podatke predstavnika." : "Unesite podatke novog predstavnika."}
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {!editItem && (
-            <div className="space-y-2">
-              <Label>Zgrada</Label>
-              <Select
-                value={watch("buildingId")}
-                onValueChange={(v) => setValue("buildingId", v)}
-                required={!editItem}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Odaberi zgradu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {buildings.map((b: any) => (
-                    <SelectItem key={b.id} value={b.id?.replace?.("building-", "") || b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <FormSection>
+              <div className="space-y-2">
+                <Label>Zgrada</Label>
+                <Select
+                  value={watch("buildingId")}
+                  onValueChange={(v) => setValue("buildingId", v)}
+                  required={!editItem}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Odaberi zgradu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {buildings.map((b: any) => (
+                      <SelectItem key={b.id} value={b.id?.replace?.("building-", "") || b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </FormSection>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Ime i prezime</Label>
-              <Input {...register("name", { required: true })} placeholder="npr. Mato Aleric" className="w-full" />
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Ime i prezime</Label>
+                <Input {...register("name", { required: true })} placeholder="npr. Mato Aleric" className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input {...register("email")} type="email" placeholder="email@example.com" className="w-full" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>E-mail</Label>
-              <Input {...register("email")} type="email" placeholder="email@example.com" className="w-full" />
+            <div className="grid gap-4 sm:grid-cols-2 mt-4">
+              <div className="space-y-2">
+                <Label>Telefon</Label>
+                <Input {...register("phone")} placeholder="+385 91 123 4567" className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>OIB</Label>
+                <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} className="w-full" />
+              </div>
             </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Telefon</Label>
-              <Input {...register("phone")} placeholder="+385 91 123 4567" className="w-full" />
+          </FormSection>
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>IBAN</Label>
+                <Input {...register("iban")} placeholder="HR..." className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>Mjesečni dohodak (€)</Label>
+                <Input {...register("monthlyIncome")} placeholder="150" type="number" step="0.01" className="w-full" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>OIB</Label>
-              <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} className="w-full" />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>IBAN</Label>
-              <Input {...register("iban")} placeholder="HR..." className="w-full" />
-            </div>
-            <div className="space-y-2">
-              <Label>Mjesečni dohodak (€)</Label>
-              <Input {...register("monthlyIncome")} placeholder="150" type="number" step="0.01" className="w-full" />
-            </div>
-          </div>
-          {editItem && (
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={watch("status")} onValueChange={(v) => setValue("status", v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Aktivan</SelectItem>
-                  <SelectItem value="inactive">Neaktivan</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+            {editItem && (
+              <div className="space-y-2 mt-4">
+                <Label>Status</Label>
+                <Select value={watch("status")} onValueChange={(v) => setValue("status", v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Aktivan</SelectItem>
+                    <SelectItem value="inactive">Neaktivan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </FormSection>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
               Odustani

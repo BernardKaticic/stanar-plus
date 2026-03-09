@@ -118,7 +118,16 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
     }
 
     return (
-      <p ref={ref} id={formMessageId} className={cn("text-sm font-medium text-destructive", className)} {...props}>
+      <p
+        ref={ref}
+        id={formMessageId}
+        role="alert"
+        className={cn("text-sm font-medium text-destructive flex items-center gap-1.5 mt-1", className)}
+        {...props}
+      >
+        <span className="inline-flex shrink-0 size-4 rounded-full bg-destructive/15 flex items-center justify-center" aria-hidden>
+          <span className="size-1.5 rounded-full bg-destructive" />
+        </span>
         {body}
       </p>
     );
@@ -126,4 +135,19 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
 );
 FormMessage.displayName = "FormMessage";
 
-export { useFormField, Form, FormItem, FormLabel, FormControl, FormDescription, FormMessage, FormField };
+/** Sekcija forme – naslov grupe polja (Linear/Stripe stil). Koristi se u dugim formama za grupiranje. */
+const FormSection = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("space-y-4 pt-2 first:pt-0", className)} {...props} />
+  ),
+);
+FormSection.displayName = "FormSection";
+
+const FormSectionTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
+  ({ className, ...props }, ref) => (
+    <h4 ref={ref} className={cn("text-sm font-semibold text-foreground tracking-tight border-b border-border pb-2 mb-1", className)} {...props} />
+  ),
+);
+FormSectionTitle.displayName = "FormSectionTitle";
+
+export { useFormField, Form, FormItem, FormLabel, FormControl, FormDescription, FormMessage, FormField, FormSection, FormSectionTitle };

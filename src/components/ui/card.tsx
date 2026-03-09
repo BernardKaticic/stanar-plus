@@ -5,7 +5,10 @@ import { cn } from "@/lib/utils";
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm overflow-hidden p-0", className)}
+    className={cn(
+      "rounded-md border border-border bg-card text-card-foreground overflow-hidden p-0 shadow-card transition-shadow duration-200",
+      className
+    )}
     {...props}
   />
 ));
@@ -16,7 +19,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       className={cn(
-        "flex flex-row flex-wrap items-center justify-between gap-2 mb-0 rounded-none border-b border-primary/20 bg-primary/5 px-4 py-3",
+        "flex flex-row flex-wrap items-center justify-between gap-2 mb-0 rounded-none border-b border-border bg-muted/40 px-4 py-3",
         className
       )}
       {...props}
@@ -40,7 +43,7 @@ const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
 CardDescription.displayName = "CardDescription";
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} className={cn("p-4", className)} {...props} />,
+  ({ className, ...props }, ref) => <div ref={ref} className={cn("p-5 sm:p-6", className)} {...props} />,
 );
 CardContent.displayName = "CardContent";
 

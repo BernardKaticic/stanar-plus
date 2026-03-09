@@ -241,56 +241,52 @@ const Tenants = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>Suvlasnici</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Upravljanje podacima suvlasnika (ime, adresa, kontakt, saldo...).
-        </p>
-      </div>
+    <div className="page">
+      <header className="page-header">
+        <h1 className="page-title">Suvlasnici</h1>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="page-kpi">
         {[
           { label: "Ukupno suvlasnika", value: stats.total, className: "" },
           { label: "Uredno plaćaju", value: stats.paid, className: "text-success" },
           { label: "U dugu", value: stats.overdue, className: "text-destructive" },
           { label: "Ukupno stanova", value: stats.totalApartments, className: "" },
         ].map((stat, i) => (
-          <Card key={stat.label} className="p-4 transition-all duration-200 hover:shadow-sm">
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
+          <div key={stat.label} className="page-kpi-card">
+            <p className="page-kpi-label">{stat.label}</p>
             {isLoading ? (
               <Skeleton className="h-8 w-12 mt-2" />
             ) : (
-              <p className={`text-xl font-semibold mt-1 ${stat.className}`}>{stat.value}</p>
+              <p className={`page-kpi-value ${stat.className}`}>{stat.value}</p>
             )}
-          </Card>
+          </div>
         ))}
       </div>
 
-      <Card className="transition-opacity duration-200" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
+      <Card className="transition-opacity duration-200 rounded-md" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle>Popis suvlasnika</CardTitle>
+                <CardTitle className="text-lg">Popis suvlasnika</CardTitle>
                 {isFetching && !isLoading && (
                   <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
                 )}
               </div>
-              <CardDescription>Pretraga, filteri i izvoz</CardDescription>
             </div>
-            {persons.length > 0 && (
-            <div className="flex justify-end w-full sm:w-auto shrink-0">
-              <Button
-                type="button"
-                className="gap-2 min-h-[28px] sm:min-h-[32px]"
-                onClick={() => setTenantDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Dodaj suvlasnika
-              </Button>
+            <div className="flex flex-wrap justify-end gap-2 w-full sm:w-auto shrink-0">
+              {persons.length > 0 && (
+                <Button
+                  type="button"
+                  className="gap-2 min-h-[28px] sm:min-h-[32px]"
+                  onClick={() => setTenantDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Dodaj suvlasnika
+                </Button>
+              )}
             </div>
-            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -374,59 +370,26 @@ const Tenants = () => {
           </div>
         )}
 
-        {/* Desktop Table View */}
+        {/* Desktop: tablica */}
         <div className="hidden md:block rounded-md border overflow-x-auto">
           <Table className="table-fixed min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[24%]">
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
-                    onClick={() => {
-                      if (sortBy === 'name') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-                      else {
-                        setSortBy('name');
-                        setSortDir('asc');
-                      }
-                    }}
-                  >
-                    Suvlasnik
-                    {sortBy === 'name' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                  <button type="button" className="flex items-center gap-1 text-xs font-medium hover:text-foreground" onClick={() => { if (sortBy === 'name') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); else { setSortBy('name'); setSortDir('asc'); } }}>
+                    Suvlasnik {sortBy === 'name' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
                 <TableHead className="w-[18%] text-xs font-medium">Stan</TableHead>
                 <TableHead className="w-[14%] text-xs font-medium">Grad</TableHead>
                 <TableHead className="w-[12%]">
-                  <button
-                    type="button"
-                    className="flex items-center justify-end gap-1 w-full text-xs font-medium hover:text-foreground"
-                    onClick={() => {
-                      if (sortBy === 'monthlyRate') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-                      else {
-                        setSortBy('monthlyRate');
-                        setSortDir('desc');
-                      }
-                    }}
-                  >
-                    Mjesečna rata
-                    {sortBy === 'monthlyRate' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                  <button type="button" className="flex items-center justify-end gap-1 w-full text-xs font-medium hover:text-foreground" onClick={() => { if (sortBy === 'monthlyRate') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); else { setSortBy('monthlyRate'); setSortDir('desc'); } }}>
+                    Mjesečna rata {sortBy === 'monthlyRate' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
                 <TableHead className="w-[10%]">
-                  <button
-                    type="button"
-                    className="flex items-center justify-end gap-1 w-full text-xs font-medium hover:text-foreground"
-                    onClick={() => {
-                      if (sortBy === 'balance') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-                      else {
-                        setSortBy('balance');
-                        setSortDir('asc');
-                      }
-                    }}
-                  >
-                    Saldo
-                    {sortBy === 'balance' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                  <button type="button" className="flex items-center justify-end gap-1 w-full text-xs font-medium hover:text-foreground" onClick={() => { if (sortBy === 'balance') setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); else { setSortBy('balance'); setSortDir('asc'); } }}>
+                    Saldo {sortBy === 'balance' ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
                 <TableHead className="w-[12%] text-xs font-medium">Dostava</TableHead>
@@ -435,210 +398,60 @@ const Tenants = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <>
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))}
-                </>
+                [1, 2, 3, 4, 5].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : persons.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="p-0">
-                    <EmptyState
-                      title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"}
-                      description={hasActiveFilters ? "Pokušajte promijeniti ili ukloniti filtere." : "Dodajte prvog suvlasnika da biste započeli s evidencijom."}
-                      action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
-                    />
+                    <EmptyState title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"} action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }} />
                   </TableCell>
                 </TableRow>
               ) : (
                 persons.map((person, idx) => {
                   const firstApt = person.apartments[0];
                   return (
-                  <TableRow
-                    key={person.id}
-                    className="hover:bg-muted/30 transition-colors duration-150 cursor-pointer animate-fade-in-up"
-                    style={{ animationDelay: `${Math.min(idx * 25, 150)}ms` }}
-                    onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
-                  >
-                    <TableCell className="font-medium text-sm">
-                      <div className="flex items-center gap-2">
-                        {person.status === 'overdue' && (
-                          <AlertCircle className="h-4 w-4 text-destructive" />
-                        )}
-                        {person.name}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs truncate" title={person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : "-"}>
-                      {person.apartmentsCount === 1 && firstApt?.address
-                        ? firstApt.address
-                        : person.apartmentsCount > 1
-                        ? `${person.apartmentsCount} stana`
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-xs truncate">
-                      {person.apartmentsCount === 1
-                        ? (firstApt?.city || "–")
-                        : (() => {
-                            const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))];
-                            return cities.length === 1 ? cities[0] : "–";
-                          })()}
-                    </TableCell>
-                    <TableCell className="text-right text-xs font-medium">{person.totalMonthlyRate ?? "-"}</TableCell>
-                    <TableCell className={`text-right text-xs font-semibold ${
-                      person.totalBalanceNum < 0 ? 'text-destructive' : 'text-success'
-                    }`}>
-                      {person.totalBalance}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {formatDelivery(person.deliveryMethod)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
-                            <FileText className="h-4 w-4 mr-2" />
-                            Pregled detalja
-                          </DropdownMenuItem>
-                          {person.status === 'overdue' && (
-                            <DropdownMenuItem
-                              onClick={(e) => handleSendReminder(person.id, person.name, e)}
-                              disabled={sendingReminder === person.id}
-                            >
-                              {sendingReminder === person.id ? (
-                                <span className="animate-pulse">Slanje...</span>
-                              ) : (
-                                <>
-                                  <Send className="h-4 w-4 mr-2" />
-                                  Pošalji opomenu
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                          )}
-                          {person.apartments.length > 0 && (
-                            <>
-                              {person.apartmentsCount === 1 ? (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    setEditingTenant({
-                                      id: firstApt!.tenantId,
-                                      name: person.name,
-                                      oib: person.oib ?? undefined,
-                                      email: person.email,
-                                      phone: person.phone,
-                                      apartment_id: firstApt!.apartmentId,
-                                      deliveryMethod: person.deliveryMethod,
-                                      personId: person.id,
-                                    })
-                                  }
-                                >
-                                  <Edit2 className="h-4 w-4 mr-2" />
-                                  Uredi
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuSub>
-                                  <DropdownMenuSubTrigger>
-                                    <Edit2 className="h-4 w-4 mr-2" />
-                                    Uredi stan
-                                  </DropdownMenuSubTrigger>
-                                  <DropdownMenuSubContent>
-                                    {person.apartments.map((apt, i) => (
-                                      <DropdownMenuItem
-                                        key={apt.tenantId}
-                                        onClick={() =>
-                                          setEditingTenant({
-                                            id: apt.tenantId,
-                                            name: person.name,
-                                            oib: person.oib ?? undefined,
-                                            email: person.email,
-                                            phone: person.phone,
-                                            apartment_id: apt.apartmentId,
-                                            deliveryMethod: person.deliveryMethod,
-                                            personId: person.id,
-                                          })
-                                        }
-                                      >
-                                        Stan {i + 1} {apt.address ? `– ${apt.address}` : ""}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-                              )}
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  setAddApartmentPerson({
-                                    id: person.id,
-                                    name: person.name,
-                                    email: person.email,
-                                    phone: person.phone,
-                                    oib: person.oib,
-                                    deliveryMethod: person.deliveryMethod,
-                                    apartments: person.apartments,
-                                  })
-                                }
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Dodaj stan
-                              </DropdownMenuItem>
-                              {person.apartmentsCount === 1 ? (
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() =>
-                                    setDeleteTenantConfirm({
-                                      tenantId: firstApt!.tenantId,
-                                      personName: person.name,
-                                      address: firstApt?.address,
-                                    })
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Obriši suvlasnika
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuSub>
-                                  <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Obriši vezu s stanom
-                                  </DropdownMenuSubTrigger>
-                                  <DropdownMenuSubContent>
-                                    {person.apartments.map((apt) => (
-                                      <DropdownMenuItem
-                                        key={apt.tenantId}
-                                        className="text-destructive focus:text-destructive"
-                                        onClick={() =>
-                                          setDeleteTenantConfirm({
-                                            tenantId: apt.tenantId,
-                                            personName: person.name,
-                                            address: apt.address,
-                                          })
-                                        }
-                                      >
-                                        {apt.address ?? apt.apartmentId ?? apt.tenantId}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </DropdownMenuSubContent>
-                                </DropdownMenuSub>
-                              )}
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                    <TableRow key={person.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
+                      <TableCell className="font-medium text-sm">
+                        <div className="flex items-center gap-2">
+                          {person.status === 'overdue' && <AlertCircle className="h-4 w-4 text-destructive" />}
+                          {person.name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs truncate" title={person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : "-"}>
+                        {person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : "-"}
+                      </TableCell>
+                      <TableCell className="text-xs truncate">
+                        {person.apartmentsCount === 1 ? (firstApt?.city || "–") : (() => { const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))]; return cities.length === 1 ? cities[0] : "–"; })()}
+                      </TableCell>
+                      <TableCell className="text-right text-sm value-cell">{person.totalMonthlyRate ?? "–"}</TableCell>
+                      <TableCell className={`text-right value-cell ${person.totalBalanceNum < 0 ? "value-cell--negative" : "value-cell--positive"}`}>{person.totalBalance}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-xs">{formatDelivery(person.deliveryMethod)}</Badge></TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}><FileText className="h-4 w-4 mr-2" />Pregled detalja</DropdownMenuItem>
+                            {person.status === 'overdue' && <DropdownMenuItem onClick={(e) => handleSendReminder(person.id, person.name, e)} disabled={sendingReminder === person.id}>{sendingReminder === person.id ? <span className="animate-pulse">Slanje...</span> : <><Send className="h-4 w-4 mr-2" />Pošalji opomenu</>}</DropdownMenuItem>}
+                            {person.apartments.length > 0 && (
+                              <>
+                                {person.apartmentsCount === 1 ? <DropdownMenuItem onClick={() => setEditingTenant({ id: firstApt!.tenantId, name: person.name, oib: person.oib ?? undefined, email: person.email, phone: person.phone, apartment_id: firstApt!.apartmentId, deliveryMethod: person.deliveryMethod, personId: person.id })}><Edit2 className="h-4 w-4 mr-2" />Uredi</DropdownMenuItem> : <DropdownMenuSub><DropdownMenuSubTrigger><Edit2 className="h-4 w-4 mr-2" />Uredi stan</DropdownMenuSubTrigger><DropdownMenuSubContent>{person.apartments.map((apt, i) => <DropdownMenuItem key={apt.tenantId} onClick={() => setEditingTenant({ id: apt.tenantId, name: person.name, oib: person.oib ?? undefined, email: person.email, phone: person.phone, apartment_id: apt.apartmentId, deliveryMethod: person.deliveryMethod, personId: person.id })}>Stan {i + 1} {apt.address ? `– ${apt.address}` : ""}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>}
+                                <DropdownMenuItem onClick={() => setAddApartmentPerson({ id: person.id, name: person.name, email: person.email, phone: person.phone, oib: person.oib, deliveryMethod: person.deliveryMethod, apartments: person.apartments })}><Plus className="h-4 w-4 mr-2" />Dodaj stan</DropdownMenuItem>
+                                {person.apartmentsCount === 1 ? <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTenantConfirm({ tenantId: firstApt!.tenantId, personName: person.name, address: firstApt?.address })}><Trash2 className="h-4 w-4 mr-2" />Obriši suvlasnika</DropdownMenuItem> : <DropdownMenuSub><DropdownMenuSubTrigger className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 mr-2" />Obriši vezu s stanom</DropdownMenuSubTrigger><DropdownMenuSubContent>{person.apartments.map((apt) => <DropdownMenuItem key={apt.tenantId} className="text-destructive focus:text-destructive" onClick={() => setDeleteTenantConfirm({ tenantId: apt.tenantId, personName: person.name, address: apt.address })}>{apt.address ?? apt.apartmentId ?? apt.tenantId}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
@@ -646,240 +459,66 @@ const Tenants = () => {
           </Table>
         </div>
 
-        {/* Mobile Card View */}
+        {/* Mobil: jednostavne kartice */}
         <div className="md:hidden space-y-3">
           {isLoading ? (
-            <>
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-4 w-48" />
-                      <Skeleton className="h-3 w-40" />
-                    </div>
-                    <Skeleton className="h-10 w-10" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t">
-                    <div className="space-y-1">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-4 w-12" />
-                    </div>
-                    <div className="space-y-1">
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-4 w-16" />
-                    </div>
-                    <div className="space-y-1">
-                      <Skeleton className="h-3 w-12" />
-                      <Skeleton className="h-4 w-16" />
-                    </div>
-                    <div className="space-y-1">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-6 w-20" />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </>
+            [1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 space-y-2"><Skeleton className="h-5 w-32" /><Skeleton className="h-4 w-48" /></div>
+                  <Skeleton className="h-10 w-10" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t">
+                  <div><p className="text-muted-foreground text-xs">Mjesečna rata</p><p className="font-medium"><Skeleton className="h-4 w-12" /></p></div>
+                  <div><p className="text-muted-foreground text-xs">Saldo</p><p className="font-medium"><Skeleton className="h-4 w-16" /></p></div>
+                  <div><p className="text-muted-foreground text-xs">Dostava</p><Skeleton className="h-6 w-20" /></div>
+                </div>
+              </Card>
+            ))
           ) : persons.length === 0 ? (
-            <EmptyState
-              title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"}
-              description={hasActiveFilters ? "Pokušajte promijeniti ili ukloniti filtere." : "Dodajte prvog suvlasnika da biste započeli s evidencijom."}
-              action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }}
-            />
+            <EmptyState title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"} action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }} />
           ) : (
             persons.map((person, idx) => {
               const firstApt = person.apartments[0];
-              const addressStr = person.apartmentsCount === 1 && firstApt?.address
-                ? firstApt.address
-                : person.apartmentsCount > 1
-                ? `${person.apartmentsCount} stana`
-                : '-';
-              const cityStr = person.apartmentsCount === 1
-                ? (firstApt?.city || '')
-                : (() => {
-                    const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))];
-                    return cities.length === 1 ? cities[0] : '';
-                  })();
+              const addressStr = person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : '-';
+              const cityStr = person.apartmentsCount === 1 ? (firstApt?.city || '') : (() => { const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))]; return cities.length === 1 ? cities[0] : ''; })();
               return (
-              <Card
-                key={person.id}
-                className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md hover:border-primary/20 transition-all duration-200 cursor-pointer animate-fade-in-up"
-                style={{ animationDelay: `${Math.min(idx * 35, 200)}ms` }}
-                onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      {person.status === 'overdue' && (
-                        <AlertCircle className="h-4 w-4 text-destructive" />
-                      )}
-                      <h3 className="font-semibold">{person.name}</h3>
+                <Card key={person.id} className="rounded-lg border px-4 py-3 hover:shadow-md cursor-pointer" onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {person.status === 'overdue' && <AlertCircle className="h-4 w-4 text-destructive" />}
+                        <h3 className="font-semibold">{person.name}</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{addressStr}{cityStr ? `, ${cityStr}` : ''}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{addressStr}{cityStr ? `, ${cityStr}` : ''}</p>
-                  </div>
-                  <div onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px] -mr-2">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Pregled detalja
-                      </DropdownMenuItem>
-                      {person.status === 'overdue' && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSendReminder(person.id, person.name, e);
-                          }}
-                          disabled={sendingReminder === person.id}
-                        >
-                          {sendingReminder === person.id ? (
-                            <span className="animate-pulse">Slanje...</span>
-                          ) : (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px] -mr-2"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}><FileText className="h-4 w-4 mr-2" />Pregled detalja</DropdownMenuItem>
+                          {person.status === 'overdue' && (
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSendReminder(person.id, person.name, e); }} disabled={sendingReminder === person.id}>
+                                {sendingReminder === person.id ? <span className="animate-pulse">Slanje...</span> : <span className="flex items-center gap-2"><Send className="h-4 w-4" />Pošalji opomenu</span>}
+                              </DropdownMenuItem>
+                            )}
+                          {person.apartments.length > 0 && (
                             <>
-                              <Send className="h-4 w-4 mr-2" />
-                              Pošalji opomenu
+                              {person.apartmentsCount === 1 ? <DropdownMenuItem onClick={() => setEditingTenant({ id: firstApt!.tenantId, name: person.name, oib: person.oib ?? undefined, email: person.email, phone: person.phone, apartment_id: firstApt!.apartmentId, deliveryMethod: person.deliveryMethod, personId: person.id })}><Edit2 className="h-4 w-4 mr-2" />Uredi</DropdownMenuItem> : <DropdownMenuSub><DropdownMenuSubTrigger><Edit2 className="h-4 w-4 mr-2" />Uredi stan</DropdownMenuSubTrigger><DropdownMenuSubContent>{person.apartments.map((apt, i) => <DropdownMenuItem key={apt.tenantId} onClick={() => setEditingTenant({ id: apt.tenantId, name: person.name, oib: person.oib ?? undefined, email: person.email, phone: person.phone, apartment_id: apt.apartmentId, deliveryMethod: person.deliveryMethod, personId: person.id })}>Stan {i + 1} {apt.address ? `– ${apt.address}` : ""}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>}
+                              <DropdownMenuItem onClick={() => setAddApartmentPerson({ id: person.id, name: person.name, email: person.email, phone: person.phone, oib: person.oib, deliveryMethod: person.deliveryMethod, apartments: person.apartments })}><Plus className="h-4 w-4 mr-2" />Dodaj stan</DropdownMenuItem>
+                              {person.apartmentsCount === 1 ? <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTenantConfirm({ tenantId: firstApt!.tenantId, personName: person.name, address: firstApt?.address })}><Trash2 className="h-4 w-4 mr-2" />Obriši suvlasnika</DropdownMenuItem> : <DropdownMenuSub><DropdownMenuSubTrigger className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 mr-2" />Obriši vezu s stanom</DropdownMenuSubTrigger><DropdownMenuSubContent>{person.apartments.map((apt) => <DropdownMenuItem key={apt.tenantId} className="text-destructive focus:text-destructive" onClick={() => setDeleteTenantConfirm({ tenantId: apt.tenantId, personName: person.name, address: apt.address })}>{apt.address ?? apt.apartmentId ?? apt.tenantId}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>}
                             </>
                           )}
-                        </DropdownMenuItem>
-                      )}
-                      {person.apartments.length > 0 && (
-                        <>
-                          {person.apartmentsCount === 1 ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                setEditingTenant({
-                                  id: firstApt!.tenantId,
-                                  name: person.name,
-                                  oib: person.oib ?? undefined,
-                                  email: person.email,
-                                  phone: person.phone,
-                                  apartment_id: firstApt!.apartmentId,
-                                  deliveryMethod: person.deliveryMethod,
-                                  personId: person.id,
-                                })
-                              }
-                            >
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Uredi
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                <Edit2 className="h-4 w-4 mr-2" />
-                                Uredi stan
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent>
-                                {person.apartments.map((apt, i) => (
-                                  <DropdownMenuItem
-                                    key={apt.tenantId}
-                                    onClick={() =>
-                                      setEditingTenant({
-                                        id: apt.tenantId,
-                                        name: person.name,
-                                        oib: person.oib ?? undefined,
-                                        email: person.email,
-                                        phone: person.phone,
-                                        apartment_id: apt.apartmentId,
-                                        deliveryMethod: person.deliveryMethod,
-                                        personId: person.id,
-                                      })
-                                    }
-                                  >
-                                    Stan {i + 1} {apt.address ? `– ${apt.address}` : ""}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setAddApartmentPerson({
-                                id: person.id,
-                                name: person.name,
-                                email: person.email,
-                                phone: person.phone,
-                                oib: person.oib,
-                                deliveryMethod: person.deliveryMethod,
-                                apartments: person.apartments,
-                              })
-                            }
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Dodaj stan
-                          </DropdownMenuItem>
-                          {person.apartmentsCount === 1 ? (
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() =>
-                                setDeleteTenantConfirm({
-                                  tenantId: firstApt!.tenantId,
-                                  personName: person.name,
-                                  address: firstApt?.address,
-                                })
-                              }
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Obriši suvlasnika
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Obriši vezu s stanom
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent>
-                                {person.apartments.map((apt) => (
-                                  <DropdownMenuItem
-                                    key={apt.tenantId}
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() =>
-                                      setDeleteTenantConfirm({
-                                        tenantId: apt.tenantId,
-                                        personName: person.name,
-                                        address: apt.address,
-                                      })
-                                    }
-                                  >
-                                    {apt.address ?? apt.apartmentId ?? apt.tenantId}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          )}
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 text-sm pt-3 border-t">
-                  <div>
-                    <p className="text-muted-foreground text-xs">Mjesečna rata</p>
-                    <p className="font-medium">{person.totalMonthlyRate ?? "-"}</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm pt-3 border-t">
+                    <div><p className="text-muted-foreground text-xs">Mjesečna rata</p><p className="font-medium">{person.totalMonthlyRate ?? "-"}</p></div>
+                    <div><p className="text-muted-foreground text-xs">Saldo</p><p className={`font-semibold ${person.totalBalanceNum < 0 ? 'text-destructive' : 'text-success'}`}>{person.totalBalance}</p></div>
+                    <div><p className="text-muted-foreground text-xs mb-1">Dostava</p><Badge variant="outline" className="text-xs">{formatDelivery(person.deliveryMethod)}</Badge></div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs">Saldo</p>
-                    <p className={`font-semibold ${
-                      person.totalBalanceNum < 0 ? 'text-destructive' : 'text-success'
-                    }`}>
-                      {person.totalBalance}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Dostava</p>
-                    <Badge variant="outline" className="text-xs">
-                      {formatDelivery(person.deliveryMethod)}
-                    </Badge>
-                  </div>
-                </div>
-              </Card>
+                </Card>
               );
             })
           )}

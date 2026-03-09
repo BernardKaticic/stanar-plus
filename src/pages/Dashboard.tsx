@@ -115,25 +115,19 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1>Nadzorna ploča</h1>
-            {statsFetching && !statsLoading && (
-              <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
-            )}
-          </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Pregled ključnih podataka i aktivnosti.
-          </p>
+    <div className="page animate-fade-in">
+      <header className="page-header">
+        <div className="flex items-center gap-2">
+          <h1 className="page-title">Nadzorna ploča</h1>
+          {statsFetching && !statsLoading && (
+            <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
+          )}
         </div>
-      </div>
+      </header>
 
       {statsError && (
         <EmptyState
           title="Neuspješno učitavanje statistike"
-          description="Podaci nadzorne ploče nisu učitani. Pokušajte ponovno."
           action={{
             label: "Pokušaj ponovno",
             onClick: () => refetchStats(),
@@ -141,41 +135,44 @@ const Dashboard = () => {
           className="py-6"
         />
       )}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, idx) => (
-          <Card key={stat.title} className="p-4 transition-all duration-200 hover:shadow-sm animate-fade-in-up" style={{ animationDelay: `${Math.min(idx * 50, 150)}ms` }}>
-            <p className="text-xs text-muted-foreground">{stat.title}</p>
-            {statsLoading ? (
-              <Skeleton className="h-7 w-20 mt-2" />
-            ) : (
-              <p className="text-lg font-semibold mt-1">{stat.value}</p>
-            )}
-            {!statsError && stat.change && !statsLoading && (
-              <p className={`mt-1 text-xs font-medium ${
-                (stat.changeType as string) === "positive" ? "text-success" :
-                stat.changeType === "negative" ? "text-destructive" : "text-muted-foreground"
-              }`}>
-                {stat.change}
-              </p>
-            )}
-          </Card>
-        ))}
+      <div className="page-kpi">
+        {statCards.map((stat, idx) => {
+          const isCritical = stat.title === "Aktivna dugovanja";
+          return (
+            <div
+              key={stat.title}
+              className={`page-kpi-card animate-fade-in-up ${isCritical ? "border-l-4 border-l-destructive bg-destructive/5" : ""}`}
+              style={{ animationDelay: `${Math.min(idx * 50, 150)}ms` }}
+            >
+              <p className="page-kpi-label">{stat.title}</p>
+              {statsLoading ? (
+                <Skeleton className="h-7 w-20 mt-2" />
+              ) : (
+                <p className={`page-kpi-value ${isCritical ? "text-destructive" : ""}`}>{stat.value}</p>
+              )}
+              {!statsError && stat.change && !statsLoading && (
+                <p className={`mt-1 text-xs font-medium ${
+                  (stat.changeType as string) === "positive" ? "text-success" :
+                  stat.changeType === "negative" ? "text-destructive" : "text-muted-foreground"
+                }`}>
+                  {stat.change}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4 sm:space-y-6">
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
-              <CardTitle>Nedavne aktivnosti</CardTitle>
+              <CardTitle className="text-lg">Nedavne aktivnosti</CardTitle>
             </CardHeader>
             <CardContent>
             <div className="space-y-4">
               {activitiesError ? (
-                <EmptyState
-                  title="Greška u učitavanju"
-                  description="Aktivnosti nisu dostupne. Pokušajte osvježiti stranicu."
-                  className="py-8"
-                />
+                <EmptyState title="Greška u učitavanju" className="py-8" />
               ) : activitiesLoading ? (
                 <>
                   {[1, 2, 3].map((i) => (
@@ -207,32 +204,21 @@ const Dashboard = () => {
                   </div>
                 ))
               ) : (
-                <EmptyState
-                  title="Nema nedavnih aktivnosti"
-                  description="Aktivnosti će se prikazati kada počnete koristiti sustav"
-                />
+                <EmptyState title="Nema nedavnih aktivnosti" />
               )}
             </div>
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
-              <CardTitle>Naplata po mjesecima</CardTitle>
+              <CardTitle className="text-lg">Naplata po mjesecima</CardTitle>
             </CardHeader>
             <CardContent>
             {statsError ? (
-              <EmptyState
-                title="Greška u učitavanju"
-                description="Podaci za graf nisu dostupni. Osvježite stranicu."
-                className="py-12"
-              />
+              <EmptyState title="Greška u učitavanju" className="py-12" />
             ) : collectionData.length === 0 ? (
-              <EmptyState
-                title="Nema podataka za graf"
-                description="Dodajte zgrade i uplatnice da biste vidjeli naplatu po mjesecima"
-                className="py-12"
-              />
+              <EmptyState title="Nema podataka za graf" className="py-12" />
             ) : (
             <div className="space-y-6">
               <ChartContainer
@@ -311,23 +297,15 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
-              <CardTitle>Struktura troškova</CardTitle>
+              <CardTitle className="text-lg">Struktura troškova</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {statsError ? (
-                <EmptyState
-                  title="Greška u učitavanju"
-                  description="Podaci za strukturu troškova nisu dostupni. Osvježite stranicu."
-                  className="py-12"
-                />
+                <EmptyState title="Greška u učitavanju" className="py-12" />
               ) : expenseStructure.length === 0 ? (
-                <EmptyState
-                  title="Nema podataka za strukturu troškova"
-                  description="Troškovi će se prikazati kada budu evidentirani"
-                  className="py-12"
-                />
+                <EmptyState title="Nema podataka" className="py-12" />
               ) : (
               <ChartContainer config={EXPENSE_CHART_CONFIG as ChartConfig} className="h-[320px] w-full">
                 <PieChart>
@@ -382,23 +360,15 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
-              <CardTitle>Top 5 zgrada po pričuvi</CardTitle>
+              <CardTitle className="text-lg">Top 5 zgrada po pričuvi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {statsError ? (
-                <EmptyState
-                  title="Greška u učitavanju"
-                  description="Podaci za top zgrade nisu dostupni. Osvježite stranicu."
-                  className="py-12"
-                />
-              ) : cashFlowData.length === 0 ? (
-                <EmptyState
-                  title="Nema podataka za top zgrade"
-                  description="Dodajte zgrade i transakcije da biste vidjeli pričuvu po zgradama"
-                  className="py-12"
-                />
+              <EmptyState title="Greška u učitavanju" className="py-12" />
+            ) : cashFlowData.length === 0 ? (
+              <EmptyState title="Nema podataka" className="py-12" />
               ) : (
               <div className="min-w-0 w-full overflow-x-auto">
               <ChartContainer
@@ -454,17 +424,13 @@ const Dashboard = () => {
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
-              <CardTitle className="">Pregled portfelja</CardTitle>
+              <CardTitle className="text-lg">Pregled portfelja</CardTitle>
             </CardHeader>
             <CardContent>
             {statsError ? (
-              <EmptyState
-                title="Greška u učitavanju"
-                description="Pregled portfelja nije dostupan. Pokušajte osvježiti stranicu."
-                className="py-8"
-              />
+              <EmptyState title="Greška u učitavanju" className="py-8" />
             ) : statsLoading ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -500,9 +466,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
-              <CardTitle className="">Brze akcije</CardTitle>
+              <CardTitle className="text-lg">Brze akcije</CardTitle>
             </CardHeader>
             <CardContent>
             <div className="space-y-2">
@@ -527,11 +493,11 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm">
+          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
             <CardHeader>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="">Najnovija dugovanja</CardTitle>
+                  <CardTitle className="text-lg">Najnovija dugovanja</CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Ukupno otvoreno {statsLoading ? "..." : formatCurrency(stats?.outstandingBalance)}
                   </p>
@@ -546,11 +512,7 @@ const Dashboard = () => {
             <CardContent>
             <div className="space-y-3">
               {debtorsError ? (
-                <EmptyState
-                  title="Greška u učitavanju"
-                  description="Lista dužnika nije dostupna. Pokušajte osvježiti stranicu."
-                  className="py-6"
-                />
+                <EmptyState title="Greška u učitavanju" className="py-6" />
               ) : debtorsLoading ? (
                 [1, 2, 3].map((i) => (
                   <div key={i} className="rounded-lg border p-3 space-y-2">
@@ -595,11 +557,7 @@ const Dashboard = () => {
                   );
                 })
               ) : (
-                <EmptyState
-                  title="Nema dužnika"
-                  description="Svi stanari su uredni s plaćanjem"
-                  className="py-6"
-                />
+                <EmptyState title="Nema dužnika" className="py-6" />
               )}
             </div>
             {debtors && debtors.length > 0 && (

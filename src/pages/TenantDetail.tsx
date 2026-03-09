@@ -74,16 +74,16 @@ const TenantDetail = () => {
   const monthlyRate = monthlyRateRaw.includes("€") ? monthlyRateRaw : monthlyRateRaw + " €";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="page">
+      <header className="page-header">
         <Button variant="ghost" size="icon" className="shrink-0 -ml-2" onClick={() => navigate("/tenants")} aria-label="Natrag na popis suvlasnika">
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1>{tenant.tenant?.full_name || "Nepoznat"}</h1>
+          <h1 className="page-title">{tenant.tenant?.full_name || "Nepoznat"}</h1>
           <p className="text-muted-foreground mt-1 text-sm">Kartica suvlasnika</p>
         </div>
-      </div>
+      </header>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
@@ -235,9 +235,6 @@ const TenantDetail = () => {
       <Card>
         <CardHeader>
           <CardTitle>Financijska kartica</CardTitle>
-          <CardDescription>
-            Pregled zaduženja, uplatnica i opomena
-          </CardDescription>
         </CardHeader>
         <CardContent>
         <Tabs defaultValue="financial">
@@ -251,7 +248,7 @@ const TenantDetail = () => {
           <TabsContent value="financial" className="space-y-4 mt-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold">Pregled zaduženja i uplata</h3>
+                <h3 className="text-base font-semibold">Zaduženja i uplate</h3>
                 <p className="text-sm text-muted-foreground">
                   {dateFrom || dateTo ? (
                     <>

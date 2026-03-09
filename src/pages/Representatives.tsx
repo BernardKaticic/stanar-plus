@@ -102,29 +102,24 @@ const Representatives = () => {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>Predstavnici suvlasnika</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Upravljanje predstavnicima zgrada i drugim dohotkom
-        </p>
-      </div>
+    <div className="page">
+      <header className="page-header">
+        <h1 className="page-title">Predstavnici suvlasnika</h1>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Ukupno predstavnika</p>
-          <p className="text-xl font-semibold mt-1">{representatives.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Mjesečni troškovi predstavnika</p>
-          <p className="text-xl font-semibold mt-1 text-primary">
-            {formatCurrency(totalMonthly)}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Isplaćeno ovaj mjesec</p>
-          <p className="text-xl font-semibold mt-1">{formatCurrency(totalMonthly)}</p>
-        </Card>
+      <div className="page-kpi">
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Ukupno predstavnika</p>
+          <p className="page-kpi-value">{representatives.length}</p>
+        </div>
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Mjesečni troškovi</p>
+          <p className="page-kpi-value text-primary">{formatCurrency(totalMonthly)}</p>
+        </div>
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Isplaćeno ovaj mjesec</p>
+          <p className="page-kpi-value">{formatCurrency(totalMonthly)}</p>
+        </div>
       </div>
 
       <Card>
@@ -132,9 +127,6 @@ const Representatives = () => {
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             <div>
               <CardTitle>Popis predstavnika</CardTitle>
-              <CardDescription>
-                Pretraga i izvoz
-              </CardDescription>
             </div>
             <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
               <Button variant="outline" className="min-h-[32px] gap-2">
@@ -199,7 +191,6 @@ const Representatives = () => {
                 <TableCell colSpan={8} className="p-8">
                   <EmptyState
                     title="Nema predstavnika"
-                    description="Dodajte prvog predstavnika da biste započeli."
                     action={{
                       label: "Dodaj predstavnika",
                       onClick: () => { setEditingRep(null); setRepDialogOpen(true); },
@@ -265,7 +256,6 @@ const Representatives = () => {
           ) : representatives.length === 0 ? (
             <EmptyState
               title="Nema predstavnika"
-              description="Dodajte prvog predstavnika da biste započeli."
               action={{
                 label: "Dodaj predstavnika",
                 onClick: () => { setEditingRep(null); setRepDialogOpen(true); },
@@ -327,9 +317,6 @@ const Representatives = () => {
       <Card>
         <CardHeader>
           <CardTitle>Drugi dohodak</CardTitle>
-          <CardDescription>
-            Evidencija dodatnih periodičnih isplata (upravitelji, održavanje, čišćenje...)
-          </CardDescription>
         </CardHeader>
         <CardContent>
         <div className="space-y-3">

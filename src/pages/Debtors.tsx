@@ -98,6 +98,12 @@ const Debtors = () => {
   const activeFiltersCount = 
     (amountFilter !== 'all' ? 1 : 0) + 
     (monthFilter !== 'all' ? 1 : 0);
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  const clearFilters = () => {
+    setAmountFilter('all');
+    setMonthFilter('all');
+  };
 
   // Kad se promijeni lista (filteri, stranica, pretraga), presjeci selekciju na vidljive
   useEffect(() => {
@@ -205,52 +211,46 @@ const Debtors = () => {
   const remindersTotal = remindersData?.totalCount || 0;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1>Dužnici</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Pregled dužnika, slanje opomena i arhiva poslanih opomena.
-        </p>
-      </div>
+    <div className="page animate-fade-in">
+      <header className="page-header">
+        <h1 className="page-title">Dužnici</h1>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="page-kpi">
         {[
           { label: "Ukupno dužnika", value: totalCount, className: "text-destructive" },
           { label: "Ukupan dug", value: formatCurrency(stats?.totalDebt ?? 0), className: "text-destructive" },
           { label: "Opomene ovaj mjesec", value: stats?.remindersThisMonth ?? 0, className: "" },
           { label: "Duguju > 3 mjeseca", value: stats?.over3Months ?? debtors.filter(d => d.months >= 3).length, className: "text-destructive" },
         ].map((stat, i) => (
-          <Card key={stat.label} className="p-4 transition-all duration-200 hover:shadow-sm">
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
+          <div key={stat.label} className="page-kpi-card">
+            <p className="page-kpi-label">{stat.label}</p>
             {isLoading ? (
               <Skeleton className="h-8 w-16 mt-2" />
             ) : (
-              <p className={`text-xl font-semibold mt-1 ${stat.className}`}>{stat.value}</p>
+              <p className={`page-kpi-value ${stat.className}`}>{stat.value}</p>
             )}
-          </Card>
+          </div>
         ))}
       </div>
 
-      <Card className="transition-opacity duration-200" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
+      <Card className="transition-opacity duration-200 rounded-md" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle>Popis dužnika</CardTitle>
+                <CardTitle className="text-lg">Popis dužnika</CardTitle>
                 {isFetching && !isLoading && (
                   <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
                 )}
               </div>
-              <CardDescription>
-                Pretraga, filteri, izvoz i slanje opomena
-              </CardDescription>
             </div>
             <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
               <Button
                 variant="outline"
                 onClick={handleExportCSV}
                 disabled={debtors.length === 0}
-                className="min-h-[32px]"
+                className="min-h-[28px] sm:min-h-[32px]"
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Export CSV
@@ -258,7 +258,7 @@ const Debtors = () => {
               <Button
                 onClick={() => setBatchSendDialogOpen(true)}
                 disabled={selectedDebtors.size === 0}
-                className="min-h-[32px] gap-2"
+                className="min-h-[28px] sm:min-h-[32px] gap-2"
               >
                 <Mail className="h-4 w-4" />
                 <span className="hidden sm:inline">Pošalji opomene</span>
@@ -297,10 +297,7 @@ const Debtors = () => {
                 variant="ghost"
                 size="icon"
                 className="min-w-[44px] min-h-[32px]"
-                onClick={() => {
-                  setAmountFilter('all');
-                  setMonthFilter('all');
-                }}
+                onClick={clearFilters}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -310,7 +307,7 @@ const Debtors = () => {
 
         {/* Active Filters */}
         {activeFiltersCount > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-2 mb-4">
             {amountFilter !== 'all' && (
               <Badge variant="secondary" className="gap-1">
                 Dug: {amountFilter === 'over50' ? '> 50 €' : '> 100 €'}
@@ -419,8 +416,8 @@ const Debtors = () => {
                     <TableCell colSpan={7} className="p-0">
                       <EmptyState
                         icon={CheckCircle}
-                        title="Nema dužnika"
-                        description="Svi stanari su uredni s plaćanjem. Odličan posao!"
+                        title={hasActiveFilters ? "Nema dužnika za odabrane filtere" : "Nema dužnika"}
+                        action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : undefined}
                       />
                     </TableCell>
                   </TableRow>
@@ -451,7 +448,7 @@ const Debtors = () => {
                     <TableCell className="text-xs min-w-[200px]" title={debtor.address || "-"}>
                       {debtor.address || "-"}
                     </TableCell>
-                    <TableCell className="text-right text-xs font-bold text-destructive">
+                    <TableCell className="text-right value-cell value-cell--negative">
                       {debtor.amount}
                     </TableCell>
                     <TableCell className="text-center text-xs">
@@ -538,8 +535,8 @@ const Debtors = () => {
           ) : debtors.length === 0 ? (
             <EmptyState
               icon={CheckCircle}
-              title="Nema dužnika"
-              description="Svi stanari su uredni s plaćanjem. Odličan posao!"
+              title={hasActiveFilters ? "Nema dužnika za odabrane filtere" : "Nema dužnika"}
+              action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : undefined}
             />
           ) : (
             sortedDebtors.map((debtor, idx) => (
@@ -574,7 +571,7 @@ const Debtors = () => {
                 <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t">
                   <div>
                     <p className="text-muted-foreground text-xs">Dug</p>
-                    <p className="font-bold text-destructive text-base">{debtor.amount}</p>
+                    <p className="value-cell value-cell--negative text-base">{debtor.amount}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Mjeseci</p>
@@ -633,10 +630,10 @@ const Debtors = () => {
         </CardContent>
       </Card>
 
-      <Card className="transition-all duration-200 hover:shadow-sm">
+      <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
         <CardHeader>
           <div>
-            <CardTitle>Arhiva opomena</CardTitle>
+            <CardTitle className="text-lg">Arhiva opomena</CardTitle>
             <CardDescription>
               Povijest poslanih opomena dužnicima
             </CardDescription>
@@ -644,11 +641,7 @@ const Debtors = () => {
         </CardHeader>
         <CardContent>
           {reminders.length === 0 ? (
-            <EmptyState
-              title="Arhiva opomena"
-              description="Povijest poslanih opomena će se prikazati kada pošaljete prvu opomenu dužnicima."
-              className="py-12"
-            />
+            <EmptyState icon={Mail} title="Nema opomena u arhivi" className="py-12" />
           ) : (
             <>
               <div className="rounded-md border overflow-x-auto">

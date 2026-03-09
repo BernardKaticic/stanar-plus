@@ -2,6 +2,17 @@
  * API klijent za Stanar Plus backend
  */
 
+import type {
+  PaginatedResponse,
+  DashboardStats,
+  DashboardActivity,
+  DashboardDebtor,
+  DashboardStatement,
+  FinancialByBuilding,
+  PaymentSlipHistoryItem,
+  AuditLogItem,
+} from '@/types/api';
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export interface ApiError {
@@ -24,10 +35,17 @@ function getStoredTokens() {
   }
 }
 
+interface StoredUser {
+  id?: string;
+  email?: string;
+  user_metadata?: { full_name?: string };
+  organization_name?: string | null;
+}
+
 function setStoredTokens(
   accessToken: string,
   refreshToken: string,
-  user: any,
+  user: StoredUser | null,
   role: string,
   organizationName?: string | null
 ) {
@@ -124,7 +142,7 @@ export async function api<T = unknown>(
   }
 
   const text = await res.text();
-  let json: any;
+  let json: unknown;
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
@@ -132,12 +150,12 @@ export async function api<T = unknown>(
   }
 
   if (!res.ok) {
-    const err = new Error(json?.message || res.statusText) as Error & {
+    const err = new Error((json as { message?: string })?.message || res.statusText) as Error & {
       status?: number;
       body?: ApiError;
     };
     err.status = res.status;
-    err.body = json;
+    err.body = json as ApiError;
     throw err;
   }
 
@@ -209,8 +227,8 @@ export const buildingsApi = {
   createStreet: (data: { cityId: string; name: string }) => api('/streets', { method: 'POST', body: JSON.stringify(data) }),
   updateStreet: (id: string, data: { name: string }) => api(`/streets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteStreet: (id: string) => api(`/streets/${id}`, { method: 'DELETE' }),
-  createBuilding: (data: any) => api('/buildings', { method: 'POST', body: JSON.stringify(data) }),
-  updateBuilding: (id: string, data: any) => api(`/buildings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createBuilding: (data: unknown) => api('/buildings', { method: 'POST', body: JSON.stringify(data) }),
+  updateBuilding: (id: string, data: unknown) => api(`/buildings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteBuilding: (id: string) => api(`/buildings/${id}`, { method: 'DELETE' }),
   createApartment: (data: {
     building_id: string;
@@ -259,7 +277,7 @@ export const personsApi = {
     if (params?.status && params.status !== 'all') sp.set('status', params.status);
     if (params?.deliveryMethod && params.deliveryMethod !== 'all') sp.set('deliveryMethod', params.deliveryMethod);
     if (params?.city) sp.set('city', params.city);
-    return api<{ data: Person[]; totalCount: number }>('/persons?' + sp.toString());
+    return api<PaginatedResponse<Person>>('/persons?' + sp.toString());
   },
   getById: (id: string) => api<PersonDetail>('/persons/' + id),
 };
@@ -282,6 +300,7 @@ export type Person = {
 export type PersonApartment = {
   tenantId: string;
   apartmentId: string | null;
+  apartmentNumber?: string;
   address: string | null;
   city: string | null;
   area: string | null;
@@ -289,6 +308,15 @@ export type PersonApartment = {
   balance: string;
   balanceNum: number;
   status: string;
+  feeBreakdown?: {
+    reservePerSqm?: number;
+    loanPerSqm?: number;
+    savingsPerSqm?: number;
+    cleaningFee?: number;
+    savingsFixed?: number;
+    extraFixed?: number;
+    electricityFixed?: number;
+  };
 };
 
 export type PersonDetail = Person & {
@@ -310,9 +338,9 @@ export const tenantsApi = {
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
     if (params?.search) sp.set('search', params.search || '');
-    return api<{ data: any[]; totalCount: number }>('/tenants?' + sp.toString());
+    return api<PaginatedResponse<unknown>>('/tenants?' + sp.toString());
   },
-  getById: (id: string) => api<any>('/tenants/' + id),
+  getById: (id: string) => api<unknown>('/tenants/' + id),
   create: (data: {
     apartment_id: string;
     name: string;
@@ -344,14 +372,14 @@ export const debtorsApi = {
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
     if (params?.search) sp.set('search', params.search || '');
-    return api<{ data: any[]; totalCount: number }>('/debtors?' + sp.toString());
+    return api<PaginatedResponse<unknown>>('/debtors?' + sp.toString());
   },
   getStats: () => api<{ totalCount: number; totalDebt: number; remindersThisMonth: number; over3Months: number }>('/debtors/stats'),
   getReminders: (params?: { limit?: number; offset?: number }) => {
     const sp = new URLSearchParams();
     if (params?.limit) sp.set('limit', String(params.limit));
     if (params?.offset) sp.set('offset', String(params.offset));
-    return api<{ data: any[]; totalCount: number }>('/debtors/reminders' + (sp.toString() ? '?' + sp.toString() : ''));
+    return api<PaginatedResponse<unknown>>('/debtors/reminders' + (sp.toString() ? '?' + sp.toString() : ''));
   },
   sendReminder: (tenantId: string) =>
     api<{ message: string }>(`/debtors/${tenantId}/send-reminder`, { method: 'POST' }),
@@ -367,7 +395,7 @@ export const workOrdersApi = {
     if (params?.search) sp.set('search', params.search || '');
     if (params?.status) sp.set('status', params.status);
     if (params?.priority) sp.set('priority', params.priority);
-    return api<{ data: any[]; totalCount: number }>('/work-orders?' + sp.toString());
+    return api<PaginatedResponse<unknown>>('/work-orders?' + sp.toString());
   },
   getStats: (params?: { search?: string; status?: string; priority?: string }) => {
     const sp = new URLSearchParams();
@@ -378,16 +406,16 @@ export const workOrdersApi = {
       '/work-orders/stats' + (sp.toString() ? '?' + sp.toString() : '')
     );
   },
-  getById: (id: string) => api<any>(`/work-orders/${id}`),
-  create: (data: any) => api('/work-orders', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: any) => api(`/work-orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getById: (id: string) => api<unknown>(`/work-orders/${id}`),
+  create: (data: unknown) => api('/work-orders', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: unknown) => api(`/work-orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 
 export const dashboardApi = {
-  getStats: () => api<any>('/dashboard/stats'),
-  getActivities: () => api<any[]>('/dashboard/activities'),
-  getDebtors: () => api<any[]>('/dashboard/debtors'),
-  getStatement: () => api<any>('/dashboard/statement'),
+  getStats: () => api<DashboardStats>('/dashboard/stats'),
+  getActivities: () => api<DashboardActivity[]>('/dashboard/activities'),
+  getDebtors: () => api<DashboardDebtor[]>('/dashboard/debtors'),
+  getStatement: () => api<DashboardStatement>('/dashboard/statement'),
 };
 
 export const paymentSlipsApi = {
@@ -395,7 +423,31 @@ export const paymentSlipsApi = {
     const sp = new URLSearchParams();
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
-    return api<{ data: any[]; totalCount: number }>('/payment-slips?' + sp.toString());
+    return api<PaginatedResponse<PaymentSlipHistoryItem>>('/payment-slips?' + sp.toString());
+  },
+  getByMonth: (periodMonth: string) =>
+    api<{
+      data: { date: string | null; count: number; amount: number }[];
+      slips: { batchDate: string | null; address: string; amount: number }[];
+    }>('/payment-slips/by-month?periodMonth=' + encodeURIComponent(periodMonth)),
+  check: (params: {
+    chargeLevel: string;
+    locationId: string;
+    periodType: 'current' | 'single' | 'range';
+    singleMonth?: string;
+    periodFrom?: string;
+    periodTo?: string;
+  }) => {
+    const sp = new URLSearchParams();
+    sp.set('chargeLevel', params.chargeLevel);
+    sp.set('locationId', params.locationId);
+    sp.set('periodType', params.periodType);
+    if (params.singleMonth) sp.set('singleMonth', params.singleMonth);
+    if (params.periodFrom) sp.set('periodFrom', params.periodFrom);
+    if (params.periodTo) sp.set('periodTo', params.periodTo);
+    return api<{ total: number; alreadyCharged: number; toCharge: number; canGenerate: boolean; toChargeAddresses?: string[] }>(
+      '/payment-slips/check?' + sp.toString()
+    );
   },
   generate: (data: {
     chargeLevel: string;
@@ -413,9 +465,35 @@ export const paymentSlipsApi = {
     ),
 };
 
+export interface ReservePaymentPayload {
+  apartment_id: number;
+  amount: number;
+  payment_date: string;
+  memo?: string;
+  credit_account_id?: number;
+}
+
+export interface CreditAccountOption {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
+}
+
+export const reservePaymentsApi = {
+  getCreditAccounts: () =>
+    api<CreditAccountOption[]>('/reserve-payments/accounts'),
+
+  create: (data: ReservePaymentPayload) =>
+    api<{ id: number; entry_date: string; amount: number; apartment_id: number; message: string }>(
+      '/reserve-payments',
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
+};
+
 export const otherIncomeApi = {
-  getAll: () => api<any[]>('/other-income'),
-  create: (data: any) => api('/other-income', { method: 'POST', body: JSON.stringify(data) }),
+  getAll: () => api<unknown[]>('/other-income'),
+  create: (data: unknown) => api('/other-income', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => api(`/other-income/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => api(`/other-income/${id}`, { method: 'DELETE' }),
 };
@@ -424,9 +502,9 @@ export const representativesApi = {
   getAll: (params?: { search?: string }) => {
     const sp = new URLSearchParams();
     if (params?.search) sp.set('search', params.search);
-    return api<any[]>('/representatives?' + sp.toString());
+    return api<unknown[]>('/representatives?' + sp.toString());
   },
-  create: (data: any) => api('/representatives', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data: unknown) => api('/representatives', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => api(`/representatives/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => api(`/representatives/${id}`, { method: 'DELETE' }),
 };
@@ -436,9 +514,9 @@ export const suppliersApi = {
     const sp = new URLSearchParams();
     if (params?.search) sp.set('search', params.search || '');
     if (params?.category) sp.set('category', params.category);
-    return api<any[]>('/suppliers?' + sp.toString());
+    return api<unknown[]>('/suppliers?' + sp.toString());
   },
-  create: (data: any) => api('/suppliers', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data: unknown) => api('/suppliers', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => api(`/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => api(`/suppliers/${id}`, { method: 'DELETE' }),
 };
@@ -448,26 +526,48 @@ export const invoicesApi = {
     const sp = new URLSearchParams();
     if (params?.status) sp.set('status', params.status || '');
     if (params?.search) sp.set('search', params.search || '');
-    return api<any[]>('/invoices?' + sp.toString());
+    return api<unknown[]>('/invoices?' + sp.toString());
   },
-  create: (data: any) => api('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data: unknown) => api('/invoices', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => api(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => api(`/invoices/${id}`, { method: 'DELETE' }),
 };
 
 export const locationsApi = {
   getByLevel: (level: 'city' | 'street' | 'building' | 'owner') =>
-    api<any[]>('/cities/locations?level=' + level),
+    api<unknown[]>('/cities/locations?level=' + level),
 };
 
 export const apartmentsApi = {
-  getAll: () => api<any[]>('/apartments'),
+  getAll: (params?: { buildingId?: string }) =>
+    api<unknown[]>(params?.buildingId ? '/apartments?buildingId=' + encodeURIComponent(params.buildingId) : '/apartments'),
   assignTenant: (apartmentId: string, userId: string | null) =>
     api(`/apartments/${apartmentId}/assign-tenant`, { method: 'PUT', body: JSON.stringify({ userId }) }),
+  changeOwner: (apartmentId: string, data: { personId: string; validFrom?: string }) =>
+    api<{ ok: boolean; validFrom: string; validTo: string }>(`/apartments/${apartmentId}/change-owner`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getOwnershipHistory: (apartmentId: string) =>
+    api<Array<{ id: string; personId: string; personName: string; personEmail: string | null; validFrom: string; validTo: string | null; isPrimary: boolean; shareNum: number; shareDen: number }>>(
+      `/apartments/${apartmentId}/ownership-history`
+    ),
+  addOwner: (apartmentId: string, data: { personId: string; shareNum?: number; shareDen?: number }) =>
+    api<{ ok: boolean }>(`/apartments/${apartmentId}/owners`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  endOwnership: (apartmentId: string, ownershipId: string) =>
+    api<{ ok: boolean; validTo: string }>(`/apartments/${apartmentId}/ownerships/${ownershipId}/end`, { method: 'POST' }),
+  updateOwnershipShare: (apartmentId: string, ownershipId: string, data: { shareNum: number; shareDen: number }) =>
+    api<{ ok: boolean }>(`/apartments/${apartmentId}/ownerships/${ownershipId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
 export const usersApi = {
-  getByRole: (role: string) => api<any[]>('/users?role=' + role),
+  getByRole: (role: string) => api<unknown[]>('/users?role=' + role),
   createStanar: (data: { email: string; full_name: string }) =>
     api<{ id: string; email: string; tempPassword: string | null; existing: boolean }>(
       '/users/create-stanar',
@@ -481,7 +581,7 @@ export const auditLogApi = {
     if (params?.page) sp.set('page', String(params.page));
     if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
     if (params?.table) sp.set('table', params.table);
-    return api<{ data: any[]; totalCount: number }>('/audit-log?' + sp.toString());
+    return api<PaginatedResponse<AuditLogItem>>('/audit-log?' + sp.toString());
   },
 };
 
@@ -491,7 +591,7 @@ export const financialApi = {
     sp.set('buildingId', buildingId);
     if (from) sp.set('from', from);
     if (to) sp.set('to', to);
-    return api<any>('/dashboard/financial?' + sp.toString());
+    return api<FinancialByBuilding>('/dashboard/financial?' + sp.toString());
   },
 };
 

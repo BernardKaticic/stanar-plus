@@ -19,6 +19,7 @@ import PaymentSlips from "./pages/PaymentSlips";
 import WorkOrders from "./pages/WorkOrders";
 import WorkOrderDetail from "./pages/WorkOrderDetail";
 import FinancialCard from "./pages/FinancialCard";
+import AccountStatement from "./pages/AccountStatement";
 import Representatives from "./pages/Representatives";
 import Suppliers from "./pages/Suppliers";
 import AuditLog from "./pages/AuditLog";
@@ -55,7 +56,7 @@ const App = () => (
                     <Sidebar />
                     <div className="flex flex-1 flex-col overflow-hidden">
                       <Header />
-                      <main className="flex-1 overflow-y-auto bg-muted/20 px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:py-6 md:pb-6">
+                      <main className="flex-1 overflow-y-auto bg-surface px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-6 md:py-6 md:pb-6">
                         <div className="mx-auto w-full max-w-6xl">
                         <Routes>
                           <Route path="/" element={<Dashboard />} />
@@ -76,6 +77,7 @@ const App = () => (
                           <Route path="/work-orders" element={<WorkOrders />} />
                           <Route path="/work-orders/:id" element={<WorkOrderDetail />} />
                           <Route path="/financial-card" element={<FinancialCard />} />
+                          <Route path="/account-statement" element={<AccountStatement />} />
                           <Route path="/map" element={<MapPage />} />
                           <Route path="/e-invoices" element={<EInvoices />} />
                           <Route path="/representatives" element={<Representatives />} />

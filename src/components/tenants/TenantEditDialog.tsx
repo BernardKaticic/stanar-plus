@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -16,6 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSection,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -118,11 +118,15 @@ export const TenantEditDialog = ({
 
   if (!tenant) return null;
 
-  const formatApartmentLabel = (apt: any) => {
+  const formatApartmentLabel = (apt: {
+    buildings?: { streets?: { cities?: { name?: string }; name?: string }; street?: { city?: { name?: string }; name?: string }; number?: string };
+    building?: { streets?: { cities?: { name?: string }; name?: string }; street?: { city?: { name?: string }; name?: string }; number?: string };
+    apartment_number?: string;
+  }) => {
     const b = apt.buildings || apt.building;
-    const city = b?.streets?.cities?.name || b?.street?.city?.name || "";
-    const street = b?.streets?.name || b?.street?.name || "";
-    const num = b?.number || "";
+    const city = b?.streets?.cities?.name || (b as { street?: { city?: { name?: string }; name?: string } })?.street?.city?.name || "";
+    const street = b?.streets?.name || (b as { street?: { name?: string } })?.street?.name || "";
+    const num = (b as { number?: string })?.number || "";
     const addr = [city, street, num].filter(Boolean).join(", ");
     return addr ? `${addr}, Stan ${apt.apartment_number}` : `Stan ${apt.apartment_number}`;
   };
@@ -130,69 +134,69 @@ export const TenantEditDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[min(95vw,28rem)] overflow-y-auto p-6">
-        <DialogHeader className="space-y-1.5">
+        <DialogHeader>
           <DialogTitle className="text-lg">Uredi suvlasnika</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            Promijenite podatke ili dodijelite drugi stan.
-          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Ime i prezime *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Npr. Marko Marić" {...field} className="min-w-0" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="oib"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">OIB</FormLabel>
-                  <FormControl>
-                    <Input placeholder="11 znamenki (opcionalno)" {...field} className="min-w-0 font-mono" maxLength={11} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="npr@primjer.hr (opcionalno)" {...field} className="min-w-0" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Telefon</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+385 91 234 5678 (opcionalno)" {...field} className="min-w-0" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="delivery_method"
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Ime i prezime *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Npr. Marko Marić" {...field} className="min-w-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="oib"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">OIB</FormLabel>
+                    <FormControl>
+                      <Input placeholder="11 znamenki (opcionalno)" {...field} className="min-w-0 font-mono" maxLength={11} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="npr@primjer.hr (opcionalno)" {...field} className="min-w-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Telefon</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+385 91 234 5678 (opcionalno)" {...field} className="min-w-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="delivery_method"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium">Način dostave</FormLabel>
@@ -215,39 +219,40 @@ export const TenantEditDialog = ({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="apartment_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Stan</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value || NONE_APARTMENT}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="min-w-0">
-                        <SelectValue placeholder="Odaberite stan" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="max-h-[min(16rem,50vh)] min-w-[var(--radix-select-trigger-width)] max-w-[min(22rem,95vw)]">
-                      <SelectItem value={NONE_APARTMENT} className="py-2">
-                        — Nije dodijeljen —
-                      </SelectItem>
-                      {apartments.map((apt: any) => {
-                        const label = formatApartmentLabel(apt);
-                        return (
-                          <SelectItem key={apt.id} value={apt.id} className="py-2.5">
-                            <span className="block min-w-0 truncate pr-2" title={label}>{label}</span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="apartment_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Stan</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || NONE_APARTMENT}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="min-w-0">
+                          <SelectValue placeholder="Odaberite stan" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="max-h-[min(16rem,50vh)] min-w-[var(--radix-select-trigger-width)] max-w-[min(22rem,95vw)]">
+                        <SelectItem value={NONE_APARTMENT} className="py-2">
+                          — Nije dodijeljen —
+                        </SelectItem>
+                        {apartments.map((apt: { id: string; buildings?: unknown; building?: unknown; apartment_number?: string }) => {
+                          const label = formatApartmentLabel(apt);
+                          return (
+                            <SelectItem key={apt.id} value={apt.id} className="py-2.5">
+                              <span className="block min-w-0 truncate pr-2" title={label}>{label}</span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"

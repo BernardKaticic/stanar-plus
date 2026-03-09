@@ -56,13 +56,6 @@ export function MonthPicker({
     setOpen(false);
   };
 
-  const handleYearChange = (year: string) => {
-    const yearNum = parseInt(year);
-    setSelectedYear(yearNum);
-    const newDate = new Date(yearNum, selectedMonth, 1);
-    onDateChange(newDate);
-  };
-
   const formatDate = (date: Date) => {
     const month = MONTHS[date.getMonth()];
     const year = date.getFullYear();
@@ -76,34 +69,37 @@ export function MonthPicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-[200px] justify-start text-left font-normal h-10",
+            "justify-start text-left font-normal h-9 min-w-[140px]",
             !date && "text-muted-foreground",
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? formatDate(date) : <span>{placeholder}</span>}
+          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+          <span className="truncate">{date ? formatDate(date) : placeholder}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="start">
-        <div className="space-y-4">
+      <PopoverContent className="w-auto p-3" align="start">
+        <div className="space-y-3">
           {/* Year selector */}
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-center gap-1">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 shrink-0"
               onClick={() => {
                 const newYear = selectedYear - 1;
                 setSelectedYear(newYear);
-                const newDate = new Date(newYear, selectedMonth, 1);
-                onDateChange(newDate);
+                onDateChange(new Date(newYear, selectedMonth, 1));
               }}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Select value={selectedYear.toString()} onValueChange={handleYearChange}>
-              <SelectTrigger className="w-[120px] h-8">
+            <Select value={selectedYear.toString()} onValueChange={(v) => {
+              const yearNum = parseInt(v);
+              setSelectedYear(yearNum);
+              onDateChange(new Date(yearNum, selectedMonth, 1));
+            }}>
+              <SelectTrigger className="w-[88px] h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -115,14 +111,13 @@ export function MonthPicker({
               </SelectContent>
             </Select>
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 shrink-0"
               onClick={() => {
                 const newYear = selectedYear + 1;
                 setSelectedYear(newYear);
-                const newDate = new Date(newYear, selectedMonth, 1);
-                onDateChange(newDate);
+                onDateChange(new Date(newYear, selectedMonth, 1));
               }}
             >
               <ChevronRight className="h-4 w-4" />
@@ -130,13 +125,13 @@ export function MonthPicker({
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             {MONTHS.map((month, index) => (
               <Button
                 key={month}
-                variant={selectedMonth === index ? "default" : "outline"}
+                variant={selectedMonth === index ? "default" : "ghost"}
                 size="sm"
-                className="h-9"
+                className="h-8 text-xs"
                 onClick={() => handleMonthSelect(index)}
               >
                 {month.slice(0, 3)}

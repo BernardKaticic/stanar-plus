@@ -35,12 +35,12 @@ export const useCreateWorkOrder = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: (data: any) =>
+    mutationFn: (data: { title: string; description?: string; building_id: string; apartment_id?: string; created_by: string; dateReported?: string; status?: string; priority?: string; assignedTo?: string }) =>
       workOrdersApi.create({
         title: data.title,
         description: data.description,
-        buildingAddress: data.building,
-        unit: data.unit,
+        building_id: data.building_id,
+        apartment_id: data.apartment_id || null,
         dateReported: data.dateReported,
         status: data.status || "open",
         priority: data.priority || "medium",
@@ -61,17 +61,20 @@ export const useUpdateWorkOrder = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: { title?: string; description?: string; status?: string; priority?: string; building_id?: string; apartment_id?: string; assignedTo?: string } }) =>
       workOrdersApi.update(id, {
         title: data.title,
         description: data.description,
         status: data.status,
         priority: data.priority,
+        building_id: data.building_id,
+        apartment_id: data.apartment_id,
         assignedTo: data.assignedTo,
       }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["work-orders"] });
       queryClient.invalidateQueries({ queryKey: ["work-orders", "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["work-orders", variables.id] });
       toast({ title: "Radni nalog ažuriran", description: "Radni nalog je uspješno ažuriran." });
     },
     onError: () => {

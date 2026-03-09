@@ -15,6 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSection,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -256,10 +257,11 @@ export const ApartmentDialog = ({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="number"
+            <FormSection>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="number"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
                     <FormLabel>Broj stana *</FormLabel>
@@ -296,7 +298,8 @@ export const ApartmentDialog = ({
                   </FormItem>
                 )}
               />
-            </div>
+              </div>
+            </FormSection>
 
             {fees && (() => {
               const items = [
@@ -325,13 +328,14 @@ export const ApartmentDialog = ({
               );
             })()}
 
+            <FormSection>
             {isEdit ? (
               <FormField
                 control={editForm.control}
                 name="personId"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel>Suvlasnik/Vlasnik</FormLabel>
+                    <FormLabel>Suvlasnik / vlasnik</FormLabel>
                     <Popover open={tenantComboboxOpen} onOpenChange={setTenantComboboxOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -494,9 +498,7 @@ export const ApartmentDialog = ({
                   />
                 ) : (
                   <>
-                    <p className="text-xs text-muted-foreground">
-                      Kreirat će se zapis na Suvlasnicima. Ako unesete email, automatski se kreira korisnički račun s nasumičnom lozinkom.
-                    </p>
+                    <p className="text-xs text-muted-foreground">Email omogućuje web pristup.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={addForm.control}
@@ -579,6 +581,7 @@ export const ApartmentDialog = ({
                 )}
               </div>
             )}
+            </FormSection>
 
             <FormField
               control={form.control}

@@ -4,7 +4,6 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,6 +14,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSection,
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -75,32 +75,31 @@ export const AddApartmentToPersonDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[min(95vw,28rem)] overflow-y-auto p-6">
-        <DialogHeader className="space-y-1.5">
-          <DialogTitle className="text-lg">Dodaj stan suvlasniku</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            Odaberi stanove za <strong>{person.name}</strong>. Osoba će biti dodana kao suvlasnik odabranih stanova.
-          </DialogDescription>
+        <DialogHeader>
+          <DialogTitle className="text-lg">Dodaj stan – {person.name}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="apartment_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Stanovi</FormLabel>
-                  <ApartmentMultiSelect
-                    apartments={apartments}
-                    value={field.value || []}
-                    onChange={field.onChange}
-                    placeholder="Pretraži i odaberi prazne stanove..."
-                    emptyMessage="Nema slobodnih stanova za dodavanje"
-                    emptyOnly
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="apartment_ids"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Stanovi</FormLabel>
+                    <ApartmentMultiSelect
+                      apartments={apartments}
+                      value={field.value || []}
+                      onChange={field.onChange}
+                      placeholder="Pretraži i odaberi prazne stanove..."
+                      emptyMessage="Nema slobodnih stanova za dodavanje"
+                      emptyOnly
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani

@@ -4,7 +4,6 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,6 +14,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSection,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -74,69 +74,69 @@ export const TenantDialog = ({ open, onOpenChange, onSave, isPending }: TenantDi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[min(95vw,28rem)] overflow-y-auto p-6">
-        <DialogHeader className="space-y-1.5">
+        <DialogHeader>
           <DialogTitle className="text-lg">Dodaj suvlasnika</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            Unesite podatke i odaberite stanove. Možete odabrati više stanova za istu osobu. Email kreira račun za web pristup.
-          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Ime i prezime *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Npr. Marko Marić" {...field} className="min-w-0" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="oib"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">OIB</FormLabel>
-                  <FormControl>
-                    <Input placeholder="11 znamenki (opcionalno)" {...field} className="min-w-0 font-mono" maxLength={11} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="npr@primjer.hr (opcionalno)" {...field} className="min-w-0" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Telefon</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+385 91 234 5678 (opcionalno)" {...field} className="min-w-0" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="delivery_method"
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Ime i prezime *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Npr. Marko Marić" {...field} className="min-w-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="oib"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">OIB</FormLabel>
+                    <FormControl>
+                      <Input placeholder="11 znamenki (opcionalno)" {...field} className="min-w-0 font-mono" maxLength={11} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="npr@primjer.hr (opcionalno)" {...field} className="min-w-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Telefon</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+385 91 234 5678 (opcionalno)" {...field} className="min-w-0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="delivery_method"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-sm font-medium">Način dostave</FormLabel>
@@ -156,24 +156,25 @@ export const TenantDialog = ({ open, onOpenChange, onSave, isPending }: TenantDi
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="apartment_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Stanovi *</FormLabel>
-                  <ApartmentMultiSelect
-                    apartments={apartments}
-                    value={field.value || []}
-                    onChange={field.onChange}
-                    placeholder="Pretraži i odaberi prazne stanove..."
-                    emptyMessage="Nema slobodnih stanova"
-                    emptyOnly
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="apartment_ids"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Stanovi *</FormLabel>
+                    <ApartmentMultiSelect
+                      apartments={apartments}
+                      value={field.value || []}
+                      onChange={field.onChange}
+                      placeholder="Pretraži i odaberi prazne stanove..."
+                      emptyMessage="Nema slobodnih stanova"
+                      emptyOnly
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani

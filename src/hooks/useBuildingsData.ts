@@ -44,9 +44,20 @@ function toTreeFormat(data: any[]): any[] {
       buildings: (s.buildings || []).map((b: any) => ({
         ...b,
         id: String(b.id),
+        debt: typeof b.debt === "number" ? b.debt : 0,
+        reserve: typeof b.reserve === "number" ? b.reserve : 0,
         apartments: (b.apartments || []).map((a: any) => ({
           ...a,
           id: String(a.id),
+          number: a.number ?? a.apartment_number ?? "",
+          area: (() => {
+            const v = a.area ?? a.area_m2 ?? a.size_m2;
+            const n = typeof v === "number" ? v : (typeof v === "string" ? Number(v) : NaN);
+            return typeof n === "number" && !Number.isNaN(n) ? n : 0;
+          })(),
+          debt: typeof a.debt === "number" ? a.debt : 0,
+          reserve: typeof a.reserve === "number" ? a.reserve : 0,
+          transactions: Array.isArray(a.transactions) ? a.transactions : [],
         })),
       })),
     })),

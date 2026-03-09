@@ -71,7 +71,7 @@ export const FileUpload = ({
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200",
+          "border-2 border-dashed rounded-md p-8 text-center cursor-pointer transition-all duration-200",
           isDragging
             ? "border-primary bg-primary/5 scale-[1.02]"
             : "border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/30"
@@ -106,7 +106,7 @@ export const FileUpload = ({
           {selectedFiles.map((file, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/30 transition-colors"
+              className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-accent/30 transition-colors"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <File className="h-4 w-4 text-primary shrink-0" />

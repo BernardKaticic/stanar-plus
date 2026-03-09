@@ -74,10 +74,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession({ user: data.user });
       navigate('/');
       return { error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        err?.body?.message ||
-        err?.message ||
+        (err as { body?: { message?: string }; message?: string })?.body?.message ||
+        (err as Error)?.message ||
         'Neuspjela prijava. Provjerite email i lozinku.';
       return { error: { message } };
     }
@@ -98,10 +98,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession({ user: data.user });
       navigate('/');
       return { error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        err?.body?.message ||
-        err?.message ||
+        (err as { body?: { message?: string }; message?: string })?.body?.message ||
+        (err as Error)?.message ||
         'Greška pri registraciji. Pokušajte ponovno.';
       return { error: { message } };
     }

@@ -5,11 +5,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormSection } from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -20,10 +20,19 @@ import {
 
 const CATEGORIES = ["Energija", "Komunalije", "Čišćenje", "Održavanje", "Ostalo"];
 
+export interface SupplierFormData {
+  name: string;
+  category: string;
+  email?: string;
+  contact?: string;
+  oib?: string;
+  iban?: string;
+}
+
 interface SupplierDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: any) => void;
+  onSave: (data: SupplierFormData) => void;
   editItem?: { id: string; name: string; category: string; email?: string; contact?: string; oib?: string; iban?: string } | null;
   isPending?: boolean;
 }
@@ -55,7 +64,7 @@ export const SupplierDialog = ({ open, onOpenChange, onSave, editItem, isPending
     }
   }, [editItem, open, reset]);
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: SupplierFormData) => {
     onSave(data);
   };
 
@@ -64,52 +73,55 @@ export const SupplierDialog = ({ open, onOpenChange, onSave, editItem, isPending
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{editItem ? "Uredi dobavljača" : "Dodaj dobavljača"}</DialogTitle>
-          <DialogDescription>
-            {editItem ? "Izmijeni podatke dobavljača." : "Unesite podatke novog dobavljača."}
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Naziv</Label>
-              <Input {...register("name", { required: true })} placeholder="npr. HEP d.o.o." className="w-full" />
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Naziv</Label>
+                <Input {...register("name", { required: true })} placeholder="npr. HEP d.o.o." className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>Kategorija</Label>
+                <Select value={watch("category")} onValueChange={(v) => setValue("category", v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Kategorija</Label>
-              <Select value={watch("category")} onValueChange={(v) => setValue("category", v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-              </Select>
+          </FormSection>
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input {...register("email")} type="email" placeholder="info@firma.hr" className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>Kontakt</Label>
+                <Input {...register("contact")} placeholder="+385 1 123 4567" className="w-full" />
+              </div>
             </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>E-mail</Label>
-              <Input {...register("email")} type="email" placeholder="info@firma.hr" className="w-full" />
+          </FormSection>
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>OIB</Label>
+                <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>IBAN</Label>
+                <Input {...register("iban")} placeholder="HR..." className="w-full" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Kontakt</Label>
-              <Input {...register("contact")} placeholder="+385 1 123 4567" className="w-full" />
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>OIB</Label>
-              <Input {...register("oib")} placeholder="11 znamenki" maxLength={11} className="w-full" />
-            </div>
-            <div className="space-y-2">
-              <Label>IBAN</Label>
-              <Input {...register("iban")} placeholder="HR..." className="w-full" />
-            </div>
-          </div>
+          </FormSection>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
               Odustani

@@ -50,15 +50,10 @@ const MapPage = () => {
       : defaultCenter;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1>Karta</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Pregled zgrada i lokacija na karti.
-          </p>
-        </div>
-      </div>
+    <div className="page">
+      <header className="page-header">
+        <h1 className="page-title">Karta</h1>
+      </header>
 
       <Card className="p-3 sm:p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -68,9 +63,6 @@ const MapPage = () => {
               Ukupno zgrada: <span className="font-medium text-foreground">{buildings.length}</span>
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Za prikaz na karti potrebno je unijeti koordinate (lat/lng) za zgrade.
-          </p>
         </div>
 
         <div className="h-[480px] w-full rounded-md overflow-hidden border">
@@ -78,10 +70,7 @@ const MapPage = () => {
             <Skeleton className="h-full w-full" />
           ) : buildingsWithCoords.length === 0 ? (
             <div className="flex h-full w-full items-center justify-center">
-              <EmptyState
-                title="Nema zgrada s koordinatama"
-                description="Dodajte latitude i longitude zgradama da bi se prikazale na karti."
-              />
+              <EmptyState title="Nema zgrada s koordinatama" />
             </div>
           ) : (
             <MapContainer

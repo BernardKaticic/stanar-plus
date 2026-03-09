@@ -6,6 +6,7 @@ import {
   Receipt,
   AlertCircle,
   CreditCard,
+  Wallet,
   FileText,
   UserCog,
   ScrollText,
@@ -31,7 +32,8 @@ const primaryNav = [
 const financeNav = [
   { name: "Uplatnice", href: "/payment-slips", icon: Receipt },
   { name: "Financijska kartica", href: "/financial-card", icon: CreditCard },
-  { name: "E-računi", href: "/e-invoices", icon: FileText },
+  // { name: "Stanje računa", href: "/account-statement", icon: Wallet }, // sakriveno zasad
+  { name: "Računi", href: "/e-invoices", icon: FileText },
   { name: "Dobavljači", href: "/suppliers", icon: Package },
 ];
 
@@ -88,10 +90,10 @@ const NavSection = ({
             className={({ isActive }) => {
               const active = isActive || isActiveByPath;
               return cn(
-                "flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                "flex items-center gap-2 rounded-r-md py-2 pl-3 pr-3 text-[13px] font-medium transition-colors border-l-2 -ml-px",
                 active
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                  ? "border-l-primary bg-primary/5 text-foreground"
+                  : "border-l-transparent text-sidebar-foreground hover:bg-muted/50",
               );
             }}
           >
@@ -111,13 +113,15 @@ export const Sidebar = () => {
   return (
     <aside className="hidden md:flex md:w-56 md:flex-col border-r bg-sidebar">
       {/* Brand header – naziv aplikacije + organizacija */}
-      <div className="flex flex-col px-3 py-3 gap-0.5">
-        <div className="flex h-9 items-center">
-          <Building2 className="h-4 w-4 text-primary shrink-0" />
-          <span className="ml-2 text-[13px] font-semibold tracking-tight">Zgrada+</span>
+      <div className="flex flex-col gap-0.5 border-b border-border/60 px-3 py-4">
+        <div className="flex h-9 items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+            <Building2 className="h-4 w-4 text-primary" strokeWidth={2} />
+          </div>
+          <span className="text-[13px] font-semibold tracking-tight text-foreground">Zgrada+</span>
         </div>
         {user?.organization_name && (
-          <p className="text-[11px] text-muted-foreground truncate pl-6" title={user.organization_name}>
+          <p className="text-[11px] text-muted-foreground truncate pl-10" title={user.organization_name}>
             {user.organization_name}
           </p>
         )}

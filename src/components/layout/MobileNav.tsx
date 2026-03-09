@@ -8,6 +8,7 @@ import {
   Receipt,
   ClipboardCheck,
   CreditCard,
+  Wallet,
   FileText,
   UserCog,
   ScrollText,
@@ -42,7 +43,8 @@ const moreNavigation = [
   { name: "Uplatnice", href: "/payment-slips", icon: Receipt },
   { name: "Radni nalozi", href: "/work-orders", icon: ClipboardCheck },
   { name: "Financijska kartica", href: "/financial-card", icon: CreditCard },
-  { name: "E-računi", href: "/e-invoices", icon: FileText },
+  // { name: "Stanje računa", href: "/account-statement", icon: Wallet }, // sakriveno zasad
+  { name: "Računi", href: "/e-invoices", icon: FileText },
   { name: "Odluke i ugovori", href: "/decisions", icon: ScrollText },
 ];
 

@@ -1,12 +1,20 @@
-import { Truck, Plus, Mail, Phone, Euro, Search, Filter, Download, Building2 as BuildingIcon, Check, ChevronsUpDown, FileText } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Truck, Plus, Mail, Phone, Euro, Search, FileText, Trash2 } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -15,27 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { startOfDay, startOfYear, format } from "date-fns";
-import { formatCurrency } from "@/lib/utils";
-import { hr } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { useState } from "react";
 import { useSuppliers } from "@/hooks/useSuppliersData";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { locationsApi, suppliersApi } from "@/lib/api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { suppliersApi } from "@/lib/api";
 import { SupplierDialog } from "@/components/suppliers/SupplierDialog";
 import { toast } from "sonner";
 
@@ -62,6 +54,20 @@ const Suppliers = () => {
     onError: (e: any) => toast.error(e?.body?.message || "Greška"),
   });
 
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+
+  const deleteSupplier = useMutation({
+    mutationFn: (id: string) => suppliersApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      toast.success("Dobavljač uklonjen");
+      setDeleteConfirm(null);
+    },
+    onError: (e: any) => toast.error(e?.body?.message || "Greška pri uklanjanju"),
+  });
+
   const handleSupplierSave = (data: any) => {
     if (editingSupplier) {
       updateSupplier.mutate(
@@ -74,25 +80,11 @@ const Suppliers = () => {
       });
     }
   };
-  const [dateTo, setDateTo] = useState<Date>(startOfDay(new Date()));
-  const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
-  const [buildingSearchOpen, setBuildingSearchOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
 
   const { data: suppliers = [], isLoading } = useSuppliers({
     category: categoryFilter === "all" ? undefined : categoryFilter,
     search: searchTerm || undefined,
   });
-  const { data: buildingsList = [] } = useQuery({
-    queryKey: ["locations", "building"],
-    queryFn: () => locationsApi.getByLevel("building"),
-  });
-  const buildings = [
-    { id: "all", name: "Sve zgrade" },
-    ...buildingsList.map((b: any) => ({ id: b.id, name: b.name })),
-  ];
-
   const totalYearly = suppliers.reduce((sum, s) =>
     sum + parseFloat(String(s.yearlyTotal || "0").replace(/[^\d,]/g, "").replace(",", ".")),
     0
@@ -104,75 +96,70 @@ const Suppliers = () => {
   const categories = Array.from(new Set(suppliers.map((s: any) => s.category)));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>Dobavljači</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Pregled dobavljača i troškova po kategorijama
-        </p>
-      </div>
+    <div className="page animate-fade-in">
+      <header className="page-header">
+        <h1 className="page-title">Dobavljači</h1>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Ukupno dobavljača</p>
-          <p className="text-xl font-semibold mt-1">{suppliers?.length ?? 0}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Kategorija</p>
-          <p className="text-xl font-semibold mt-1">{categories.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">
-            {dateFrom || dateTo ? "Trošak u periodu" : "Mjesečni prosjek"}
-          </p>
-          <p className="text-xl font-semibold mt-1 text-primary">
-            {formatCurrency(totalMonthly)}
-          </p>
-          {(dateFrom || dateTo) && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {dateFrom && format(dateFrom, "d.M.yyyy.", { locale: hr })} - {dateTo ? format(dateTo, "d.M.yyyy.", { locale: hr }) : "danas"}
-            </p>
+      <div className="page-kpi">
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Ukupno dobavljača</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-12 mt-1.5" />
+          ) : (
+            <p className="page-kpi-value">{suppliers.length}</p>
           )}
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">
-            {dateFrom || dateTo ? "Projekcija godišnje" : "Godišnji trošak"}
-          </p>
-          <p className="text-xl font-semibold mt-1 text-warning">
-            {formatCurrency(totalYearly)}
-          </p>
-        </Card>
+        </div>
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Kategorija</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-12 mt-1.5" />
+          ) : (
+            <p className="page-kpi-value">{categories.length}</p>
+          )}
+        </div>
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Mjesečni prosjek</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-20 mt-1.5" />
+          ) : (
+            <p className="page-kpi-value text-primary">{formatCurrency(totalMonthly)}</p>
+          )}
+        </div>
+        <div className="page-kpi-card">
+          <p className="page-kpi-label">Godišnji trošak</p>
+          {isLoading ? (
+            <Skeleton className="h-8 w-20 mt-1.5" />
+          ) : (
+            <p className="page-kpi-value text-warning">{formatCurrency(totalYearly)}</p>
+          )}
+        </div>
       </div>
 
-      <Card>
+      <Card className="rounded-md">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
-            <div>
-              <CardTitle>Popis dobavljača</CardTitle>
-              <CardDescription>
-                Pretraga, filteri i izvoz
-              </CardDescription>
-            </div>
+            <CardTitle className="text-lg">Popis dobavljača</CardTitle>
             <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
-              <Button variant="outline" className="min-h-[32px] gap-2">
+              <Button variant="outline" size="sm" className="min-h-[32px] gap-2">
                 <FileText className="h-4 w-4" />
                 Export CSV
               </Button>
-              {suppliers.length > 0 && (
-                <Button type="button" className="gap-2 min-h-[32px]" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
-                  <Plus className="h-4 w-4" />
-                  Dodaj dobavljača
-                </Button>
-              )}
+              <Button
+                type="button"
+                size="sm"
+                className="gap-2 min-h-[32px]"
+                onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}
+              >
+                <Plus className="h-4 w-4" />
+                Dodaj dobavljača
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-        <div className="space-y-4 mb-6">
-          {/* Filters Row */}
-          <div className="flex gap-3 flex-wrap">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[250px]">
+          <div className="flex gap-3 flex-wrap mb-4">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Pretraži dobavljače..."
@@ -181,117 +168,9 @@ const Suppliers = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            {/* Building selector with search */}
-            <Popover open={buildingSearchOpen} onOpenChange={setBuildingSearchOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={buildingSearchOpen}
-                  className="w-[300px] justify-between min-h-[32px]"
-                >
-                  <div className="flex items-center gap-2">
-                    <BuildingIcon className="h-4 w-4" />
-                    <span className="truncate">
-                      {selectedBuilding
-                        ? buildings.find((building) => building.id === selectedBuilding)?.name
-                        : "Odaberi zgradu..."}
-                    </span>
-                  </div>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Pretraži zgrade..." />
-                  <CommandList>
-                    <CommandEmpty>Zgrada nije pronađena.</CommandEmpty>
-                    <CommandGroup>
-                      {buildings.map((building) => (
-                        <CommandItem
-                          key={building.id}
-                          value={building.name}
-                          onSelect={() => {
-                            setSelectedBuilding(building.id);
-                            setBuildingSearchOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedBuilding === building.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {building.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            {/* Date Range */}
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="space-y-2 min-w-[160px]">
-                <Label className="block text-sm font-medium">Od</Label>
-                <DatePicker
-                  date={dateFrom}
-                  onDateChange={setDateFrom}
-                  placeholder="Odaberi datum"
-                />
-              </div>
-              <div className="space-y-2 min-w-[160px]">
-                <Label className="block text-sm font-medium">Do</Label>
-                <DatePicker
-                  date={dateTo}
-                  onDateChange={setDateTo}
-                  placeholder="Odaberi datum"
-                />
-              </div>
-            </div>
-
-            {/* Reset filters */}
-            {selectedBuilding !== "all" && (
-              <Button 
-                variant="ghost" 
-                className="min-h-[32px]"
-                onClick={() => {
-                  setDateFrom(startOfYear(new Date()));
-                  setDateTo(startOfDay(new Date()));
-                  setSelectedBuilding("all");
-                }}
-              >
-                Poništi filtere
-              </Button>
-            )}
           </div>
 
-          {/* Active filters display */}
-          {(dateFrom || dateTo || selectedBuilding !== "all") && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Aktivni filteri:</span>
-              {selectedBuilding !== "all" && (
-                <Badge variant="secondary">
-                  {buildings.find(b => b.id === selectedBuilding)?.name}
-                </Badge>
-              )}
-              {dateFrom && (
-                <Badge variant="secondary">
-                  Od: {format(dateFrom, "d.M.yyyy.", { locale: hr })}
-                </Badge>
-              )}
-              {dateTo && (
-                <Badge variant="secondary">
-                  Do: {format(dateTo, "d.M.yyyy.", { locale: hr })}
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3 mb-6">
+          <div className="space-y-3 mb-6">
           <div className="flex gap-2 flex-wrap">
             <Button 
               variant={categoryFilter === 'all' ? 'default' : 'outline'} 
@@ -321,22 +200,18 @@ const Suppliers = () => {
         </div>
 
         {/* Desktop Table View */}
-        <div className="hidden md:block rounded-md border">
+        <div className="hidden md:block rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Dobavljač</TableHead>
-                <TableHead>Kategorija</TableHead>
-                <TableHead>OIB</TableHead>
-                <TableHead>Kontakt</TableHead>
-                <TableHead>IBAN</TableHead>
-                <TableHead className="text-right">
-                  {dateFrom || dateTo ? "Ukupno u periodu" : "Mjesečni prosjek"}
-                </TableHead>
-                <TableHead className="text-right">
-                  {dateFrom || dateTo ? "Broj računa" : "Godišnje"}
-                </TableHead>
-                <TableHead className="text-right">Akcije</TableHead>
+                <TableHead className="text-xs font-medium">Dobavljač</TableHead>
+                <TableHead className="text-xs font-medium">Kategorija</TableHead>
+                <TableHead className="text-xs font-medium">OIB</TableHead>
+                <TableHead className="text-xs font-medium">Kontakt</TableHead>
+                <TableHead className="text-xs font-medium">IBAN</TableHead>
+                <TableHead className="text-right text-xs font-medium">Mjesečni prosjek</TableHead>
+                <TableHead className="text-right text-xs font-medium">Godišnje</TableHead>
+                <TableHead className="text-right text-xs font-medium w-24">Akcije</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -361,59 +236,78 @@ const Suppliers = () => {
                     <EmptyState
                       icon={Truck}
                       title="Nema dobavljača"
-                      description={suppliers.length === 0 ? "Dodajte prvog dobavljača da biste započeli." : "Nema dobavljača koji odgovaraju kriterijima"}
-                      action={suppliers.length === 0 ? (
+                      description={searchTerm || categoryFilter !== "all" ? "Promijenite pretragu ili filter kategorije." : "Dodajte prvog dobavljača."}
+                      action={
                         <Button size="sm" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
                           <Plus className="mr-2 h-4 w-4" />
                           Dodaj dobavljača
                         </Button>
-                      ) : undefined}
+                      }
                     />
                   </TableCell>
                 </TableRow>
               ) : (
-                suppliers.map((supplier) => (
-                <TableRow key={supplier.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <Truck className="h-5 w-5 text-primary" />
+                suppliers.map((supplier: any) => (
+                  <TableRow key={supplier.id} className="hover:bg-muted/30 transition-colors duration-150">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <Truck className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p>{supplier.name ?? "–"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Zadnja faktura: {supplier.lastInvoice ?? "–"}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p>{supplier.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Zadnja faktura: {supplier.lastInvoice}
-                        </p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{supplier.category ?? "Ostalo"}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{supplier.oib ?? "–"}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1 text-xs">
+                        {(supplier.contact || supplier.email) ? (
+                          <>
+                            {supplier.contact && (
+                              <div className="flex items-center gap-1">
+                                <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span>{supplier.contact}</span>
+                              </div>
+                            )}
+                            {supplier.email && (
+                              <div className="flex items-center gap-1">
+                                <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="truncate">{supplier.email}</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          "–"
+                        )}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{supplier.category}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{supplier.oib}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3 w-3 text-muted-foreground" />
-                        {supplier.contact}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{supplier.iban ?? "–"}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{supplier.monthlyAverage ?? "–"}</TableCell>
+                    <TableCell className="text-right font-bold text-warning tabular-nums">{supplier.yearlyTotal ?? "–"}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <Button variant="ghost" size="sm" className="min-h-[32px] h-8" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
+                          Uredi
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-[32px] h-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirm({ id: supplier.id, name: supplier.name })}
+                          aria-label="Obriši"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-3 w-3 text-muted-foreground" />
-                        {supplier.email}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{supplier.iban}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {supplier.monthlyAverage}
-                  </TableCell>
-                  <TableCell className="text-right font-bold text-warning">
-                    {dateFrom || dateTo ? "3" : supplier.yearlyTotal}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="min-h-[32px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>Uredi</Button>
-                  </TableCell>
-                </TableRow>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
             </TableBody>
@@ -427,6 +321,27 @@ const Suppliers = () => {
           editItem={editingSupplier}
           isPending={createSupplier.isPending || updateSupplier.isPending}
         />
+
+        <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Ukloniti dobavljača?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Dobavljač <strong>{deleteConfirm?.name}</strong> bit će uklonjen. Ova radnja se može poništiti samo ponovnim dodavanjem.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Odustani</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => deleteConfirm && deleteSupplier.mutate(deleteConfirm.id)}
+                disabled={deleteSupplier.isPending}
+              >
+                {deleteSupplier.isPending ? "Uklanjanje..." : "Ukloni"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Mobile Card View */}
         <div className="md:hidden space-y-3">
@@ -454,64 +369,79 @@ const Suppliers = () => {
             <EmptyState
               icon={Truck}
               title="Nema dobavljača"
-              description={suppliers.length === 0 ? "Dodajte prvog dobavljača da biste započeli." : "Nema dobavljača koji odgovaraju kriterijima"}
-              action={suppliers.length === 0 ? (
+              description={searchTerm || categoryFilter !== "all" ? "Promijenite pretragu ili filter." : "Dodajte prvog dobavljača."}
+              action={
                 <Button size="sm" onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}>
                   <Plus className="mr-2 h-4 w-4" />
                   Dodaj dobavljača
                 </Button>
-              ) : undefined}
+              }
             />
           ) : (
-            suppliers.map((supplier) => (
-              <Card key={supplier.id} className="p-4 hover:shadow-md transition-shadow">
+            suppliers.map((supplier: any) => (
+              <Card key={supplier.id} className="p-4 border rounded-lg hover:border-primary/20 transition-colors">
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                       <Truck className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold">{supplier.name}</h3>
-                      <Badge variant="outline" className="mt-1">{supplier.category}</Badge>
+                      <h3 className="font-semibold">{supplier.name ?? "–"}</h3>
+                      <Badge variant="outline" className="mt-1">{supplier.category ?? "Ostalo"}</Badge>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Zadnja faktura: {supplier.lastInvoice}
+                        Zadnja faktura: {supplier.lastInvoice ?? "–"}
                       </p>
                     </div>
                   </div>
-                  
                   <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t">
                     <div>
                       <p className="text-muted-foreground text-xs">Mjesečno</p>
-                      <p className="font-semibold text-primary">{supplier.monthlyAverage}</p>
+                      <p className="font-semibold text-primary tabular-nums">{supplier.monthlyAverage ?? "–"}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs">Godišnje</p>
-                      <p className="font-bold text-warning">{supplier.yearlyTotal}</p>
+                      <p className="font-bold text-warning tabular-nums">{supplier.yearlyTotal ?? "–"}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-muted-foreground text-xs mb-1">Kontakt</p>
-                      <div className="flex items-center gap-1 mb-1">
-                        <Phone className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-xs">{supplier.contact}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-xs truncate">{supplier.email}</p>
+                      <div className="space-y-0.5 text-xs">
+                        {supplier.contact && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            <span>{supplier.contact}</span>
+                          </div>
+                        )}
+                        {supplier.email && (
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{supplier.email}</span>
+                          </div>
+                        )}
+                        {!supplier.contact && !supplier.email && "–"}
                       </div>
                     </div>
                     <div className="col-span-2">
                       <p className="text-muted-foreground text-xs">IBAN</p>
-                      <p className="font-mono text-xs break-all">{supplier.iban}</p>
+                      <p className="font-mono text-xs break-all">{supplier.iban ?? "–"}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-muted-foreground text-xs">OIB</p>
-                      <p className="font-mono text-xs">{supplier.oib}</p>
+                      <p className="font-mono text-xs">{supplier.oib ?? "–"}</p>
                     </div>
                   </div>
-                  
-                    <Button variant="outline" size="sm" className="w-full min-h-[32px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
-                    Uredi
-                  </Button>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="flex-1 min-h-[32px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
+                      Uredi
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="min-h-[32px] text-destructive hover:text-destructive"
+                      onClick={() => setDeleteConfirm({ id: supplier.id, name: supplier.name })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))
@@ -520,15 +450,17 @@ const Suppliers = () => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {categories.map((category) => {
-          const categorySuppliers = suppliers.filter(s => s.category === category);
-const categoryTotal = categorySuppliers.reduce((sum, s) =>
-            sum + parseFloat(String(s.yearlyTotal ?? "0").replace(/[^\d,]/g, '').replace(',', '.')), 0
-          );
-          
-          return (
-            <Card key={category} className="p-4">
+      {categories.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {categories.map((category) => {
+            const categorySuppliers = suppliers.filter((s: any) => (s.category || "Ostalo") === category);
+            const categoryTotal = categorySuppliers.reduce(
+              (sum: number, s: any) =>
+                sum + parseFloat(String(s.yearlyTotal ?? "0").replace(/[^\d,]/g, "").replace(",", ".")),
+              0
+            );
+            return (
+              <Card key={category} className="p-4 rounded-md">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">{category}</h3>
                 <Badge variant="secondary">{categorySuppliers.length}</Badge>
@@ -539,13 +471,12 @@ const categoryTotal = categorySuppliers.reduce((sum, s) =>
                   {formatCurrency(categoryTotal)}
                 </p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {dateFrom || dateTo ? "U periodu" : "Godišnje"}
-              </p>
-            </Card>
-          );
-        })}
-      </div>
+              <p className="text-xs text-muted-foreground mt-1">Godišnje</p>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

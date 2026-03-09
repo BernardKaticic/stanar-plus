@@ -76,7 +76,7 @@ const Decisions = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="page">
       <Alert className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30">
         <Info className="h-4 w-4" />
         <AlertDescription>
@@ -84,13 +84,8 @@ const Decisions = () => {
         </AlertDescription>
       </Alert>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1>Odluke i ugovori</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Upravljanje odlukama skupštine i ugovorima
-          </p>
-        </div>
+      <header className="page-header">
+        <h1 className="page-title">Odluke i ugovori</h1>
         <div className="flex gap-2">
           <Button 
             variant="outline" 
@@ -108,7 +103,7 @@ const Decisions = () => {
             Dodaj novi
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* Pretraga */}
       <Card className="p-4">
@@ -147,9 +142,6 @@ const Decisions = () => {
           <Card>
             <CardHeader>
               <CardTitle>Odluke skupštine</CardTitle>
-              <CardDescription>
-                Pregled i filtriranje odluka
-              </CardDescription>
             </CardHeader>
             <CardContent>
             {/* Quick Status Filters */}
@@ -212,8 +204,7 @@ const Decisions = () => {
                       <TableCell colSpan={6} className="p-0">
                         <EmptyState
                           icon={ScrollText}
-                          title="Nema odluka"
-                          description={searchTerm ? "Nema odluka koje odgovaraju pretrazi" : "Nema odluka za prikaz"}
+                          title={searchTerm ? "Nema rezultata" : "Nema odluka"}
                         />
                       </TableCell>
                     </TableRow>
@@ -272,8 +263,7 @@ const Decisions = () => {
               ) : filteredDecisions.length === 0 ? (
                 <EmptyState
                   icon={ScrollText}
-                  title="Nema odluka"
-                  description={searchTerm ? "Nema odluka koje odgovaraju pretrazi" : "Nema odluka za prikaz"}
+                  title={searchTerm ? "Nema rezultata" : "Nema odluka"}
                 />
               ) : (
                 filteredDecisions.map((decision) => (
@@ -321,9 +311,6 @@ const Decisions = () => {
           <Card>
             <CardHeader>
               <CardTitle>Ugovori</CardTitle>
-              <CardDescription>
-                Pregled i filtriranje ugovora
-              </CardDescription>
             </CardHeader>
             <CardContent>
             {/* Quick Status Filters */}
@@ -388,11 +375,7 @@ const Decisions = () => {
                   ) : filteredContracts.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="p-0">
-                        <EmptyState
-                          icon={FileText}
-                          title="Nema ugovora"
-                          description={searchTerm ? "Nema ugovora koji odgovaraju pretrazi" : "Nema ugovora za prikaz"}
-                        />
+                        <EmptyState icon={FileText} title="Nema ugovora" />
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -465,11 +448,7 @@ const Decisions = () => {
                   ))}
                 </>
               ) : filteredContracts.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
-                  title="Nema ugovora"
-                  description={searchTerm ? "Nema ugovora koji odgovaraju pretrazi" : "Nema ugovora za prikaz"}
-                />
+                <EmptyState icon={FileText} title="Nema ugovora" />
               ) : (
                 filteredContracts.map((contract) => (
                   <Card key={contract.id} className="p-4 hover:shadow-md transition-shadow">

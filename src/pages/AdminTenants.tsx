@@ -58,11 +58,10 @@ const AdminTenants = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>Upravljanje stanarima</h1>
-        <p className="text-muted-foreground text-sm">Dodijelite stanove registriranim korisnicima</p>
-      </div>
+    <div className="page">
+      <header className="page-header">
+        <h1 className="page-title">Upravljanje stanarima</h1>
+      </header>
 
       <div className="grid gap-4">
         {apartments.map((apartment) => {
@@ -109,7 +108,6 @@ const AdminTenants = () => {
           <CardContent className="py-10">
             <EmptyState
               title="Nema dostupnih stanova"
-              description="Prvo dodajte zgrade i stanove u aplikaciji."
               action={{ label: "Idi na Zgrade", onClick: () => navigate("/buildings") }}
             />
           </CardContent>

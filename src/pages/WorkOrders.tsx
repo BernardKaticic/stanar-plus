@@ -12,22 +12,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, FileText, AlertCircle, ClipboardCheck, X, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
-import { useWorkOrders, useCreateWorkOrder } from "@/hooks/useWorkOrdersData";
+import { Search, Plus, FileText, ClipboardCheck, X, ArrowUp, ArrowDown, ArrowUpDown, MoreVertical, Pencil } from "lucide-react";
+import { useWorkOrders, useCreateWorkOrder, useUpdateWorkOrder } from "@/hooks/useWorkOrdersData";
 import { workOrdersApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { WorkOrderDialog } from "@/components/workorders/WorkOrderDialog";
+import { WorkOrderDialog, type WorkOrderEditItem } from "@/components/workorders/WorkOrderDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { format, parseISO } from "date-fns";
 
 const WorkOrders = () => {
   const { user } = useAuth();
@@ -38,6 +38,7 @@ const WorkOrders = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [workOrderDialogOpen, setWorkOrderDialogOpen] = useState(false);
+  const [editOrder, setEditOrder] = useState<WorkOrderEditItem | null>(null);
   const [sortBy, setSortBy] = useState<'title' | 'dateReported' | 'priority' | 'status' | 'id'>('dateReported');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -62,6 +63,7 @@ const WorkOrders = () => {
       }),
   });
   const createWorkOrder = useCreateWorkOrder();
+  const updateWorkOrder = useUpdateWorkOrder();
 
   const workOrdersRaw = workOrdersData?.data || [];
   const totalCount = workOrdersData?.totalCount || 0;
@@ -97,6 +99,12 @@ const WorkOrders = () => {
 
   const activeFiltersCount =
     (statusFilter !== "all" ? 1 : 0) + (priorityFilter !== "all" ? 1 : 0);
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setPriorityFilter("all");
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -126,53 +134,58 @@ const WorkOrders = () => {
     }
   };
 
+  const formatReportedDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "—";
+    try {
+      const d = typeof dateStr === "string" && dateStr.length === 10 ? parseISO(dateStr) : new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return dateStr;
+      return format(d, "d.M.yyyy.") as string;
+    } catch {
+      return dateStr ?? "—";
+    }
+  };
+
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1>Radni nalozi</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Upravljanje održavanjem i popravcima.
-        </p>
-      </div>
+    <div className="page animate-fade-in">
+      <header className="page-header">
+        <h1 className="page-title">Radni nalozi</h1>
+      </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="page-kpi">
         {[
           { label: "Hitni nalozi", value: urgentCount, className: "text-destructive" },
           { label: "U tijeku", value: inProgressCount, className: "" },
           { label: "Otvoreni", value: openCount, className: "" },
           { label: "Završeni", value: completedCount, className: "" },
         ].map((stat) => (
-          <Card key={stat.label} className="p-4 transition-all duration-200 hover:shadow-sm">
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
+          <div key={stat.label} className="page-kpi-card">
+            <p className="page-kpi-label">{stat.label}</p>
             {isLoading ? (
               <Skeleton className="h-8 w-12 mt-2" />
             ) : (
-              <p className={`text-xl font-semibold mt-1 ${stat.className}`}>{stat.value}</p>
+              <p className={`page-kpi-value ${stat.className}`}>{stat.value}</p>
             )}
-          </Card>
+          </div>
         ))}
       </div>
 
-      <Card className="transition-opacity duration-200" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
+      <Card className="transition-opacity duration-200 rounded-md" style={{ opacity: isFetching && !isLoading ? 0.92 : 1 }}>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle>Popis radnih naloga</CardTitle>
+                <CardTitle className="text-lg">Popis radnih naloga</CardTitle>
                 {isFetching && !isLoading && (
                   <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
                 )}
               </div>
-              <CardDescription>
-                Pretraga, filteri i dodavanje naloga
-              </CardDescription>
             </div>
             <div className="flex justify-end w-full sm:w-auto shrink-0">
               <Button
                 type="button"
                 className="gap-2 min-h-[28px] sm:min-h-[32px]"
-                onClick={() => setWorkOrderDialogOpen(true)}
+                onClick={() => { setEditOrder(null); setWorkOrderDialogOpen(true); }}
               >
                 <Plus className="h-4 w-4" />
                 Novi nalog
@@ -188,19 +201,16 @@ const WorkOrders = () => {
               placeholder="Pretraži po broju, opisu ili zgradi..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 transition-colors duration-150 focus-visible:ring-2"
+              className="pl-9 flex-1 transition-colors duration-150 focus-visible:ring-2"
             />
           </div>
           <div className="flex gap-2">
             {activeFiltersCount > 0 && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="min-w-[44px] min-h-[32px]"
-                onClick={() => {
-                  setStatusFilter('all');
-                  setPriorityFilter('all');
-                }}
+                onClick={clearFilters}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -209,7 +219,7 @@ const WorkOrders = () => {
         </div>
 
         {/* Quick Filters */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-4">
           <div className="flex flex-wrap gap-2">
             <Button 
               variant={statusFilter === 'all' && priorityFilter === 'all' ? 'default' : 'outline'} 
@@ -291,10 +301,10 @@ const WorkOrders = () => {
           <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead className="text-xs font-medium">
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
+                    className="flex items-center gap-1 font-medium hover:text-foreground"
                     onClick={() => {
                       if (sortBy === "id") setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortBy("id"); setSortDir("desc"); }
@@ -304,10 +314,10 @@ const WorkOrders = () => {
                     {sortBy === "id" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-xs font-medium">
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
+                    className="flex items-center gap-1 font-medium hover:text-foreground"
                     onClick={() => {
                       if (sortBy === "title") setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortBy("title"); setSortDir("asc"); }
@@ -317,11 +327,11 @@ const WorkOrders = () => {
                     {sortBy === "title" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
-                <TableHead>Zgrada / Lokacija</TableHead>
-                <TableHead>
+                <TableHead className="text-xs font-medium">Zgrada / Lokacija</TableHead>
+                <TableHead className="text-xs font-medium">
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
+                    className="flex items-center gap-1 font-medium hover:text-foreground"
                     onClick={() => {
                       if (sortBy === "dateReported") setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortBy("dateReported"); setSortDir("desc"); }
@@ -331,10 +341,10 @@ const WorkOrders = () => {
                     {sortBy === "dateReported" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-xs font-medium">
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
+                    className="flex items-center gap-1 font-medium hover:text-foreground"
                     onClick={() => {
                       if (sortBy === "priority") setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortBy("priority"); setSortDir("asc"); }
@@ -344,10 +354,10 @@ const WorkOrders = () => {
                     {sortBy === "priority" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-xs font-medium">
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-xs font-medium hover:text-foreground"
+                    className="flex items-center gap-1 font-medium hover:text-foreground"
                     onClick={() => {
                       if (sortBy === "status") setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                       else { setSortBy("status"); setSortDir("asc"); }
@@ -357,9 +367,7 @@ const WorkOrders = () => {
                     {sortBy === "status" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </button>
                 </TableHead>
-                <TableHead>Dodijeljeno</TableHead>
-                <TableHead className="text-right">Procjena</TableHead>
-                <TableHead></TableHead>
+                <TableHead className="text-right text-xs font-medium w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -373,25 +381,17 @@ const WorkOrders = () => {
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
                     </TableRow>
                   ))}
                 </>
               ) : workOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="p-0">
+                  <TableCell colSpan={7} className="p-0">
                     <EmptyState
                       icon={ClipboardCheck}
-                      title="Nema radnih naloga"
-                      description="Dodajte prvi radni nalog da biste započeli."
-                      action={
-                        <Button onClick={() => setWorkOrderDialogOpen(true)} size="sm">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Novi nalog
-                        </Button>
-                      }
+                      title={hasActiveFilters ? "Nema radnih naloga za odabrane filtere" : "Nema radnih naloga"}
+                      action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Novi nalog", onClick: () => { setEditOrder(null); setWorkOrderDialogOpen(true); }}}
                     />
                   </TableCell>
                 </TableRow>
@@ -407,27 +407,45 @@ const WorkOrders = () => {
                     <TableCell>{order.title}</TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{order.building}</p>
-                        <p className="text-xs text-muted-foreground">{order.unit}</p>
+                        <p className="font-medium">{order.building ?? "—"}</p>
+                        {order.unit && <p className="text-xs text-muted-foreground">{order.unit}</p>}
                       </div>
                     </TableCell>
-                    <TableCell>{order.dateReported}</TableCell>
+                    <TableCell>{formatReportedDate(order.dateReported)}</TableCell>
                     <TableCell>{getPriorityBadge(order.priority)}</TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell className="text-sm">{order.assignedTo}</TableCell>
-                    <TableCell className="text-right font-medium">-</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-[32px]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/work-orders/${order.id}`);
-                        }}
-                      >
-                        Detalji
-                      </Button>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/work-orders/${order.id}`)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Pregledaj detalje
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditOrder({
+                                id: order.id,
+                                title: order.title,
+                                description: order.description ?? undefined,
+                                building_id: (order as { buildingId?: string }).buildingId ?? "",
+                                apartment_id: (order as { apartmentId?: string }).apartmentId ?? undefined,
+                                priority: order.priority,
+                                status: order.status,
+                              });
+                              setWorkOrderDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Uredi
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -460,20 +478,14 @@ const WorkOrders = () => {
           ) : workOrders.length === 0 ? (
             <EmptyState
               icon={ClipboardCheck}
-              title="Nema radnih naloga"
-              description="Dodajte prvi radni nalog da biste započeli."
-              action={
-                <Button onClick={() => setWorkOrderDialogOpen(true)} size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novi nalog
-                </Button>
-              }
+              title={hasActiveFilters ? "Nema radnih naloga za odabrane filtere" : "Nema radnih naloga"}
+              action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Novi nalog", onClick: () => { setEditOrder(null); setWorkOrderDialogOpen(true); }}}
             />
           ) : (
             workOrders.map((order, idx) => (
               <Card
                 key={order.id}
-                className="p-4 hover:shadow-md transition-all duration-300 cursor-pointer animate-fade-in-up"
+                className="p-4 hover:shadow-md hover:border-primary/20 transition-all duration-300 cursor-pointer animate-fade-in-up rounded-lg border"
                 style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                 onClick={() => navigate(`/work-orders/${order.id}`)}
               >
@@ -487,8 +499,8 @@ const WorkOrders = () => {
                   </div>
 
                   <div>
-                    <p className="font-medium text-sm">{order.building}</p>
-                    <p className="text-xs text-muted-foreground">{order.unit}</p>
+                    <p className="font-medium text-sm">{order.building ?? "—"}</p>
+                    {order.unit && <p className="text-xs text-muted-foreground">{order.unit}</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t">
@@ -498,11 +510,7 @@ const WorkOrders = () => {
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs">Prijavljeno</p>
-                      <p className="font-medium text-xs">{order.dateReported}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-muted-foreground text-xs">Dodijeljeno</p>
-                      <p className="font-medium text-xs">{order.assignedTo ?? "-"}</p>
+                      <p className="font-medium text-xs">{formatReportedDate(order.dateReported)}</p>
                     </div>
                   </div>
 
@@ -539,22 +547,44 @@ const WorkOrders = () => {
 
       <WorkOrderDialog
         open={workOrderDialogOpen}
-        onOpenChange={setWorkOrderDialogOpen}
+        onOpenChange={(open) => {
+          setWorkOrderDialogOpen(open);
+          if (!open) setEditOrder(null);
+        }}
+        editItem={editOrder}
         onSave={(data) => {
-          if (!data.title || !data.building_id || !data.created_by) return;
-          createWorkOrder.mutate({
-            title: data.title,
-            description: data.description,
-            building_id: data.building_id,
-            apartment_id: data.apartment_id,
-            priority: data.priority,
-            created_by: data.created_by,
-          }, {
-            onSuccess: () => setWorkOrderDialogOpen(false),
-          });
+          if ("id" in data && data.id) {
+            updateWorkOrder.mutate(
+              {
+                id: data.id,
+                data: {
+                  title: data.title,
+                  description: data.description,
+                  building_id: data.building_id,
+                  apartment_id: data.apartment_id || undefined,
+                  priority: data.priority,
+                  status: data.status,
+                },
+              },
+              { onSuccess: () => { setWorkOrderDialogOpen(false); setEditOrder(null); } }
+            );
+          } else {
+            if (!data.title || !data.building_id || !data.created_by) return;
+            createWorkOrder.mutate(
+              {
+                title: data.title,
+                description: data.description,
+                building_id: data.building_id,
+                apartment_id: data.apartment_id,
+                priority: data.priority,
+                created_by: data.created_by,
+              },
+              { onSuccess: () => setWorkOrderDialogOpen(false) }
+            );
+          }
         }}
         userId={user?.id || ""}
-        isPending={createWorkOrder.isPending}
+        isPending={createWorkOrder.isPending || updateWorkOrder.isPending}
       />
     </div>
   );

@@ -17,14 +17,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+interface BuildingLike {
+  streets?: { cities?: { name?: string }; name?: string };
+  street?: { city?: { name?: string }; name?: string };
+  number?: string;
+}
+
 const formatApartmentLabel = (apt: {
-  building?: { streets?: { cities?: { name?: string }; name?: string }; number?: string };
-  buildings?: { streets?: { cities?: { name?: string }; name?: string }; number?: string };
+  building?: BuildingLike;
+  buildings?: BuildingLike;
   apartment_number?: string;
 }) => {
   const b = apt.buildings || apt.building;
-  const city = b?.streets?.cities?.name || (b as any)?.street?.city?.name || "";
-  const street = b?.streets?.name || (b as any)?.street?.name || "";
+  const city = b?.streets?.cities?.name || b?.street?.city?.name || "";
+  const street = b?.streets?.name || b?.street?.name || "";
   const num = b?.number || "";
   const addr = [city, street, num].filter(Boolean).join(", ");
   return addr ? `${addr}, Stan ${apt.apartment_number}` : `Stan ${apt.apartment_number}`;

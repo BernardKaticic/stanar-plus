@@ -3,9 +3,8 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   STANAR – Design system: "Charcoal + Teal / Amber"
-   Neutralne sive za podlogu, teal kao primarni akcent (light),
-   amber kao primarni akcent (dark). Ugodno za 8h rada.
+   STANAR – Poslovni izgled (enterprise)
+   Manje zaobljenosti, neutralniji kontrasti, jasne granice.
    ========================================================================== */
 
 @layer base {
@@ -55,12 +54,23 @@
     --info: 205 80% 40%;
     --info-foreground: 0 0% 100%;
 
-    /* Border: rgba(15,23,42,0.08) ~ #E5E7EB */
-    --border: 220 14% 90%;
-    --input: 220 14% 90%;
+    /* Border: jasne granice (SAP/Rentlio stil) */
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
     --ring: 174 72% 26%;
 
-    --radius: 0.5rem;
+    /* Radius 4px – enterprise standard */
+    --radius: 0.25rem;
+
+    /* Suptilne sjenke – premium dubina bez buke */
+    --shadow-subtle: 0 1px 2px hsl(220 20% 20% / 0.04);
+    --shadow-card: 0 1px 3px hsl(220 20% 20% / 0.06);
+    --shadow-hover: 0 4px 12px hsl(220 20% 20% / 0.08);
+    --shadow-soft: 0 2px 8px hsl(220 20% 20% / 0.06);
+    --shadow-elegant: 0 4px 16px hsl(220 20% 20% / 0.08);
+
+    /* Pozadina glavnog sadržaja – neutralna siva kao SAP/Booking */
+    --surface: 220 14% 98%;
 
     /* Chart boje: primary teal + semantic */
     --chart-1: 174 72% 26%;
@@ -69,8 +79,8 @@
     --chart-4: 205 80% 40%;
     --chart-5: 0 72% 50%;
 
-    /* Sidebar – svijetla navigacija, aktivni item u teal tintu */
-    --sidebar-background: 220 18% 94%;
+    /* Sidebar – odvojena površina kao u enterprise appovima */
+    --sidebar-background: 220 14% 92%;
     --sidebar-foreground: 222 47% 15%;
     --sidebar-primary: 174 72% 26%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -84,6 +94,7 @@
   .dark {
     --background: 220 20% 8%;
     --foreground: 220 12% 92%;
+    --surface: 220 18% 12%;
 
     --card: 220 16% 11%;
     --card-foreground: 220 12% 92%;
@@ -146,7 +157,10 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased text-sm;
+    @apply bg-background text-foreground font-sans antialiased text-sm leading-relaxed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11"; /* Inter alternates: bolje brojke i znakovi */
   }
 
   html {
@@ -185,20 +199,21 @@
   h4,
   h5,
   h6 {
-    @apply font-semibold tracking-tight;
+    @apply font-semibold tracking-tight text-foreground;
   }
 
-  /* Kompaktni naslovi – sve na dlani */
+  /* Hijerarhija naslova – enterprise (SAP/Booking) */
   h1 {
-    @apply text-xl md:text-2xl;
+    @apply text-xl md:text-2xl font-semibold tracking-tight;
+    letter-spacing: -0.02em;
   }
 
   h2 {
-    @apply text-lg;
+    @apply text-lg font-semibold tracking-tight;
   }
 
   h3 {
-    @apply text-base;
+    @apply text-base font-semibold tracking-tight;
   }
 }
 
@@ -217,29 +232,72 @@
     @apply max-w-6xl mx-auto px-3 md:px-5 py-4 md:py-5;
   }
 
+  /* Jedinstveni page layout (SaaS): naslov → KPI → sadržaj */
+  .page {
+    @apply space-y-6;
+  }
+
+  .page-header {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight text-foreground m-0;
+  }
+
+  .page-kpi {
+    @apply grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4;
+  }
+
+  .page-kpi-card {
+    @apply rounded-md border border-border bg-card p-4 shadow-card transition-shadow;
+  }
+
+  .page-kpi-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .page-kpi-value {
+    @apply text-xl font-semibold tabular-nums mt-1.5;
+  }
+
+  /* Kompatibilnost: stari page-hero */
+  .page-hero {
+    @apply pb-4 mb-5 md:pb-5 md:mb-6;
+  }
+
+  .page-hero h1 {
+    @apply mb-0;
+  }
+
   .section-gap {
     @apply space-y-4 md:space-y-5;
   }
 
-  /* Data table – čitljivo, konzistentno */
+  /* Fokus za pristupačnost – jedan stil za sve interaktivne elemente */
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Data table – enterprise (SAP/Rentlio) */
   .data-table {
     @apply w-full border-collapse text-sm;
   }
 
   .data-table th {
-    @apply border-b bg-muted/50 px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground whitespace-nowrap;
+    @apply border-b border-border bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap;
   }
 
   .data-table td {
-    @apply border-b px-4 py-3 align-middle transition-colors;
+    @apply border-b border-border px-4 py-3 align-middle transition-colors;
   }
 
-  .data-table tr {
-    @apply transition-colors duration-200;
+  .data-table tbody tr {
+    @apply transition-colors duration-150;
   }
 
-  .data-table tr:hover {
-    @apply bg-muted/30;
+  .data-table tbody tr:hover {
+    @apply bg-muted/40;
   }
 
   .data-table td .inline-flex.rounded-full {
@@ -255,20 +313,33 @@
     @apply text-destructive;
   }
 
-  /* Badges */
+  /* Enterprise: ključne brojke u tablicama i karticama – odmah u oku */
+  .value-cell {
+    @apply tabular-nums font-semibold;
+  }
+
+  .value-cell--negative {
+    @apply text-destructive;
+  }
+
+  .value-cell--positive {
+    @apply text-success;
+  }
+
+  /* Badges – blagi zaobljeni rubovi (poslovno) */
   .badge-success {
-    @apply inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success;
+    @apply inline-flex items-center rounded bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success;
   }
 
   .badge-warning {
-    @apply inline-flex items-center rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning;
+    @apply inline-flex items-center rounded bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning;
   }
 
   .badge-error {
-    @apply inline-flex items-center rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive;
+    @apply inline-flex items-center rounded bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive;
   }
 
   .badge-info {
-    @apply inline-flex items-center rounded-full bg-info/10 px-2.5 py-0.5 text-xs font-medium text-info;
+    @apply inline-flex items-center rounded bg-info/10 px-2.5 py-0.5 text-xs font-medium text-info;
   }
 }

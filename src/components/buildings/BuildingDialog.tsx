@@ -4,7 +4,6 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,6 +14,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSection,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -140,31 +140,27 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
       <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Uredi podatke zgrade" : "Dodaj novi ulaz"}</DialogTitle>
-          <DialogDescription>
-            {isEdit
-              ? `Izmijeni IBAN, OIB, naknade i ostale podatke zgrade na ulici ${streetName}.`
-              : `Dodaj novi ulaz na ulicu ${streetName}.`}
-          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="number"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Broj/naziv ulaza</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Npr. 15A" {...field} className="w-full" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="iban"
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="number"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>Broj/naziv ulaza</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Npr. 15A" {...field} className="w-full" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="iban"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
                         <FormLabel>IBAN</FormLabel>
@@ -188,11 +184,11 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                       </FormItem>
                     )}
                   />
-                </div>
+              </div>
+            </FormSection>
 
-                <div className="space-y-3 min-w-0">
-                  <div className="text-sm font-medium text-muted-foreground">Osnovne naknade (€/mjesec)</div>
-                  <div className="grid gap-4 grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-3">
+            <FormSection>
+              <div className="grid gap-4 grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-3">
                     <FormField
                       control={form.control}
                       name="cleaningFee"
@@ -265,12 +261,13 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                         </FormItem>
                       )}
                     />
-                  </div>
-                </div>
+              </div>
+            </FormSection>
 
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="dodatne-naknade">
-                    <AccordionTrigger>Dodatne naknade (€/mjesec)</AccordionTrigger>
+            <FormSection>
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="dodatne-naknade" className="border-none">
+                  <AccordionTrigger className="py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:no-underline">Prikaži polja za štednju, izvanredne poslove, struju</AccordionTrigger>
                     <AccordionContent className="pb-2 pt-1">
                       <div className="grid gap-4 grid-cols-1 min-[500px]:grid-cols-2 pt-1 min-w-0">
                         <FormField
@@ -371,9 +368,11 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                         />
                       </div>
                     </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-            <div className="flex justify-end gap-2">
+                </AccordionItem>
+              </Accordion>
+            </FormSection>
+
+            <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani
               </Button>

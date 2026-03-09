@@ -5,11 +5,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormSection } from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -25,10 +25,18 @@ const FREQUENCIES = [
   { value: "annual", label: "Godišnje" },
 ];
 
+export interface OtherIncomeFormData {
+  name: string;
+  service: string;
+  frequency: string;
+  amount: number;
+  iban: string | null;
+}
+
 interface OtherIncomeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: any) => void;
+  onSave: (data: OtherIncomeFormData) => void;
   editItem?: { id: string; name: string; service: string; frequency: string; amount: string; iban?: string } | null;
   isPending?: boolean;
 }
@@ -52,7 +60,7 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPend
     }
   }, [editItem, open, reset]);
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: { name: string; service: string; frequency: string; amount: string; iban: string }) => {
     onSave({
       name: data.name,
       service: data.service,
@@ -66,41 +74,44 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPend
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{editItem ? "Uredi dohodak" : "Dodaj novi dohodak"}</DialogTitle>
-          <DialogDescription>Periodične isplate (upravitelji, čišćenje, revizija...)</DialogDescription>
+          <DialogTitle>{editItem ? "Uredi dohodak" : "Dodaj dohodak"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Naziv / Ime</Label>
-              <Input {...register("name", { required: true })} placeholder="npr. Košir Josip" className="w-full" />
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Naziv / Ime</Label>
+                <Input {...register("name", { required: true })} placeholder="npr. Košir Josip" className="w-full" />
+              </div>
+              <div className="space-y-2">
+                <Label>Usluga</Label>
+                <Input {...register("service", { required: true })} placeholder="npr. Održavanje lifta" className="w-full" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Usluga</Label>
-              <Input {...register("service", { required: true })} placeholder="npr. Održavanje lifta" className="w-full" />
+          </FormSection>
+          <FormSection>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Učestalost</Label>
+                <Select value={watch("frequency")} onValueChange={(v) => setValue("frequency", v)}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FREQUENCIES.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Iznos (€)</Label>
+                <Input {...register("amount", { required: true })} type="number" step="0.01" placeholder="200" className="w-full" />
+              </div>
             </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Učestalost</Label>
-              <Select value={watch("frequency")} onValueChange={(v) => setValue("frequency", v)}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FREQUENCIES.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2 mt-4">
+              <Label>IBAN</Label>
+              <Input {...register("iban")} placeholder="HR..." className="w-full" />
             </div>
-            <div className="space-y-2">
-              <Label>Iznos (€)</Label>
-              <Input {...register("amount", { required: true })} type="number" step="0.01" placeholder="200" className="w-full" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>IBAN</Label>
-            <Input {...register("iban")} placeholder="HR..." className="w-full" />
-          </div>
+          </FormSection>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Odustani</Button>
             <Button type="submit" disabled={isPending}>

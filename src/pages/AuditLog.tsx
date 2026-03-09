@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { History, Loader2 } from "lucide-react";
 import { auditLogApi } from "@/lib/api";
 import { useState } from "react";
@@ -23,7 +25,7 @@ import { format } from "date-fns";
 import { hr } from "date-fns/locale";
 
 const TABLE_LABELS: Record<string, string> = {
-  invoices: "E-računi",
+  invoices: "Računi",
   representatives: "Predstavnici",
   buildings: "Zgrade",
 };
@@ -46,20 +48,16 @@ const AuditLog = () => {
   const totalCount = data?.totalCount ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>Audit log</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Pregled promjena u sustavu
-        </p>
-      </div>
+    <div className="page">
+      <header className="page-header">
+        <h1 className="page-title">Audit log</h1>
+      </header>
 
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>Zapisi</CardTitle>
-              <CardDescription>Posljednje izmjene</CardDescription>
             </div>
             <Select value={tableFilter} onValueChange={setTableFilter}>
               <SelectTrigger className="w-[180px]">
@@ -67,7 +65,7 @@ const AuditLog = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Sve tablice</SelectItem>
-                <SelectItem value="invoices">E-računi</SelectItem>
+                <SelectItem value="invoices">Računi</SelectItem>
                 <SelectItem value="representatives">Predstavnici</SelectItem>
                 <SelectItem value="buildings">Zgrade</SelectItem>
               </SelectContent>
@@ -88,16 +86,21 @@ const AuditLog = () => {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Učitavanje zapisa...</p>
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      Nema zapisa
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState icon={History} title="Nema zapisa" className="py-12" />
                     </TableCell>
                   </TableRow>
                 ) : (

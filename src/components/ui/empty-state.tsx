@@ -40,20 +40,24 @@ export const EmptyState = ({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-12 text-center",
+        "flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4",
         className
       )}
     >
       {Icon && (
-        <Icon className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/50 mb-4" />
+        <div className="mb-5 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary/10 text-primary/80">
+          <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={1.5} />
+        </div>
       )}
-      <h3 className="text-base sm:text-lg font-semibold mb-2">{title}</h3>
+      <h3 className="text-base sm:text-lg font-semibold tracking-tight text-foreground mb-2 max-w-sm">
+        {title}
+      </h3>
       {description && (
-        <p className="text-sm text-muted-foreground mb-4 max-w-md">
+        <p className="text-sm text-muted-foreground mb-6 max-w-sm leading-relaxed">
           {description}
         </p>
       )}
-      {actionNode && <div className="mt-2">{actionNode}</div>}
+      {actionNode && <div className="mt-1">{actionNode}</div>}
     </div>
   );
 };

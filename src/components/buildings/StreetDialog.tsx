@@ -4,7 +4,6 @@ import { z } from "zod";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,6 +14,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormSection,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -55,26 +55,25 @@ export const StreetDialog = ({ open, onOpenChange, onSave, editStreet, cityName,
       <DialogContent className="max-w-[95vw] sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editStreet ? "Uredi ulicu" : "Dodaj novu ulicu"}</DialogTitle>
-          <DialogDescription>
-            {editStreet ? `Izmijeni podatke ulice u gradu ${cityName}.` : `Dodaj novu ulicu u grad ${cityName}.`}
-          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel>Naziv ulice</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Npr. Trg kralja Tomislava" {...field} className="w-full" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-2">
+            <FormSection>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>Naziv ulice</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Npr. Trg kralja Tomislava" {...field} className="w-full" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FormSection>
+            <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                 Odustani
               </Button>
