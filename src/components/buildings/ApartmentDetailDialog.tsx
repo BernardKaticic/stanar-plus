@@ -12,7 +12,7 @@ import { AddCoOwnerDialog } from "./AddCoOwnerDialog";
 import { EditShareDialog } from "./EditShareDialog";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apartmentsApi } from "@/lib/api";
+import { apartmentsApi, tenantsApi } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -234,7 +234,22 @@ export const ApartmentDetailDialog = ({
             refetchHistory();
           }}
           onSubmit={async (data) => {
-            await apartmentsApi.addOwner(String(apartment.id), data);
+            if ("personId" in data) {
+              await apartmentsApi.addOwner(String(apartment.id), { personId: data.personId, shareNum: data.shareNum, shareDen: data.shareDen });
+            } else {
+              const res = await tenantsApi.create({
+                apartment_id: String(apartment.id),
+                name: data.ownerName,
+                oib: data.ownerOib ?? undefined,
+                email: data.email ?? undefined,
+                phone: data.phone ?? undefined,
+                delivery_method: data.delivery_method ?? undefined,
+              });
+              const ownershipId = (res as { id?: string })?.id;
+              if (ownershipId && data.shareNum != null && data.shareDen != null && (data.shareNum !== 1 || data.shareDen !== 1)) {
+                await apartmentsApi.updateOwnershipShare(String(apartment.id), String(ownershipId), { shareNum: data.shareNum, shareDen: data.shareDen });
+              }
+            }
           }}
         />
 

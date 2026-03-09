@@ -76,13 +76,6 @@ const apartmentEditSchema = z.object({
   area: z.string().trim().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Površina mora biti pozitivan broj",
   }),
-  ownerMode: z.enum(["existing", "new"]),
-  personId: z.string().optional(),
-  ownerName: z.string().trim().max(200, "Ime je predugo").optional(),
-  ownerOib: z.string().trim().max(11, "OIB ima 11 znamenki").optional().or(z.literal("")),
-  email: z.string().trim().email("Neispravna email adresa").max(255, "Email je predug").optional().or(z.literal("")),
-  phone: z.string().trim().max(50, "Telefon je predug").optional(),
-  delivery_method: z.enum(["email", "pošta", "both"]).optional(),
   notes: z.string().trim().max(1000, "Bilješke su predugo").optional(),
 });
 
@@ -126,7 +119,7 @@ interface ApartmentDialogProps {
 
 export type ApartmentFormPayload =
   | { mode: "add"; number: string; floor?: string | null; area: number; personId?: string; tenantId?: string; ownerName?: string; ownerOib?: string; email?: string; phone?: string; delivery_method?: "email" | "pošta" | "both"; notes?: string }
-  | { mode: "edit"; number: string; floor?: string | null; area: number; personId?: string; tenantId?: string; ownerMode?: "existing" | "new"; ownerName?: string; ownerOib?: string; email?: string; phone?: string; delivery_method?: "email" | "pošta" | "both"; notes?: string };
+  | { mode: "edit"; number: string; floor?: string | null; area: number; notes?: string };
 
 export const ApartmentDialog = ({
   open,
@@ -161,13 +154,6 @@ export const ApartmentDialog = ({
       number: "",
       floor: "",
       area: "",
-      ownerMode: "existing",
-      personId: "",
-      ownerName: "",
-      ownerOib: "",
-      email: "",
-      phone: "",
-      delivery_method: "email",
       notes: "",
     },
   });
@@ -183,24 +169,11 @@ export const ApartmentDialog = ({
 
   useEffect(() => {
     if (editApartment && open) {
-      const tenantId = (editApartment as Apartment & { tenant_id?: string }).tenant_id;
-      const matchingPerson = tenantId && persons.length
-        ? persons.find((p: { apartments?: { tenantId?: string }[] }) =>
-            p.apartments?.some((a) => a.tenantId === tenantId)
-          )
-        : null;
       const aptWithFloor = editApartment as Apartment & { floor?: string | null };
       editForm.reset({
         number: editApartment.number,
         floor: aptWithFloor.floor ?? "",
         area: editApartment.area.toString(),
-        ownerMode: "existing",
-        personId: matchingPerson?.id ?? "",
-        ownerName: "",
-        ownerOib: "",
-        email: "",
-        phone: "",
-        delivery_method: "email",
         notes: editApartment.notes || "",
       });
     } else if (!editApartment && open) {
@@ -256,13 +229,6 @@ export const ApartmentDialog = ({
       number: data.number,
       floor: data.floor?.trim() || null,
       area: Number(data.area),
-      ownerMode: data.ownerMode,
-      personId: data.ownerMode === "existing" ? (data.personId || undefined) : undefined,
-      ownerName: data.ownerMode === "new" ? data.ownerName || undefined : undefined,
-      ownerOib: data.ownerMode === "new" ? (data.ownerOib?.trim() || undefined) : undefined,
-      email: data.ownerMode === "new" ? data.email || undefined : undefined,
-      phone: data.ownerMode === "new" ? data.phone || undefined : undefined,
-      delivery_method: data.ownerMode === "new" ? data.delivery_method : undefined,
       notes: data.notes || undefined,
     });
   };
@@ -352,198 +318,8 @@ export const ApartmentDialog = ({
               );
             })()}
 
+            {!isEdit && (
             <FormSection>
-            {isEdit ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <FormLabel className="text-sm font-medium">Suvlasnik / vlasnik</FormLabel>
-                  <FormField
-                    control={editForm.control}
-                    name="ownerMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            className="flex flex-col gap-2"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="existing" id="edit-owner-existing" />
-                              <Label htmlFor="edit-owner-existing" className="font-normal cursor-pointer">
-                                Odaberi postojećeg suvlasnika
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="new" id="edit-owner-new" />
-                              <Label htmlFor="edit-owner-new" className="font-normal cursor-pointer">
-                                Unesi podatke novog suvlasnika
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {editForm.watch("ownerMode") === "existing" ? (
-                  <FormField
-                    control={editForm.control}
-                    name="personId"
-                    render={({ field }) => (
-                      <FormItem className="space-y-2">
-                        <FormLabel>Postojeći suvlasnik</FormLabel>
-                        <Popover open={tenantComboboxOpen} onOpenChange={setTenantComboboxOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={tenantComboboxOpen}
-                                className={cn(
-                                  "w-full justify-between font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value
-                                  ? (() => {
-                                      const p = persons.find((p: { id: string }) => p.id === field.value) as { name: string; oib?: string | null } | undefined;
-                                      if (!p) return field.value;
-                                      return p.oib ? `${p.name} – ${p.oib}` : p.name;
-                                    })()
-                                  : "Odaberi suvlasnika..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder="Pretraži suvlasnike..." />
-                              <CommandList>
-                                <CommandEmpty>Nema pronađenih suvlasnika</CommandEmpty>
-                                <CommandGroup>
-                                  <CommandItem
-                                    value="Nema suvlasnika"
-                                    onSelect={() => {
-                                      field.onChange("");
-                                      setTenantComboboxOpen(false);
-                                    }}
-                                  >
-                                    <Check className={cn("mr-2 h-4 w-4", !field.value ? "opacity-100" : "opacity-0")} />
-                                    Nema suvlasnika
-                                  </CommandItem>
-                                  {persons.map((p: { id: string; name: string; oib?: string | null }) => {
-                                    const label = p.oib ? `${p.name} – ${p.oib}` : p.name;
-                                    return (
-                                      <CommandItem
-                                        key={p.id}
-                                        value={`${p.name} ${p.oib || ""}`.trim()}
-                                        onSelect={() => {
-                                          field.onChange(p.id);
-                                          setTenantComboboxOpen(false);
-                                        }}
-                                      >
-                                        <Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />
-                                        {label}
-                                      </CommandItem>
-                                    );
-                                  })}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">Email omogućuje web pristup.</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={editForm.control}
-                        name="ownerName"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel>Ime i prezime</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Ime i prezime suvlasnika" {...field} className="w-full" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editForm.control}
-                        name="ownerOib"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel>OIB</FormLabel>
-                            <FormControl>
-                              <Input placeholder="11 znamenki" {...field} className="w-full font-mono" maxLength={11} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={editForm.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel>Telefon</FormLabel>
-                            <FormControl>
-                              <Input placeholder="+385 91 234 5678" {...field} className="w-full" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input type="email" placeholder="email@example.com" {...field} className="w-full" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormField
-                      control={editForm.control}
-                      name="delivery_method"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel>Način dostave</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || "email"}>
-                            <FormControl>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Odaberite način" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="email">E-mail</SelectItem>
-                              <SelectItem value="pošta">Pošta</SelectItem>
-                              <SelectItem value="both">E-mail i pošta</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-              </div>
-            ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <FormLabel className="text-sm font-medium">Suvlasnik/Vlasnik</FormLabel>
@@ -723,8 +499,8 @@ export const ApartmentDialog = ({
                   </>
                 )}
               </div>
-            )}
             </FormSection>
+            )}
 
             <FormField
               control={form.control}
