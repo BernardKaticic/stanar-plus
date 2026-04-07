@@ -3,10 +3,10 @@ import { dashboardApi } from "@/lib/api";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
-export const useDashboardStats = () => {
+export const useDashboardStats = (period: 'ytd' | 'last12m' = 'ytd') => {
   return useQuery({
-    queryKey: ["dashboard-stats"],
-    queryFn: () => dashboardApi.getStats(),
+    queryKey: ["dashboard-stats", period],
+    queryFn: () => dashboardApi.getStats({ period }),
     refetchInterval: FIVE_MINUTES_MS,
     placeholderData: keepPreviousData,
   });

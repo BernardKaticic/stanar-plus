@@ -8,7 +8,6 @@ import {
   CreditCard,
   Wallet,
   FileText,
-  UserCog,
   ScrollText,
   ClipboardCheck,
   History,
@@ -40,7 +39,6 @@ const financeNav = [
 const peopleNav = [
   { name: "Predstavnici", href: "/representatives", icon: UserCircle },
   { name: "Odluke i ugovori", href: "/decisions", icon: ScrollText },
-  { name: "Upravljanje", href: "/admin/tenants", icon: UserCog, adminOnly: true },
   { name: "Audit log", href: "/audit-log", icon: History, adminOnly: true },
 ];
 

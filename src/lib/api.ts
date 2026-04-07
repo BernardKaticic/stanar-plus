@@ -162,6 +162,65 @@ export async function api<T = unknown>(
   return json as T;
 }
 
+function parseFileNameFromDisposition(disposition: string | null): string | null {
+  if (!disposition) return null;
+  const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1]);
+    } catch {
+      return utfMatch[1];
+    }
+  }
+  const plainMatch = disposition.match(/filename="?([^"]+)"?/i);
+  return plainMatch?.[1] || null;
+}
+
+export async function apiBlob(
+  path: string,
+  options: RequestInit = {}
+): Promise<{ blob: Blob; fileName: string | null; mimeType: string }> {
+  const tokens = getStoredTokens();
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (tokens?.accessToken) {
+    headers.Authorization = `Bearer ${tokens.accessToken}`;
+  }
+
+  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401 && tokens?.refreshToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      const newTokens = getStoredTokens();
+      headers.Authorization = `Bearer ${newTokens!.accessToken}`;
+      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    }
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    let json: unknown = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+    const err = new Error((json as { message?: string })?.message || text || res.statusText) as Error & {
+      status?: number;
+      body?: ApiError;
+    };
+    err.status = res.status;
+    err.body = (json as ApiError) || undefined;
+    throw err;
+  }
+
+  return {
+    blob: await res.blob(),
+    fileName: parseFileNameFromDisposition(res.headers.get('content-disposition')),
+    mimeType: res.headers.get('content-type') || 'application/octet-stream',
+  };
+}
+
 export async function authLogin(email: string, password: string) {
   const data = await api<{
     accessToken: string;
@@ -412,7 +471,11 @@ export const workOrdersApi = {
 };
 
 export const dashboardApi = {
-  getStats: () => api<DashboardStats>('/dashboard/stats'),
+  getStats: (params?: { period?: 'ytd' | 'last12m' }) => {
+    const sp = new URLSearchParams();
+    if (params?.period) sp.set('period', params.period);
+    return api<DashboardStats>('/dashboard/stats' + (sp.toString() ? `?${sp.toString()}` : ''));
+  },
   getActivities: () => api<DashboardActivity[]>('/dashboard/activities'),
   getDebtors: () => api<DashboardDebtor[]>('/dashboard/debtors'),
   getStatement: () => api<DashboardStatement>('/dashboard/statement'),
@@ -522,15 +585,148 @@ export const suppliersApi = {
 };
 
 export const invoicesApi = {
-  getAll: (params?: { status?: string; search?: string }) => {
+  getAll: (params?: { status?: string; search?: string; direction?: string }) => {
     const sp = new URLSearchParams();
     if (params?.status) sp.set('status', params.status || '');
     if (params?.search) sp.set('search', params.search || '');
+    if (params?.direction) sp.set('direction', params.direction || '');
     return api<unknown[]>('/invoices?' + sp.toString());
   },
+  getById: (id: string) => api<unknown>(`/invoices/${id}`),
   create: (data: unknown) => api('/invoices', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => api(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => api(`/invoices/${id}`, { method: 'DELETE' }),
+};
+
+export type ApiFilePayload = {
+  fileName: string;
+  mimeType: string;
+  base64: string;
+};
+
+export type DecisionItem = {
+  id: string;
+  number: string;
+  title: string;
+  date: string | null;
+  dateIso: string | null;
+  status: 'draft' | 'review' | 'approved' | 'effective' | 'archived';
+  buildingId: string | null;
+  building: string;
+  templateId: string | null;
+  templateName: string | null;
+  templateValues?: Record<string, string> | null;
+  attachment: { id: string; fileName: string; mimeType: string; sizeBytes: number } | null;
+};
+
+export type ContractItem = {
+  id: string;
+  number: string;
+  title: string;
+  contractor: string;
+  dateFrom: string | null;
+  dateTo: string | null;
+  dateFromIso: string | null;
+  dateToIso: string | null;
+  amount: string;
+  amountNum: number;
+  status: 'draft' | 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'completed';
+  buildingId: string | null;
+  building: string;
+  templateId: string | null;
+  templateName: string | null;
+  templateValues?: Record<string, string> | null;
+  attachment: { id: string; fileName: string; mimeType: string; sizeBytes: number } | null;
+};
+
+export type DocumentTemplate = {
+  id: string;
+  type: 'decision' | 'contract';
+  key: string;
+  name: string;
+  bodyTemplate: string;
+};
+
+export const decisionsApi = {
+  getAll: (params?: { status?: string; search?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set('status', params.status);
+    if (params?.search) sp.set('search', params.search);
+    return api<DecisionItem[]>('/decisions?' + sp.toString());
+  },
+  create: (data: {
+    number: string;
+    title: string;
+    date: string;
+    buildingId: string | null;
+    status: 'draft' | 'review' | 'approved' | 'effective' | 'archived';
+    attachment?: ApiFilePayload;
+    templateId?: string | null;
+    templateValues?: Record<string, string>;
+  }) => api<DecisionItem>('/decisions', { method: 'POST', body: JSON.stringify(data) }),
+  getById: (id: string) => api<DecisionItem>(`/decisions/${id}`),
+  update: (id: string, data: {
+    number: string;
+    title: string;
+    date: string;
+    buildingId: string | null;
+    status: 'draft' | 'review' | 'approved' | 'effective' | 'archived';
+    attachment?: ApiFilePayload;
+    templateId?: string | null;
+    templateValues?: Record<string, string>;
+    replaceDocument?: boolean;
+  }) => api<DecisionItem>(`/decisions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => api(`/decisions/${id}`, { method: 'DELETE' }),
+  getAttachment: (id: string, download?: boolean) =>
+    apiBlob(`/decisions/${id}/attachment${download ? '?download=1' : ''}`),
+};
+
+export const contractsApi = {
+  getAll: (params?: { status?: string; search?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set('status', params.status);
+    if (params?.search) sp.set('search', params.search);
+    return api<ContractItem[]>('/contracts?' + sp.toString());
+  },
+  create: (data: {
+    number: string;
+    title: string;
+    contractor: string;
+    dateFrom: string;
+    dateTo: string;
+    amount: number;
+    buildingId: string | null;
+    status: 'draft' | 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'completed';
+    attachment?: ApiFilePayload;
+    templateId?: string | null;
+    templateValues?: Record<string, string>;
+  }) => api<ContractItem>('/contracts', { method: 'POST', body: JSON.stringify(data) }),
+  getById: (id: string) => api<ContractItem>(`/contracts/${id}`),
+  update: (id: string, data: {
+    number: string;
+    title: string;
+    contractor: string;
+    dateFrom: string;
+    dateTo: string;
+    amount: number;
+    buildingId: string | null;
+    status: 'draft' | 'active' | 'expiring' | 'expired' | 'terminated' | 'archived' | 'completed';
+    attachment?: ApiFilePayload;
+    templateId?: string | null;
+    templateValues?: Record<string, string>;
+    replaceDocument?: boolean;
+  }) => api<ContractItem>(`/contracts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => api(`/contracts/${id}`, { method: 'DELETE' }),
+  getAttachment: (id: string, download?: boolean) =>
+    apiBlob(`/contracts/${id}/attachment${download ? '?download=1' : ''}`),
+};
+
+export const documentTemplatesApi = {
+  getAll: (params?: { type?: 'decision' | 'contract' }) => {
+    const sp = new URLSearchParams();
+    if (params?.type) sp.set('type', params.type);
+    return api<DocumentTemplate[]>('/document-templates?' + sp.toString());
+  },
 };
 
 export const locationsApi = {

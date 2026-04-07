@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, TrendingDown, ArrowUpDown, Download, Loader2 } from "lucide-react";
+import { Wallet, ArrowUpDown, Download, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,8 +24,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/lib/api";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/hooks/use-toast";
 
 const AccountStatement = () => {
+  const { toast } = useToast();
   const { data: statement, isLoading: statementLoading } = useQuery({
     queryKey: ["dashboard", "statement"],
     queryFn: () => dashboardApi.getStatement(),
@@ -49,19 +51,62 @@ const AccountStatement = () => {
 
   const transactions = statement?.transactions ?? [];
 
-  const balanceTrend: { month: string; stanje: number }[] = [];
-  const expenseBreakdown: { name: string; value: number; color: string }[] = [];
+  const parseNum = (s: string) => parseFloat(String(s || "0").replace(/\./g, "").replace(",", ".")) || 0;
+
+  const balanceTrend: { month: string; stanje: number }[] = (() => {
+    if (transactions.length === 0) return [];
+    const parseDate = (dateStr: string) => {
+      const dm = dateStr?.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+      const iso = dateStr?.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (dm) return { month: `${dm[3]}-${dm[2]}`, sortKey: `${dm[3]}-${dm[2]}-${dm[1].padStart(2, "0")}` };
+      if (iso) return { month: `${iso[1]}-${iso[2]}`, sortKey: `${iso[1]}-${iso[2]}-${iso[3]}` };
+      return null;
+    };
+    const withMonth = transactions
+      .map((t) => {
+        const p = parseDate(t.date || "");
+        if (!p || t.balance === undefined) return null;
+        return { ...p, bal: parseNum(t.balance) };
+      })
+      .filter(Boolean) as { month: string; sortKey: string; bal: number }[];
+    withMonth.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    const byMonth = new Map<string, number>();
+    for (const x of withMonth) byMonth.set(x.month, x.bal);
+    return Array.from(byMonth.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([m, v]) => ({ month: m, stanje: v }));
+  })();
+
+  const expenseBreakdown: { name: string; value: number; color: string }[] = (() => {
+    const colors = ["hsl(var(--primary))", "hsl(var(--warning))", "hsl(var(--info))", "hsl(var(--success))"];
+    const expenses = transactions.filter((t) => t.type && String(t.type).toLowerCase() !== "uplata");
+    if (expenses.length === 0) return [];
+    const byCat = new Map<string, number>();
+    for (const t of expenses) {
+      const amt = parseNum(t.amount);
+      if (amt <= 0) continue;
+      const desc = (t.description || "").toLowerCase();
+      let cat = "Ostalo";
+      if (desc.includes("komunal") || desc.includes("struj") || desc.includes("voda")) cat = "Komunalije";
+      else if (desc.includes("održav") || desc.includes("poprav")) cat = "Održavanje";
+      else if (desc.includes("čišćen") || desc.includes("usluge")) cat = "Zajedničke usluge";
+      byCat.set(cat, (byCat.get(cat) || 0) + amt);
+    }
+    return Array.from(byCat.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({ name, value, color: colors[i % colors.length] }));
+  })();
 
   return (
     <div className="page">
       <header className="page-header">
         <h1 className="page-title">Stanje računa</h1>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => window.print()}>
             <Download className="mr-2 h-4 w-4" />
             Export PDF
           </Button>
-          <Button>
+          <Button onClick={() => toast({ title: "Uskoro", description: "Uvoz bankovnog izvadka bit će dostupan." })}>
             Uvoz izvadka
           </Button>
         </div>
@@ -206,13 +251,13 @@ const AccountStatement = () => {
           <Card className="p-4 sm:p-6">
             <h3 className="text-base font-semibold mb-4">Brze akcije</h3>
             <div className="space-y-2">
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={() => toast({ title: "Uskoro", description: "Dodavanje ručnih transakcija bit će dostupno." })}>
                 Dodaj ručnu transakciju
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={() => toast({ title: "Uskoro", description: "Uvoz bankovnog izvadka bit će dostupan." })}>
                 Uvoz bankovnog izvadka
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={() => toast({ title: "Uskoro", description: "Generiranje izvještaja bit će dostupno." })}>
                 Generiraj izvještaj
               </Button>
             </div>

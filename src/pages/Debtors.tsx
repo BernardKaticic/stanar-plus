@@ -43,15 +43,38 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { exportTableToCSV } from "@/lib/export";
 
+type AmountFilter = "all" | "over50" | "over100";
+type MonthFilter = "all" | "over2" | "noReminders";
+
+type DebtorItem = {
+  id: string;
+  personId?: string | null;
+  apartmentId?: string | null;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  amount: string;
+  amountNum: number;
+  months: number;
+  lastReminder?: string | null;
+  warningsSent: number;
+};
+
 const Debtors = () => {
+  const isAmountFilter = (value: string): value is AmountFilter =>
+    value === "all" || value === "over50" || value === "over100";
+  const isMonthFilter = (value: string): value is MonthFilter =>
+    value === "all" || value === "over2" || value === "noReminders";
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
-  const [amountFilter, setAmountFilter] = useState<'all' | 'over50' | 'over100'>('all');
-  const [monthFilter, setMonthFilter] = useState<'all' | 'over2' | 'noReminders'>('all');
+  const [amountFilter, setAmountFilter] = useState<AmountFilter>("all");
+  const [monthFilter, setMonthFilter] = useState<MonthFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [batchSendDialogOpen, setBatchSendDialogOpen] = useState(false);
   const [selectedDebtors, setSelectedDebtors] = useState<Set<string>>(new Set());
@@ -59,7 +82,7 @@ const Debtors = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
 
-  const { data: debtorsData, isLoading, isFetching } = useDebtors({ page, pageSize, search: searchTerm });
+  const { data: debtorsData, isLoading, isFetching } = useDebtors({ page: 1, pageSize: 1000 });
   const { data: stats } = useQuery({
     queryKey: ["debtors", "stats"],
     queryFn: () => debtorsApi.getStats(),
@@ -70,11 +93,17 @@ const Debtors = () => {
     queryFn: () => debtorsApi.getReminders({ limit: archiveLimit }),
   });
 
-  const allDebtors = debtorsData?.data || [];
-  const totalCount = debtorsData?.totalCount || 0;
+  const allDebtors = (debtorsData?.data || []) as DebtorItem[];
 
-  // Apply filters
-  const debtors = allDebtors.filter(debtor => {
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const debtors = allDebtors.filter((debtor) => {
+    const matchesSearch = normalizedSearch
+      ? [debtor.name || "", debtor.email || "", debtor.phone || "", debtor.address || ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch)
+      : true;
+    if (!matchesSearch) return false;
     if (amountFilter === 'over50' && debtor.amountNum <= 50) return false;
     if (amountFilter === 'over100' && debtor.amountNum <= 100) return false;
     if (monthFilter === 'over2' && debtor.months <= 2) return false;
@@ -95,6 +124,10 @@ const Debtors = () => {
     return 0;
   });
 
+  const totalCount = sortedDebtors.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const visibleDebtors = sortedDebtors.slice((page - 1) * pageSize, page * pageSize);
+
   const activeFiltersCount = 
     (amountFilter !== 'all' ? 1 : 0) + 
     (monthFilter !== 'all' ? 1 : 0);
@@ -105,14 +138,23 @@ const Debtors = () => {
     setMonthFilter('all');
   };
 
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   // Kad se promijeni lista (filteri, stranica, pretraga), presjeci selekciju na vidljive
   useEffect(() => {
     setSelectedDebtors((prev) => {
-      const visible = new Set(debtors.map((d) => d.id));
+      const visible = new Set(visibleDebtors.map((d) => d.id));
       const next = new Set([...prev].filter((id) => visible.has(id)));
+      if (next.size === prev.size && [...next].every((id) => prev.has(id))) {
+        return prev;
+      }
       return next;
     });
-  }, [page, pageSize, searchTerm, amountFilter, monthFilter, debtorsData?.data]);
+  }, [page, pageSize, searchTerm, amountFilter, monthFilter, visibleDebtors]);
 
   const handleExportCSV = () => {
     exportTableToCSV(
@@ -146,13 +188,13 @@ const Debtors = () => {
   };
 
   const toggleAll = (checked: boolean | "indeterminate") => {
-    if (debtors.length === 0) return;
-    if (checked === true) setSelectedDebtors(new Set(debtors.map((d) => d.id)));
+    if (visibleDebtors.length === 0) return;
+    if (checked === true) setSelectedDebtors(new Set(visibleDebtors.map((d) => d.id)));
     else setSelectedDebtors(new Set());
   };
 
   const handleBatchSend = async () => {
-    const selectedList = debtors.filter((d) => selectedDebtors.has(d.id));
+    const selectedList = visibleDebtors.filter((d) => selectedDebtors.has(d.id));
     const personIds = [...new Set(selectedList.map((d) => d.personId).filter(Boolean))] as string[];
     const results = await Promise.allSettled(
       personIds.map((personId) => debtorsApi.sendReminderByPerson(personId))
@@ -181,7 +223,7 @@ const Debtors = () => {
     setSelectedDebtors(new Set());
   };
 
-  const handleSendReminder = async (debtor: any) => {
+  const handleSendReminder = async (debtor: DebtorItem) => {
     setSendingReminder(debtor.id);
     try {
       if (debtor.personId) {
@@ -223,12 +265,12 @@ const Debtors = () => {
           { label: "Opomene ovaj mjesec", value: stats?.remindersThisMonth ?? 0, className: "" },
           { label: "Duguju > 3 mjeseca", value: stats?.over3Months ?? debtors.filter(d => d.months >= 3).length, className: "text-destructive" },
         ].map((stat, i) => (
-          <div key={stat.label} className="page-kpi-card">
+          <div key={stat.label} className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
             <p className="page-kpi-label">{stat.label}</p>
             {isLoading ? (
               <Skeleton className="h-8 w-16 mt-2" />
             ) : (
-              <p className={`page-kpi-value ${stat.className}`}>{stat.value}</p>
+              <p className={`page-kpi-value tabular-nums ${stat.className}`}>{stat.value}</p>
             )}
           </div>
         ))}
@@ -249,8 +291,8 @@ const Debtors = () => {
               <Button
                 variant="outline"
                 onClick={handleExportCSV}
-                disabled={debtors.length === 0}
-                className="min-h-[28px] sm:min-h-[32px]"
+                disabled={sortedDebtors.length === 0}
+                className="min-h-[36px]"
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Export CSV
@@ -258,7 +300,7 @@ const Debtors = () => {
               <Button
                 onClick={() => setBatchSendDialogOpen(true)}
                 disabled={selectedDebtors.size === 0}
-                className="min-h-[28px] sm:min-h-[32px] gap-2"
+                className="min-h-[36px] gap-2"
               >
                 <Mail className="h-4 w-4" />
                 <span className="hidden sm:inline">Pošalji opomene</span>
@@ -273,6 +315,7 @@ const Debtors = () => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Pretraži po imenu, emailu ili adresi..."
+              aria-label="Pretraži dužnike po imenu, emailu ili adresi"
               className="pl-9 flex-1 transition-colors duration-150 focus-visible:ring-2"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -281,7 +324,7 @@ const Debtors = () => {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              className="flex-1 sm:flex-none relative min-h-[32px]"
+              className="flex-1 sm:flex-none relative min-h-[36px]"
               onClick={() => setFilterOpen(true)}
             >
               <Filter className="mr-2 h-4 w-4" />
@@ -296,7 +339,7 @@ const Debtors = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="min-w-[44px] min-h-[32px]"
+                className="min-w-[44px] min-h-[36px]"
                 onClick={clearFilters}
               >
                 <X className="h-4 w-4" />
@@ -311,19 +354,27 @@ const Debtors = () => {
             {amountFilter !== 'all' && (
               <Badge variant="secondary" className="gap-1">
                 Dug: {amountFilter === 'over50' ? '> 50 €' : '> 100 €'}
-                <X 
-                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="Ukloni filter iznosa"
                   onClick={() => setAmountFilter('all')}
-                />
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             )}
             {monthFilter !== 'all' && (
               <Badge variant="secondary" className="gap-1">
                 {monthFilter === 'over2' ? 'Više od 2 mjeseca' : 'Bez opomena'}
-                <X 
-                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="Ukloni filter razdoblja"
                   onClick={() => setMonthFilter('all')}
-                />
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             )}
           </div>
@@ -336,7 +387,7 @@ const Debtors = () => {
               <TableRow>
                 <TableHead className="w-12 text-xs font-medium">
                   <Checkbox
-                    checked={selectedDebtors.size === debtors.length && debtors.length > 0}
+                    checked={selectedDebtors.size === visibleDebtors.length && visibleDebtors.length > 0}
                     onCheckedChange={(checked) => toggleAll(checked)}
                   />
                 </TableHead>
@@ -411,7 +462,7 @@ const Debtors = () => {
                     </TableRow>
                   ))}
                 </>
-              ) : debtors.length === 0 ? (
+              ) : visibleDebtors.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="p-0">
                       <EmptyState
@@ -422,12 +473,20 @@ const Debtors = () => {
                     </TableCell>
                   </TableRow>
               ) : (
-                  sortedDebtors.map((debtor, idx) => (
+                  visibleDebtors.map((debtor, idx) => (
                   <TableRow
                     key={debtor.id}
+                    role="button"
+                    tabIndex={0}
                     className="hover:bg-muted/30 transition-colors duration-150 cursor-pointer animate-fade-in-up"
                     style={{ animationDelay: `${Math.min(idx * 30, 120)}ms` }}
                     onClick={() => navigate(debtor.personId ? `/persons/${debtor.personId}` : `/tenants/${debtor.id}`, { state: { from: "/debtors" } })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(debtor.personId ? `/persons/${debtor.personId}` : `/tenants/${debtor.id}`, { state: { from: "/debtors" } });
+                      }
+                    }}
                   >
                     <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
@@ -448,7 +507,7 @@ const Debtors = () => {
                     <TableCell className="text-xs min-w-[200px]" title={debtor.address || "-"}>
                       {debtor.address || "-"}
                     </TableCell>
-                    <TableCell className="text-right value-cell value-cell--negative">
+                    <TableCell className="text-right value-cell value-cell--negative tabular-nums">
                       {debtor.amount}
                     </TableCell>
                     <TableCell className="text-center text-xs">
@@ -469,7 +528,7 @@ const Debtors = () => {
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[36px]">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -497,15 +556,15 @@ const Debtors = () => {
 
         {/* Mobile Card View */}
         <div className="md:hidden space-y-3">
-          {!isLoading && debtors.length > 0 && (
+          {!isLoading && visibleDebtors.length > 0 && (
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
               <div className="flex items-center gap-2">
                 <Checkbox
-                  checked={selectedDebtors.size === debtors.length && debtors.length > 0}
+                  checked={selectedDebtors.size === visibleDebtors.length && visibleDebtors.length > 0}
                   onCheckedChange={(checked) => toggleAll(checked)}
                 />
-                <Label className="text-sm font-normal cursor-pointer" onClick={() => toggleAll(selectedDebtors.size === debtors.length ? false : true)}>
-                  Označi sve ({debtors.length})
+                <Label className="text-sm font-normal cursor-pointer" onClick={() => toggleAll(selectedDebtors.size === visibleDebtors.length ? false : true)}>
+                  Označi sve ({visibleDebtors.length})
                 </Label>
               </div>
               {selectedDebtors.size > 0 && (
@@ -532,19 +591,27 @@ const Debtors = () => {
                 </Card>
               ))}
             </>
-          ) : debtors.length === 0 ? (
+          ) : visibleDebtors.length === 0 ? (
             <EmptyState
               icon={CheckCircle}
               title={hasActiveFilters ? "Nema dužnika za odabrane filtere" : "Nema dužnika"}
               action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : undefined}
             />
           ) : (
-            sortedDebtors.map((debtor, idx) => (
+            visibleDebtors.map((debtor, idx) => (
               <Card
                 key={debtor.id}
+                role="button"
+                tabIndex={0}
                 className="p-4 hover:shadow-md hover:border-destructive/20 transition-all duration-300 cursor-pointer animate-fade-in-up"
                 style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                 onClick={() => navigate(debtor.personId ? `/persons/${debtor.personId}` : `/tenants/${debtor.id}`, { state: { from: "/debtors" } })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(debtor.personId ? `/persons/${debtor.personId}` : `/tenants/${debtor.id}`, { state: { from: "/debtors" } });
+                  }
+                }}
               >
                 <div className="flex items-start gap-3 mb-3">
                   <div className="pt-1" onClick={(e) => e.stopPropagation()}>
@@ -571,7 +638,7 @@ const Debtors = () => {
                 <div className="grid grid-cols-2 gap-3 text-sm pt-3 border-t">
                   <div>
                     <p className="text-muted-foreground text-xs">Dug</p>
-                    <p className="value-cell value-cell--negative text-base">{debtor.amount}</p>
+                    <p className="value-cell value-cell--negative tabular-nums text-base">{debtor.amount}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs">Mjeseci</p>
@@ -591,7 +658,7 @@ const Debtors = () => {
                   <div className="flex items-end justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="min-w-[44px] min-h-[32px]">
+                        <Button variant="outline" size="sm" className="min-w-[44px] min-h-[36px]">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -618,7 +685,7 @@ const Debtors = () => {
 
         <PaginationControls
           currentPage={page}
-          totalPages={Math.ceil(totalCount / pageSize)}
+          totalPages={totalPages}
           pageSize={pageSize}
           totalItems={totalCount}
           onPageChange={setPage}
@@ -704,8 +771,8 @@ const Debtors = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Potvrda slanja opomena</AlertDialogTitle>
             <AlertDialogDescription>
-              Spremni ste poslati opomene za <strong>{selectedDebtors.size}</strong> odabranih dužnika. Opomene će se zabilježiti po osobi (<strong>{new Set(debtors.filter(d => selectedDebtors.has(d.id)).map(d => d.personId).filter(Boolean)).size}</strong> osoba).
-              {debtors.filter(d => selectedDebtors.has(d.id) && !d.email).length > 0 && (
+              Spremni ste poslati opomene za <strong>{selectedDebtors.size}</strong> odabranih dužnika. Opomene će se zabilježiti po osobi (<strong>{new Set(visibleDebtors.filter(d => selectedDebtors.has(d.id)).map(d => d.personId).filter(Boolean)).size}</strong> osoba).
+              {visibleDebtors.filter(d => selectedDebtors.has(d.id) && !d.email).length > 0 && (
                 <p className="mt-2 text-muted-foreground text-sm">
                   Opomena će biti zabilježena u arhivi za sve. Dužnici bez email adrese neće primiti email.
                 </p>
@@ -713,7 +780,7 @@ const Debtors = () => {
               <p className="mt-3 text-sm">
                 Ukupan iznos duga: <strong className="text-destructive">
                   {formatCurrency(
-                    debtors
+                    visibleDebtors
                       .filter(d => selectedDebtors.has(d.id))
                       .reduce((sum, d) => sum + d.amountNum, 0)
                   )}
@@ -740,7 +807,12 @@ const Debtors = () => {
           <div className="space-y-6 mt-6">
             <div className="space-y-3">
               <Label>Iznos duga</Label>
-              <RadioGroup value={amountFilter} onValueChange={(val) => setAmountFilter(val as any)}>
+              <RadioGroup
+                value={amountFilter}
+                onValueChange={(val) => {
+                  if (isAmountFilter(val)) setAmountFilter(val);
+                }}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="amount-all" />
                   <Label htmlFor="amount-all" className="font-normal cursor-pointer">Svi iznosi</Label>
@@ -758,7 +830,12 @@ const Debtors = () => {
 
             <div className="space-y-3">
               <Label>Razdoblje</Label>
-              <RadioGroup value={monthFilter} onValueChange={(val) => setMonthFilter(val as any)}>
+              <RadioGroup
+                value={monthFilter}
+                onValueChange={(val) => {
+                  if (isMonthFilter(val)) setMonthFilter(val);
+                }}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="month-all" />
                   <Label htmlFor="month-all" className="font-normal cursor-pointer">Sva razdoblja</Label>

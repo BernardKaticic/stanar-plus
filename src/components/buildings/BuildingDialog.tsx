@@ -204,8 +204,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                               {...field}
                               value={field.value ?? ""}
                               onChange={(e) =>
-                                field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                               }
+                              onBlur={(e) => {
+                                field.onBlur();
+                                if (e.target.value === "") field.onChange(0);
+                              }}
                               className="w-full"
                             />
                           </FormControl>
@@ -228,8 +232,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                               {...field}
                               value={field.value ?? ""}
                               onChange={(e) =>
-                                field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                               }
+                              onBlur={(e) => {
+                                field.onBlur();
+                                if (e.target.value === "") field.onChange(0);
+                              }}
                               className="w-full"
                             />
                           </FormControl>
@@ -252,8 +260,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                               {...field}
                               value={field.value ?? ""}
                               onChange={(e) =>
-                                field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                               }
+                              onBlur={(e) => {
+                                field.onBlur();
+                                if (e.target.value === "") field.onChange(0);
+                              }}
                               className="w-full"
                             />
                           </FormControl>
@@ -285,8 +297,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                                   {...field}
                                   value={field.value ?? ""}
                                   onChange={(e) =>
-                                    field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                    field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                                   }
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (e.target.value === "") field.onChange(0);
+                                  }}
                                   className="w-full"
                                 />
                               </FormControl>
@@ -309,8 +325,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                                   {...field}
                                   value={field.value ?? ""}
                                   onChange={(e) =>
-                                    field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                    field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                                   }
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (e.target.value === "") field.onChange(0);
+                                  }}
                                   className="w-full"
                                 />
                               </FormControl>
@@ -333,8 +353,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                                   {...field}
                                   value={field.value ?? ""}
                                   onChange={(e) =>
-                                    field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                    field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                                   }
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (e.target.value === "") field.onChange(0);
+                                  }}
                                   className="w-full"
                                 />
                           </FormControl>
@@ -357,8 +381,12 @@ export const BuildingDialog = ({ open, onOpenChange, onSave, editBuilding, stree
                                   {...field}
                                   value={field.value ?? ""}
                                   onChange={(e) =>
-                                    field.onChange(e.target.value ? Number(e.target.value) : 0)
+                                    field.onChange(e.target.value === "" ? "" : Number(e.target.value))
                                   }
+                                  onBlur={(e) => {
+                                    field.onBlur();
+                                    if (e.target.value === "") field.onChange(0);
+                                  }}
                                   className="w-full"
                                 />
                               </FormControl>

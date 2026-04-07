@@ -10,7 +10,6 @@ import {
   CreditCard,
   Wallet,
   FileText,
-  UserCog,
   ScrollText,
   UserCircle,
   Package,
@@ -39,7 +38,6 @@ const mobileNavigationReadyOnly = [
 const moreNavigation = [
   { name: "Predstavnici", href: "/representatives", icon: UserCircle },
   { name: "Dobavljači", href: "/suppliers", icon: Package },
-  { name: "Upravljanje", href: "/admin/tenants", icon: UserCog, adminOnly: true },
   { name: "Uplatnice", href: "/payment-slips", icon: Receipt },
   { name: "Radni nalozi", href: "/work-orders", icon: ClipboardCheck },
   { name: "Financijska kartica", href: "/financial-card", icon: CreditCard },

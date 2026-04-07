@@ -159,12 +159,12 @@ const WorkOrders = () => {
           { label: "Otvoreni", value: openCount, className: "" },
           { label: "Završeni", value: completedCount, className: "" },
         ].map((stat) => (
-          <div key={stat.label} className="page-kpi-card">
+          <div key={stat.label} className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
             <p className="page-kpi-label">{stat.label}</p>
             {isLoading ? (
               <Skeleton className="h-8 w-12 mt-2" />
             ) : (
-              <p className={`page-kpi-value ${stat.className}`}>{stat.value}</p>
+              <p className={`page-kpi-value tabular-nums ${stat.className}`}>{stat.value}</p>
             )}
           </div>
         ))}
@@ -184,7 +184,7 @@ const WorkOrders = () => {
             <div className="flex justify-end w-full sm:w-auto shrink-0">
               <Button
                 type="button"
-                className="gap-2 min-h-[28px] sm:min-h-[32px]"
+                className="gap-2 min-h-[36px]"
                 onClick={() => { setEditOrder(null); setWorkOrderDialogOpen(true); }}
               >
                 <Plus className="h-4 w-4" />
@@ -199,6 +199,7 @@ const WorkOrders = () => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Pretraži po broju, opisu ili zgradi..."
+              aria-label="Pretraži radne naloge po broju, opisu ili zgradi"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 flex-1 transition-colors duration-150 focus-visible:ring-2"
@@ -209,7 +210,7 @@ const WorkOrders = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="min-w-[44px] min-h-[32px]"
+                className="min-w-[44px] min-h-[36px]"
                 onClick={clearFilters}
               >
                 <X className="h-4 w-4" />
@@ -224,7 +225,7 @@ const WorkOrders = () => {
             <Button 
               variant={statusFilter === 'all' && priorityFilter === 'all' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => {
                 setStatusFilter('all');
                 setPriorityFilter('all');
@@ -238,7 +239,7 @@ const WorkOrders = () => {
             <Button
               variant={statusFilter === "open" ? "default" : "outline"}
               size="sm"
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => setStatusFilter((s) => (s === "open" ? "all" : "open"))}
             >
               Otvoreni
@@ -246,7 +247,7 @@ const WorkOrders = () => {
             <Button
               variant={statusFilter === "in-progress" ? "default" : "outline"}
               size="sm"
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => setStatusFilter((s) => (s === "in-progress" ? "all" : "in-progress"))}
             >
               U tijeku
@@ -254,7 +255,7 @@ const WorkOrders = () => {
             <Button
               variant={statusFilter === "completed" ? "default" : "outline"}
               size="sm"
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => setStatusFilter((s) => (s === "completed" ? "all" : "completed"))}
             >
               Završeni
@@ -265,7 +266,7 @@ const WorkOrders = () => {
             <Button
               variant={priorityFilter === "urgent" || priorityFilter === "high" ? "default" : "outline"}
               size="sm"
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() =>
                 setPriorityFilter((p) => (p === "urgent" || p === "high" ? "all" : "urgent"))
               }
@@ -275,7 +276,7 @@ const WorkOrders = () => {
             <Button
               variant={priorityFilter === "normal" ? "default" : "outline"}
               size="sm"
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => setPriorityFilter((p) => (p === "normal" ? "all" : "normal"))}
             >
               Normalno
@@ -283,7 +284,7 @@ const WorkOrders = () => {
             <Button
               variant={priorityFilter === "low" ? "default" : "outline"}
               size="sm"
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => setPriorityFilter((p) => (p === "low" ? "all" : "low"))}
             >
               Nisko
@@ -399,9 +400,17 @@ const WorkOrders = () => {
                 workOrders.map((order, idx) => (
                   <TableRow
                     key={order.id}
+                    role="button"
+                    tabIndex={0}
                     className="hover:bg-muted/30 transition-colors duration-150 cursor-pointer animate-fade-in-up"
                     style={{ animationDelay: `${Math.min(idx * 30, 120)}ms` }}
                     onClick={() => navigate(`/work-orders/${order.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/work-orders/${order.id}`);
+                      }
+                    }}
                   >
                     <TableCell className="font-medium">{order.id}</TableCell>
                     <TableCell>{order.title}</TableCell>
@@ -417,7 +426,7 @@ const WorkOrders = () => {
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
+                          <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[36px]">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -485,9 +494,17 @@ const WorkOrders = () => {
             workOrders.map((order, idx) => (
               <Card
                 key={order.id}
+                role="button"
+                tabIndex={0}
                 className="p-4 hover:shadow-md hover:border-primary/20 transition-all duration-300 cursor-pointer animate-fade-in-up rounded-lg border"
                 style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                 onClick={() => navigate(`/work-orders/${order.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/work-orders/${order.id}`);
+                  }
+                }}
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
@@ -517,7 +534,7 @@ const WorkOrders = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full min-h-[32px]"
+                    className="w-full min-h-[36px]"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/work-orders/${order.id}`);

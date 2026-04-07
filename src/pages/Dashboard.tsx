@@ -1,19 +1,20 @@
 import type { CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDashboardStats, useDashboardActivities, useDashboardDebtors } from "@/hooks/useDashboardData";
 import { useNavigate, Link } from "react-router-dom";
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid } from "recharts";
+import { useAuth } from "@/contexts/AuthContext";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -22,17 +23,55 @@ import {
   formatCurrencyShort,
   getStatCards,
   getCollectionData,
-  getExpenseStructure,
   getCashFlowData,
   getPortfolioOverview,
-  EXPENSE_CHART_CONFIG,
   COLLECTION_CHART_CONFIG,
   type Stats,
 } from "@/lib/dashboardAdapters";
 
+function toErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") return "Provjeri backend servis i osvježi stranicu.";
+  const err = error as { body?: { message?: string }; message?: string; status?: number };
+  if (err.body?.message) return err.body.message;
+  if (err.message) return err.message;
+  if (typeof err.status === "number") return `HTTP ${err.status}`;
+  return "Provjeri backend servis i osvježi stranicu.";
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { data: stats, isLoading: statsLoading, isFetching: statsFetching, isError: statsError, refetch: refetchStats } = useDashboardStats();
+  const { userRole } = useAuth();
+  const [period, setPeriod] = useState<"ytd" | "last12m">("ytd");
+  const dashboardPrefsKey = useMemo(
+    () => `dashboard:v2:${userRole || "anon"}`,
+    [userRole]
+  );
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(dashboardPrefsKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { period?: "ytd" | "last12m" };
+      if (parsed.period === "ytd" || parsed.period === "last12m") setPeriod(parsed.period);
+    } catch {
+      // ignore corrupted preference payload
+    }
+  }, [dashboardPrefsKey]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      dashboardPrefsKey,
+      JSON.stringify({ period })
+    );
+  }, [dashboardPrefsKey, period]);
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    isFetching: statsFetching,
+    isError: statsError,
+    error: statsErrorDetails,
+    refetch: refetchStats,
+  } = useDashboardStats(period);
   const { data: activities, isLoading: activitiesLoading, isError: activitiesError } = useDashboardActivities();
   const { data: debtors, isLoading: debtorsLoading, isError: debtorsError } = useDashboardDebtors();
 
@@ -40,11 +79,14 @@ const Dashboard = () => {
   const hasDebtorsFromStats = (stats?.outstandingBalance ?? 0) > 0;
   const hasDebtors = hasDebtorsFromList || (debtorsLoading ? hasDebtorsFromStats : hasDebtorsFromList);
 
-  const statCards = getStatCards(stats as Stats | undefined, statsLoading, !!statsError, formatCurrency, hasDebtors);
+  const periodLabel = stats?.periodLabel || (period === "last12m" ? "zadnjih 12 mjeseci" : "ove godine");
+  const statCards = getStatCards(stats as Stats | undefined, statsLoading, !!statsError, formatCurrency, hasDebtors, periodLabel);
   const collectionData = getCollectionData(stats as Stats | undefined);
-  const expenseStructure = getExpenseStructure(stats as Stats | undefined);
   const cashFlowData = getCashFlowData(stats as Stats | undefined);
   const portfolioOverview = getPortfolioOverview(stats as Stats | undefined, formatNumber);
+  const hasCollectionData = collectionData.length > 0;
+  const hasTopBuildingsData = cashFlowData.some((item) => Number(item.amount || 0) > 0);
+  const hasActivitiesData = Boolean(activities && activities.length > 0);
 
   const collectionLabels: Record<string, string> = {
     zaduzeno: COLLECTION_CHART_CONFIG.zaduzeno.label,
@@ -67,28 +109,10 @@ const Dashboard = () => {
     );
   };
 
-  const expenseLabels = expenseStructure.reduce<Record<string, string>>((acc, item) => {
-    acc[item.legendKey] = item.name;
-    return acc;
-  }, {});
-
-  const renderExpenseTooltipItem = (rawValue: number | string, legendKey?: string) => {
-    const safeKey = legendKey != null && String(legendKey).trim() !== "" ? legendKey : "other";
-    const label = expenseLabels[safeKey] ?? EXPENSE_CHART_CONFIG.other?.label ?? "Ostalo";
-    const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
-    const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-    const colorVar = Object.prototype.hasOwnProperty.call(EXPENSE_CHART_CONFIG, safeKey)
-      ? `var(--color-${safeKey})`
-      : "hsl(var(--border))";
-    return (
-      <div className="flex w-full items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: colorVar } as CSSProperties} />
-          <span className="text-muted-foreground">{label}</span>
-        </div>
-        <span className="font-mono font-medium text-foreground">{formatCurrency(safeValue)}</span>
-      </div>
-    );
+  const formatBuildingTick = (value: string) => {
+    const text = String(value || "");
+    const max = 18;
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
   };
 
   const quickActions = [
@@ -117,17 +141,33 @@ const Dashboard = () => {
   return (
     <div className="page animate-fade-in">
       <header className="page-header">
-        <div className="flex items-center gap-2">
-          <h1 className="page-title">Nadzorna ploča</h1>
-          {statsFetching && !statsLoading && (
-            <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
-          )}
+        <div className="flex w-full flex-col gap-3">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <h1 className="page-title">Nadzorna ploča</h1>
+              {statsFetching && !statsLoading && (
+                <span className="inline-flex h-2 w-2 rounded-full bg-primary/60 animate-pulse" aria-hidden />
+              )}
+            </div>
+            <div className="w-full sm:w-[260px]">
+              <Select value={period} onValueChange={(value) => setPeriod(value as "ytd" | "last12m")}>
+                <SelectTrigger aria-label="Odabir razdoblja izvještaja">
+                  <SelectValue placeholder="Odaberi period" />
+                </SelectTrigger>
+                <SelectContent>
+                <SelectItem value="ytd">Tekuća godina (od 1.1.)</SelectItem>
+                <SelectItem value="last12m">Posljednjih 12 mjeseci</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </header>
 
       {statsError && (
         <EmptyState
           title="Neuspješno učitavanje statistike"
+          description={toErrorMessage(statsErrorDetails)}
           action={{
             label: "Pokušaj ponovno",
             onClick: () => refetchStats(),
@@ -141,14 +181,26 @@ const Dashboard = () => {
           return (
             <div
               key={stat.title}
-              className={`page-kpi-card animate-fade-in-up ${isCritical ? "border-l-4 border-l-destructive bg-destructive/5" : ""}`}
+              className={`page-kpi-card animate-fade-in-up rounded-lg border border-border/70 shadow-sm ${isCritical ? "border-l-4 border-l-destructive bg-destructive/5" : ""} ${stat.drillTo ? "cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" : ""}`}
               style={{ animationDelay: `${Math.min(idx * 50, 150)}ms` }}
+              onClick={() => {
+                if (!statsLoading && stat.drillTo) navigate(stat.drillTo);
+              }}
+              role={stat.drillTo ? "button" : undefined}
+              tabIndex={stat.drillTo ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (!stat.drillTo || statsLoading) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(stat.drillTo);
+                }
+              }}
             >
-              <p className="page-kpi-label">{stat.title}</p>
+              <p className="page-kpi-label text-[12px] md:text-[13px]">{stat.title}</p>
               {statsLoading ? (
                 <Skeleton className="h-7 w-20 mt-2" />
               ) : (
-                <p className={`page-kpi-value ${isCritical ? "text-destructive" : ""}`}>{stat.value}</p>
+                <p className={`page-kpi-value tracking-tight ${isCritical ? "text-destructive" : ""}`}>{stat.value}</p>
               )}
               {!statsError && stat.change && !statsLoading && (
                 <p className={`mt-1 text-xs font-medium ${
@@ -165,9 +217,9 @@ const Dashboard = () => {
 
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="space-y-4 sm:space-y-6">
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
+          <Card className="rounded-lg border border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="text-lg">Nedavne aktivnosti</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Nedavne aktivnosti</CardTitle>
             </CardHeader>
             <CardContent>
             <div className="space-y-4">
@@ -185,49 +237,53 @@ const Dashboard = () => {
                     </div>
                   ))}
                 </>
-              ) : activities && activities.length > 0 ? (
+              ) : hasActivitiesData ? (
                 activities.slice(0, 6).map((activity, i) => (
-                  <div key={i} className="flex items-start gap-3 pb-4 border-b last:border-0 animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 40, 120)}ms` }}>
+                  <div key={i} className="flex items-start gap-3 pb-3 sm:pb-4 border-b last:border-0 animate-fade-in-up" style={{ animationDelay: `${Math.min(i * 40, 120)}ms` }}>
                     <div
-                      className={`mt-0.5 h-2 w-2 rounded-full ${
+                      className={`mt-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
                         activity.status === "success"
-                          ? "bg-success"
+                          ? "bg-success/90 ring-success/20"
                           : activity.status === "warning"
-                          ? "bg-warning"
-                          : "bg-info"
+                          ? "bg-warning/90 ring-warning/25"
+                          : "bg-info/90 ring-info/25"
                       }`}
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.text}</p>
+                      <p className="text-sm font-medium leading-snug">{activity.text}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{activity.time}</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <EmptyState title="Nema nedavnih aktivnosti" />
+                <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  Trenutno nema novijih aktivnosti.
+                </div>
               )}
             </div>
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
+          <Card className="rounded-lg border border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="text-lg">Naplata po mjesecima</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Zaduženje i naplata po mjesecima</CardTitle>
             </CardHeader>
             <CardContent>
             {statsError ? (
               <EmptyState title="Greška u učitavanju" className="py-12" />
-            ) : collectionData.length === 0 ? (
-              <EmptyState title="Nema podataka za graf" className="py-12" />
+            ) : !hasCollectionData ? (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                Nema dovoljno podataka za prikaz trenda naplate.
+              </div>
             ) : (
             <div className="space-y-6">
               <ChartContainer
                 config={COLLECTION_CHART_CONFIG as ChartConfig}
-                className="h-[320px] w-full"
+                className="h-[280px] sm:h-[320px] w-full"
               >
                 <BarChart 
                   data={collectionData}
-                  margin={{ top: 20, right: 10, left: 0, bottom: 20 }}
+                  margin={{ top: 16, right: 8, left: 4, bottom: 12 }}
                 >
                   <defs>
                     <linearGradient id="zaduzeno" x1="0" y1="0" x2="0" y2="1">
@@ -245,12 +301,15 @@ const Dashboard = () => {
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={13}
                     fontWeight={500}
+                    tickMargin={8}
+                    minTickGap={20}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
+                    tickMargin={8}
                     tickFormatter={(value) => formatCurrencyShort(Number(value))}
                     tickLine={false}
                     axisLine={false}
@@ -282,7 +341,7 @@ const Dashboard = () => {
                   />
                 </BarChart>
               </ChartContainer>
-              <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] sm:text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--color-zaduzeno)" } as CSSProperties} />
                   <span>Zaduženo</span>
@@ -297,88 +356,28 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
+          {hasTopBuildingsData && (
+          <Card className="rounded-lg border border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="text-lg">Struktura troškova</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {statsError ? (
-                <EmptyState title="Greška u učitavanju" className="py-12" />
-              ) : expenseStructure.length === 0 ? (
-                <EmptyState title="Nema podataka" className="py-12" />
-              ) : (
-              <ChartContainer config={EXPENSE_CHART_CONFIG as ChartConfig} className="h-[320px] w-full">
-                <PieChart>
-                  <defs>
-                    {expenseStructure.map((entry, index) => (
-                      <filter key={`shadow-${index}`} id={`shadow-${entry.name}`} height="200%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.2"/>
-                      </filter>
-                    ))}
-                  </defs>
-                  <Pie
-                    data={expenseStructure}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={110}
-                    paddingAngle={3}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name}\n${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                    animationDuration={1000}
-                    animationBegin={0}
-                    style={{ fontSize: '13px', fontWeight: 500 }}
-                  >
-                    {expenseStructure.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.color}
-                        stroke="hsl(var(--background))"
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </Pie>
-                <ChartTooltip 
-                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.15 }}
-                  content={
-                    <ChartTooltipContent
-                      hideLabel
-                      formatter={(value, name, item) =>
-                        renderExpenseTooltipItem(
-                          value as number | string,
-                          (item?.payload as { legendKey?: string })?.legendKey ?? (name as string | undefined),
-                        )
-                      }
-                    />
-                  }
-                />
-                <ChartLegend content={<ChartLegendContent nameKey="legendKey" />} />
-                </PieChart>
-              </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
-            <CardHeader>
-              <CardTitle className="text-lg">Top 5 zgrada po pričuvi</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Top 5 zgrada po pričuvi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {statsError ? (
               <EmptyState title="Greška u učitavanju" className="py-12" />
-            ) : cashFlowData.length === 0 ? (
-              <EmptyState title="Nema podataka" className="py-12" />
+            ) : !hasTopBuildingsData ? (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                Nema dovoljno podataka za usporedbu zgrada.
+              </div>
               ) : (
               <div className="min-w-0 w-full overflow-x-auto">
               <ChartContainer
                 config={{ amount: { label: "Pričuva", color: "hsl(var(--primary))" } } as ChartConfig}
-                className="h-[280px] w-full min-h-[280px]"
+                className="h-[240px] sm:h-[280px] w-full min-h-[240px] sm:min-h-[280px]"
               >
                 <BarChart 
                   data={cashFlowData} 
                   layout="vertical"
-                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                  margin={{ top: 8, right: 18, left: 4, bottom: 8 }}
                 >
                   <defs>
                     <linearGradient id="amountGradient" x1="0" y1="0" x2="1" y2="0">
@@ -391,6 +390,7 @@ const Dashboard = () => {
                     type="number"
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
+                    tickMargin={8}
                     tickFormatter={(value) => formatCurrencyShort(Number(value))}
                     tickLine={false}
                     axisLine={false}
@@ -400,7 +400,9 @@ const Dashboard = () => {
                     type="category" 
                     stroke="hsl(var(--muted-foreground))"
                     fontSize={12}
+                    tickMargin={8}
                     width={130}
+                    tickFormatter={formatBuildingTick}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -421,12 +423,14 @@ const Dashboard = () => {
               )}
             </CardContent>
           </Card>
+          )}
+
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
+          <Card className="rounded-lg border border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="text-lg">Pregled portfelja</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Pregled portfelja</CardTitle>
             </CardHeader>
             <CardContent>
             {statsError ? (
@@ -444,18 +448,18 @@ const Dashboard = () => {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {portfolioOverview.map((item, idx) => (
-                  <div key={item.label} className="space-y-1.5 rounded-lg border p-3 animate-fade-in-up transition-colors duration-150 hover:bg-muted/30" style={{ animationDelay: `${Math.min(idx * 40, 120)}ms` }}>
+                  <div key={item.label} className="space-y-2 rounded-lg border border-border/70 p-3.5 animate-fade-in-up transition-colors duration-150 hover:bg-muted/30" style={{ animationDelay: `${Math.min(idx * 40, 120)}ms` }}>
                     <p
-                      className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate"
+                      className="text-sm font-medium text-muted-foreground truncate"
                       title={item.label}
                     >
                       {item.label}
                     </p>
-                    <p className="text-lg font-semibold leading-tight">
+                    <p className="text-xl font-semibold leading-tight tracking-tight">
                       {typeof item.value === "number" ? formatNumber(item.value) : item.value}
                     </p>
                     {item.helper && (
-                      <p className="text-xs text-muted-foreground truncate" title={item.helper}>
+                      <p className="text-sm text-muted-foreground truncate" title={item.helper}>
                         {item.helper}
                       </p>
                     )}
@@ -466,9 +470,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
+          <Card className="rounded-lg border border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="text-lg">Brze akcije</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Brze akcije</CardTitle>
             </CardHeader>
             <CardContent>
             <div className="space-y-2">
@@ -476,13 +480,13 @@ const Dashboard = () => {
                 <Button
                   key={action.label}
                   variant="secondary"
-                  className="w-full justify-between h-auto py-2.5 px-3 transition-colors duration-150 animate-fade-in-up"
+                  className="w-full justify-between h-auto rounded-lg py-3 px-3.5 transition-colors duration-150 animate-fade-in-up"
                   style={{ animationDelay: `${Math.min(idx * 50, 150)}ms` }}
                   onClick={() => navigate(action.to)}
                 >
                   <div className="text-left flex-1 min-w-0">
                     <p className="font-medium text-sm leading-tight">{action.label}</p>
-                    <p className="text-xs mt-0.5 text-muted-foreground truncate">
+                    <p className="text-[11px] sm:text-xs mt-0.5 text-muted-foreground truncate">
                       {action.helper}
                     </p>
                   </div>
@@ -493,12 +497,12 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="transition-all duration-200 hover:shadow-sm rounded-md">
+          <Card className="rounded-lg border border-border/70 shadow-sm transition-shadow duration-200 hover:shadow-md">
             <CardHeader>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-lg">Najnovija dugovanja</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <CardTitle className="text-base sm:text-lg">Najnovija dugovanja</CardTitle>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                     Ukupno otvoreno {statsLoading ? "..." : formatCurrency(stats?.outstandingBalance)}
                   </p>
                 </div>
@@ -515,7 +519,7 @@ const Dashboard = () => {
                 <EmptyState title="Greška u učitavanju" className="py-6" />
               ) : debtorsLoading ? (
                 [1, 2, 3].map((i) => (
-                  <div key={i} className="rounded-lg border p-3 space-y-2">
+                    <div key={i} className="rounded-lg border p-2.5 sm:p-3 space-y-2">
                     <Skeleton className="h-4 w-2/3" />
                     <Skeleton className="h-3 w-1/2" />
                     <Skeleton className="h-3 w-1/3" />
@@ -523,7 +527,7 @@ const Dashboard = () => {
                 ))
               ) : debtors && debtors.length > 0 ? (
                 debtors.slice(0, 5).map((debt, idx) => {
-                  const stableKey = debt.id ?? `debt-${String(debt.name)}-${String(debt.location ?? "")}`;
+                  const stableKey = `${debt.id ?? `debt-${String(debt.name)}-${String(debt.location ?? "")}`}-${idx}`;
                   const content = (
                     <>
                       <div className="flex items-start justify-between gap-3">
@@ -532,13 +536,13 @@ const Dashboard = () => {
                           {debt.location && (
                             <p className="text-xs text-muted-foreground">{debt.location}</p>
                           )}
-                          <p className="text-xs text-muted-foreground">{debt.months}</p>
+                          <p className="text-sm text-muted-foreground">{debt.months}</p>
                         </div>
-                        <span className="text-sm font-semibold text-destructive">{debt.amount}</span>
+                        <span className="text-base font-semibold text-destructive">{debt.amount}</span>
                       </div>
                     </>
                   );
-                  const wrapperClass = "block rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring animate-fade-in-up";
+                  const wrapperClass = "block rounded-lg border p-2.5 sm:p-3 cursor-pointer hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring animate-fade-in-up";
                   const style = { animationDelay: `${Math.min(idx * 40, 120)}ms` };
                   return debt.id ? (
                     <Link
@@ -551,7 +555,7 @@ const Dashboard = () => {
                       {content}
                     </Link>
                   ) : (
-                    <div key={stableKey} className={`rounded-lg border p-3 animate-fade-in-up`} style={style}>
+                    <div key={stableKey} className={`rounded-lg border p-2.5 sm:p-3 animate-fade-in-up`} style={style}>
                       {content}
                     </div>
                   );

@@ -30,6 +30,8 @@ export function formatCurrencyShort(value: number): string {
 }
 
 export type Stats = {
+  period?: "ytd" | "last12m";
+  periodLabel?: string;
   totalCharged?: number;
   totalPaid?: number;
   collectionRate?: number;
@@ -42,8 +44,17 @@ export type Stats = {
   buildingCount?: number;
   apartmentCount?: number;
   tenantCount?: number;
+  occupiedUnitCount?: number;
   occupancyRate?: number;
   emptyUnits?: number;
+  bankImportsPending?: number;
+  invoicesDueThisWeek?: number;
+  ageingBuckets?: {
+    d0_30?: { count: number; amount: number };
+    d31_60?: { count: number; amount: number };
+    d61_90?: { count: number; amount: number };
+    d90p?: { count: number; amount: number };
+  };
   monthlyCollections?: { month: string; charged: number; paid: number }[];
   expenseBreakdown?: { key: string; label: string; value: number }[];
   topBuildings?: { building: string; amount: number }[];
@@ -54,6 +65,7 @@ export type StatCard = {
   value: string;
   change: string;
   changeType: "positive" | "negative" | "neutral";
+  drillTo?: string;
 };
 
 export function getStatCards(
@@ -61,7 +73,8 @@ export function getStatCards(
   statsLoading: boolean,
   statsError: boolean,
   formatCurrencyFn: (v?: number) => string,
-  hasDebtors: boolean
+  hasDebtors: boolean,
+  periodLabel = "ove godine"
 ): StatCard[] {
   if (statsError) {
     return [
@@ -73,38 +86,65 @@ export function getStatCards(
   }
   return [
     {
-      title: "Ukupno zaduženo ove godine",
+      title: `Ukupno zaduženo (${periodLabel})`,
       value: statsLoading ? "..." : formatCurrencyFn(stats?.totalCharged),
       change: statsLoading ? "" : ((stats?.upcomingCharges ?? 0) > 0 ? `Planirano ovaj mjesec ${formatCurrencyFn(stats?.upcomingCharges)}` : ""),
       changeType: "neutral",
+      drillTo: "/payment-slips",
     },
     {
-      title: "Ukupno naplaćeno ove godine",
+      title: `Ukupno naplaćeno (${periodLabel})`,
       value: statsLoading ? "..." : formatCurrencyFn(stats?.totalPaid),
       change: statsLoading ? "" : `Stopa naplate ${(stats?.collectionRate ?? 0).toFixed(1)}%`,
       changeType: "neutral",
+      drillTo: "/financial-card",
     },
     {
       title: "Aktivna dugovanja",
       value: statsLoading ? "..." : formatCurrencyFn(stats?.outstandingBalance),
       change: statsLoading ? "" : (hasDebtors && (stats?.averageDaysOverdue ?? 0) > 0 ? `Prosječno kašnjenje ${stats?.averageDaysOverdue} dana` : ""),
       changeType: "negative",
+      drillTo: "/debtors",
     },
     {
       title: "Otvoreni radni nalozi",
       value: statsLoading ? "..." : `${stats?.openWorkOrders ?? 0}`,
-      change: statsLoading ? "" : `Hitni nalozi ${stats?.urgentWorkOrders ?? 0}`,
+      change: statsLoading ? "" : `Hitni ${stats?.urgentWorkOrders ?? 0}`,
       changeType: "neutral",
+      drillTo: "/work-orders",
     },
   ];
 }
 
 export type CollectionDataItem = { month: string; zaduzeno: number; uplaceno: number };
 
+function toShortMonthLabel(label: string): string {
+  const trimmed = String(label || "").trim();
+  if (!trimmed) return "";
+  const [month, year] = trimmed.split(/\s+/);
+  if (!month || !year) return trimmed;
+  const map: Record<string, string> = {
+    siječanj: "sij",
+    veljača: "velj",
+    ožujak: "ožu",
+    travanj: "tra",
+    svibanj: "svi",
+    lipanj: "lip",
+    srpanj: "srp",
+    kolovoz: "kol",
+    rujan: "ruj",
+    listopad: "lis",
+    studeni: "stu",
+    prosinac: "pro",
+  };
+  const shortMonth = map[month.toLowerCase()] ?? month.slice(0, 3);
+  return `${shortMonth} ${year}`;
+}
+
 export function getCollectionData(stats: Stats | undefined): CollectionDataItem[] {
   return (
     stats?.monthlyCollections?.map((m) => ({
-      month: m.month,
+      month: toShortMonthLabel(m.month),
       zaduzeno: m.charged,
       uplaceno: m.paid,
     })) ?? []
@@ -146,9 +186,9 @@ export type PortfolioItem = { label: string; value: number | string | undefined;
 
 export function getPortfolioOverview(stats: Stats | undefined, formatNumberFn: (v?: number) => string): PortfolioItem[] {
   return [
-    { label: "Zgrade", value: stats?.buildingCount, helper: `Gradovi ${formatNumberFn(stats?.cityCount ?? 0)}` },
-    { label: "Stanovi", value: stats?.apartmentCount, helper: `Stanara ${formatNumberFn(stats?.tenantCount ?? 0)}` },
-    { label: "Popunjenost", value: stats?.occupancyRate ? `${stats.occupancyRate}%` : "0%", helper: `Praznih ${formatNumberFn(stats?.emptyUnits ?? 0)}` },
+    { label: "Gradovi", value: formatNumberFn(stats?.cityCount ?? 0) },
+    { label: "Zgrade", value: formatNumberFn(stats?.buildingCount ?? 0) },
+    { label: "Stanovi", value: formatNumberFn(stats?.apartmentCount ?? 0) },
   ];
 }
 

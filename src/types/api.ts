@@ -8,19 +8,44 @@ export interface PaginatedResponse<T> {
 }
 
 export interface DashboardStats {
-  totalBuildings?: number;
-  totalApartments?: number;
-  totalTenants?: number;
+  period?: 'ytd' | 'last12m';
+  periodLabel?: string;
+  totalCharged?: number;
+  totalPaid?: number;
+  collectionRate?: number;
+  debtorsOver50?: number;
+  openWorkOrders?: number;
+  urgentWorkOrders?: number;
   outstandingBalance?: number;
   averageDaysOverdue?: number;
+  upcomingCharges?: number;
+  bankImportsPending?: number;
+  invoicesDueThisWeek?: number;
+  inspectionsThisWeek?: number;
+  buildingCount?: number;
+  cityCount?: number;
+  apartmentCount?: number;
+  tenantCount?: number;
+  occupiedUnitCount?: number;
+  occupancyRate?: number;
+  emptyUnits?: number;
+  ageingBuckets?: {
+    d0_30?: { count: number; amount: number };
+    d31_60?: { count: number; amount: number };
+    d61_90?: { count: number; amount: number };
+    d90p?: { count: number; amount: number };
+  };
+  monthlyCollections?: Array<{ month: string; charged: number; paid: number }>;
+  topBuildings?: Array<{ building: string; amount: number }>;
+  expenseBreakdown?: Array<{ key: string; label: string; value: number }>;
   [key: string]: unknown;
 }
 
 export interface DashboardActivity {
-  id?: string;
   type?: string;
-  description?: string;
-  createdAt?: string;
+  text?: string;
+  time?: string | null;
+  status?: 'success' | 'warning' | 'info';
   [key: string]: unknown;
 }
 

@@ -193,7 +193,15 @@ const Buildings = () => {
       return;
     }
     const city = cities.find((c) => String(c.id) === String(cityId));
-    if (!city) return;
+    if (!city) {
+      setSelectedCity(null);
+      setSelectedStreet(null);
+      setSelectedBuilding(null);
+      setSelectedApartment(null);
+      setApartmentDetailOpen(false);
+      updateUrlFromSelection(null, null, null);
+      return;
+    }
     setSelectedCity(city);
     if (!streetId) {
       setSelectedStreet(null);
@@ -204,6 +212,7 @@ const Buildings = () => {
     if (!street) {
       setSelectedStreet(null);
       setSelectedBuilding(null);
+      updateUrlFromSelection(city, null, null);
       return;
     }
     setSelectedStreet(street);
@@ -213,7 +222,10 @@ const Buildings = () => {
     }
     const building = street.buildings?.find((b: Building) => String(b.id) === String(buildingId));
     if (building) setSelectedBuilding(building);
-    else setSelectedBuilding(null);
+    else {
+      setSelectedBuilding(null);
+      updateUrlFromSelection(city, street, null);
+    }
     // Jednokratno iz URL-a; dalje se vodi kroz setSelected* + update URL u handlerima
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cities, cityIdFromUrl, streetIdFromUrl, buildingIdFromUrl]);
@@ -305,6 +317,8 @@ const Buildings = () => {
           setSelectedCity(null);
           setSelectedStreet(null);
           setSelectedBuilding(null);
+          setSelectedApartment(null);
+          setApartmentDetailOpen(false);
           updateUrlFromSelection(null, null, null);
         }
       },
@@ -347,6 +361,8 @@ const Buildings = () => {
         if (selectedStreet?.id === id) {
           setSelectedStreet(null);
           setSelectedBuilding(null);
+          setSelectedApartment(null);
+          setApartmentDetailOpen(false);
           updateUrlFromSelection(selectedCity ?? null, null, null);
         }
       },
@@ -393,6 +409,8 @@ const Buildings = () => {
       onSuccess: () => {
         if (selectedBuilding?.id === id) {
           setSelectedBuilding(null);
+          setSelectedApartment(null);
+          setApartmentDetailOpen(false);
           updateUrlFromSelection(selectedCity ?? null, selectedStreet ?? null, null);
         }
       },
@@ -544,7 +562,7 @@ const Buildings = () => {
     }
   };
 
-  const handleSelectCity = (city: any) => {
+  const handleSelectCity = (city: City) => {
     setSelectedCity(city);
     setSelectedStreet(null);
     setSelectedBuilding(null);
@@ -552,7 +570,7 @@ const Buildings = () => {
     openTreeSidebar();
   };
 
-  const handleSelectStreet = (street: any) => {
+  const handleSelectStreet = (street: Street) => {
     setSelectedStreet(street);
     setSelectedBuilding(null);
     updateUrlFromSelection(selectedCity ?? null, street, null);
@@ -572,6 +590,20 @@ const Buildings = () => {
   const displayApartment = selectedApartment && displayBuilding?.apartments
     ? displayBuilding.apartments.find((a: Apartment) => String(a.id) === String(selectedApartment.id)) ?? selectedApartment
     : selectedApartment;
+  const breadcrumbTitle = !selectedCity
+    ? "Gradovi"
+    : !selectedStreet
+      ? `Gradovi / ${selectedCity.name}`
+      : !selectedBuilding
+        ? `Gradovi / ${selectedCity?.name} / ${selectedStreet.name}`
+        : `Gradovi / ${selectedCity?.name} / ${selectedStreet?.name} / Ulaz ${displayBuilding?.name ?? ""}`;
+  const pageTitle = !selectedCity
+    ? "Struktura zgrada"
+    : selectedCity && !selectedStreet
+      ? selectedCity.name
+      : selectedStreet && !selectedBuilding
+        ? selectedStreet.name
+        : `Ulaz ${displayBuilding?.name ?? ""}`;
 
   const buildingToLocation = useMemo(() => {
     const map = new Map<string, { city: City; street: Street }>();
@@ -586,7 +618,7 @@ const Buildings = () => {
     return map;
   }, [cities]);
 
-  const handleSelectBuilding = (building: any) => {
+  const handleSelectBuilding = (building: Building) => {
     const location = buildingToLocation.get(String(building.id));
     const city = location?.city ?? null;
     const street = location?.street ?? null;
@@ -656,7 +688,7 @@ const Buildings = () => {
 
               <div className="flex-1 min-w-0">
                 {/* Breadcrumb */}
-                <p className="text-xs text-muted-foreground mb-2 flex flex-wrap items-center gap-1">
+                <p className="text-xs text-muted-foreground mb-2 flex flex-wrap items-center gap-1" title={breadcrumbTitle}>
                   {!selectedCity ? (
                     "Gradovi"
                   ) : (
@@ -683,7 +715,7 @@ const Buildings = () => {
                   )}
                 </p>
 
-                <h1 className="page-title truncate">
+                <h1 className="page-title truncate" title={pageTitle}>
                   {!selectedCity && "Struktura zgrada"}
                   {selectedCity && !selectedStreet && selectedCity.name}
                   {selectedStreet && !selectedBuilding && selectedStreet.name}
@@ -692,14 +724,14 @@ const Buildings = () => {
 
               <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                 {!selectedCity && cities && cities.length > 0 && (
-                  <Button className="min-h-[28px]" onClick={() => setCityDialogOpen(true)}>
+                  <Button className="min-h-[36px]" onClick={() => setCityDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Dodaj grad
                   </Button>
                 )}
                 {selectedCity && !selectedStreet && (displayCity?.streets?.length ?? 0) > 0 && (
                   <Button
-                    className="min-h-[28px]"
+                    className="min-h-[36px]"
                     onClick={() => setStreetDialogOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -708,7 +740,7 @@ const Buildings = () => {
                 )}
                 {selectedStreet && !selectedBuilding && (displayStreet?.buildings?.length ?? 0) > 0 && (
                   <Button
-                    className="min-h-[28px]"
+                    className="min-h-[36px]"
                     onClick={() => setBuildingDialogOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -732,17 +764,18 @@ const Buildings = () => {
                 }}
               />
             ) : (
-              <div className="max-w-4xl space-y-2">
+              <div className="max-w-5xl space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Pretraži gradove..."
+                    aria-label="Pretraži gradove"
                     value={cardSearch}
                     onChange={(e) => setCardSearch(e.target.value)}
-                    className="pl-9 max-w-sm transition-colors duration-150 focus-visible:ring-2"
+                    className="pl-9 max-w-md transition-colors duration-150 focus-visible:ring-2"
                   />
                 </div>
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 lg:gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {cities
                     .filter((city) =>
                       !cardSearch.trim()
@@ -754,7 +787,7 @@ const Buildings = () => {
                       key={city.id}
                       role="button"
                       tabIndex={0}
-                      className="p-4 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-200 ease-out animate-fade-in-up rounded-md"
+                      className="p-4 cursor-pointer rounded-lg border border-border/80 bg-card shadow-sm transition-all duration-200 ease-out animate-fade-in-up hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                       onClick={() => handleSelectCity(city)}
                       onKeyDown={(e) => {
@@ -767,7 +800,7 @@ const Buildings = () => {
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <div className="min-w-0">
-                            <p className="font-semibold text-base truncate">{city.name}</p>
+                            <p className="font-semibold text-base truncate" title={city.name}>{city.name}</p>
                             <p className="text-sm text-muted-foreground truncate mt-0.5">
                               {city.streets.length} ulica •{" "}
                               {formatNumber(city.totalApartments)} stanova
@@ -779,7 +812,7 @@ const Buildings = () => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="min-w-[28px] min-h-[28px] hover:bg-muted"
+                              className="min-h-[36px] min-w-[36px] hover:bg-muted"
                               aria-label="Opcije grada"
                             >
                               <MoreVertical className="h-4 w-4" />
@@ -812,9 +845,9 @@ const Buildings = () => {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      <div className="flex items-center justify-between text-xs mt-1">
+                      <div className="mt-1 flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Dugovanja</span>
-                        <span className="font-semibold text-destructive">
+                        <span className="font-semibold tabular-nums text-destructive">
                           {formatCurrency(city.totalDebt)}
                         </span>
                       </div>
@@ -838,17 +871,18 @@ const Buildings = () => {
                 }}
               />
             ) : (
-              <div className="max-w-4xl space-y-2">
+              <div className="max-w-5xl space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Pretraži ulice..."
+                    aria-label="Pretraži ulice"
                     value={cardSearch}
                     onChange={(e) => setCardSearch(e.target.value)}
-                    className="pl-9 max-w-sm transition-colors duration-150 focus-visible:ring-2"
+                    className="pl-9 max-w-md transition-colors duration-150 focus-visible:ring-2"
                   />
                 </div>
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 lg:gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {(displayCity?.streets ?? [])
                     .filter((street: Street) =>
                       !cardSearch.trim()
@@ -860,7 +894,7 @@ const Buildings = () => {
                       key={street.id}
                       role="button"
                       tabIndex={0}
-                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-200 ease-out animate-fade-in-up"
+                      className="p-4 cursor-pointer rounded-lg border border-border/80 bg-card shadow-sm transition-all duration-200 ease-out animate-fade-in-up hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                       onClick={() => handleSelectStreet(street)}
                       onKeyDown={(e) => {
@@ -872,7 +906,7 @@ const Buildings = () => {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-semibold truncate">{street.name}</p>
+                          <p className="font-semibold truncate" title={street.name}>{street.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {street.buildings.length} ulaz/a
                           </p>
@@ -882,7 +916,7 @@ const Buildings = () => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="min-w-[28px] min-h-[28px] hover:bg-muted"
+                              className="min-h-[36px] min-w-[36px] hover:bg-muted"
                               aria-label="Opcije ulice"
                             >
                               <MoreVertical className="h-4 w-4" />
@@ -934,17 +968,18 @@ const Buildings = () => {
                 }}
               />
             ) : (
-              <div className="max-w-4xl space-y-2">
+              <div className="max-w-5xl space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder="Pretraži ulaze..."
+                    aria-label="Pretraži ulaze"
                     value={cardSearch}
                     onChange={(e) => setCardSearch(e.target.value)}
-                    className="pl-9 max-w-sm transition-colors duration-150 focus-visible:ring-2"
+                    className="pl-9 max-w-md transition-colors duration-150 focus-visible:ring-2"
                   />
                 </div>
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-3 lg:gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {(displayStreet?.buildings ?? [])
                     .filter((building: Building) =>
                       !cardSearch.trim()
@@ -956,7 +991,7 @@ const Buildings = () => {
                       key={building.id}
                       role="button"
                       tabIndex={0}
-                      className="p-3 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-md transition-all duration-200 ease-out animate-fade-in-up"
+                      className="p-4 cursor-pointer rounded-lg border border-border/80 bg-card shadow-sm transition-all duration-200 ease-out animate-fade-in-up hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       style={{ animationDelay: `${Math.min(idx * 40, 200)}ms` }}
                       onClick={() => handleSelectBuilding(building)}
                       onKeyDown={(e) => {
@@ -969,7 +1004,7 @@ const Buildings = () => {
                       <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <div className="min-w-0">
-                            <p className="font-semibold truncate">
+                            <p className="font-semibold truncate" title={`Ulaz ${building.name}`}>
                               Ulaz {building.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -982,7 +1017,7 @@ const Buildings = () => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="min-w-[28px] min-h-[28px] hover:bg-muted"
+                              className="min-h-[36px] min-w-[36px] hover:bg-muted"
                               aria-label="Opcije ulaza"
                             >
                               <MoreVertical className="h-4 w-4" />
@@ -1015,10 +1050,10 @@ const Buildings = () => {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      <div className="grid gap-0.5 text-xs mt-0.5">
+                      <div className="mt-0.5 grid gap-0.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Pričuva</span>
-                          <span className="font-medium">
+                          <span className="font-medium tabular-nums text-right">
                             {formatCurrency(building.reserve)}
                           </span>
                         </div>
@@ -1027,8 +1062,8 @@ const Buildings = () => {
                           <span
                             className={
                               building.debt > 0
-                                ? "text-destructive font-semibold"
-                                : "text-muted-foreground"
+                                ? "font-semibold tabular-nums text-destructive text-right"
+                                : "tabular-nums text-muted-foreground text-right"
                             }
                           >
                             {formatCurrency(building.debt)}
@@ -1044,7 +1079,7 @@ const Buildings = () => {
           {/* Building Detail View */}
           {displayBuilding && (
             <div className="space-y-4">
-              <Card className="rounded-md">
+              <Card className="rounded-lg border border-border/80 shadow-sm">
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-3 w-full">
                     <div className="space-y-1.5">
@@ -1059,7 +1094,7 @@ const Buildings = () => {
                           <CardTitle className="text-xl">Ulaz {displayBuilding.name}</CardTitle>
                           <CardDescription className="mt-0.5 text-sm">
                             {displayBuilding.apartments.length} stanova · Dug:{" "}
-                            {formatCurrency(displayBuilding.debt)}
+                            <span className="tabular-nums">{formatCurrency(displayBuilding.debt)}</span>
                           </CardDescription>
                         </div>
                       </div>
@@ -1068,7 +1103,7 @@ const Buildings = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-[28px] gap-2"
+                        className="min-h-[36px] gap-2"
                         onClick={() => {
                           setEditingBuilding(displayBuilding);
                           setBuildingDialogOpen(true);
@@ -1080,7 +1115,7 @@ const Buildings = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="min-h-[28px] gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/60"
+                        className="min-h-[36px] gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/60"
                         onClick={() =>
                           setDeleteDialog({
                             open: true,
@@ -1126,7 +1161,7 @@ const Buildings = () => {
                       <div className="grid gap-3 text-sm">
                         <div className="flex flex-col gap-1">
                           <span className="text-muted-foreground text-xs">IBAN</span>
-                          <span className="font-mono text-xs sm:text-sm">
+                          <span className="font-mono text-xs sm:text-sm tabular-nums">
                             {displayBuilding.iban || (
                               <span className="text-muted-foreground italic">Nije uneseno</span>
                             )}
@@ -1134,7 +1169,7 @@ const Buildings = () => {
                         </div>
                         <div className="flex flex-col gap-1">
                           <span className="text-muted-foreground text-xs">OIB</span>
-                          <span className="font-mono text-xs sm:text-sm">
+                          <span className="font-mono text-xs sm:text-sm tabular-nums">
                             {displayBuilding.oib || (
                               <span className="text-muted-foreground italic">Nije uneseno</span>
                             )}
@@ -1150,7 +1185,7 @@ const Buildings = () => {
                         </div>
                         <div className="flex flex-col gap-1">
                           <span className="text-muted-foreground text-xs">Telefon predstavnika</span>
-                          <span className="font-mono text-xs sm:text-sm">
+                          <span className="font-mono text-xs sm:text-sm tabular-nums">
                             {displayBuilding.representativePhone || (
                               <span className="text-muted-foreground italic">Nije uneseno</span>
                             )}
@@ -1199,7 +1234,7 @@ const Buildings = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="rounded-lg border border-border/80 shadow-sm">
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-3 w-full">
                     <div>
@@ -1209,7 +1244,7 @@ const Buildings = () => {
                       <Button
                         type="button"
                         size="sm"
-                        className="gap-2 min-h-[28px]"
+                        className="gap-2 min-h-[36px]"
                         onClick={() => setApartmentDialogOpen(true)}
                       >
                         <Plus className="h-4 w-4" />
@@ -1231,7 +1266,7 @@ const Buildings = () => {
                   ) : (
                     <>
                       {/* Desktop table */}
-                      <div className="hidden md:block rounded-md border max-w-3xl">
+                      <div className="hidden md:block rounded-lg border border-border/80 max-w-5xl overflow-x-auto">
                         <table className="data-table table-density-normal">
                           <thead>
                             <tr>
@@ -1247,7 +1282,7 @@ const Buildings = () => {
                                 key={apartment.id}
                                 role="button"
                                 tabIndex={0}
-                                className="group cursor-pointer hover:bg-muted/30 transition-colors duration-150"
+                                className="group cursor-pointer transition-colors duration-150 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 onClick={() => {
                                   setSelectedApartment(apartment);
                                   setApartmentDetailOpen(true);
@@ -1263,12 +1298,16 @@ const Buildings = () => {
                                 <td className="font-medium">
                                   Stan {apartment.number}
                                 </td>
-                                <td className="text-sm text-muted-foreground">
+                                <td className="max-w-[280px] text-sm text-muted-foreground align-top">
                                   {apartment.owner ? (
                                     <>
-                                      {apartment.owner}
+                                      <span className="block truncate" title={apartment.owner}>
+                                        {apartment.owner}
+                                      </span>
                                       {apartment.ownerOib && (
-                                        <span className="block font-mono text-xs mt-0.5">{apartment.ownerOib}</span>
+                                        <span className="mt-0.5 block truncate font-mono text-xs" title={apartment.ownerOib}>
+                                          {apartment.ownerOib}
+                                        </span>
                                       )}
                                     </>
                                   ) : (
@@ -1276,7 +1315,7 @@ const Buildings = () => {
                                   )}
                                 </td>
                                 <td
-                                  className={`text-right value-cell min-w-[90px] ${
+                                  className={`min-w-[90px] text-right value-cell tabular-nums ${
                                     apartment.debt > 0 ? "value-cell--negative" : "text-muted-foreground"
                                   }`}
                                 >
@@ -1298,7 +1337,7 @@ const Buildings = () => {
                             key={apartment.id}
                             role="button"
                             tabIndex={0}
-                            className="p-4 cursor-pointer border border-border hover:border-primary/40 hover:bg-accent/10 hover:shadow-sm transition-all duration-200 ease-out animate-fade-in-up"
+                            className="p-4 cursor-pointer rounded-md border border-border transition-all duration-200 ease-out animate-fade-in-up hover:border-primary/40 hover:bg-accent/10 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             style={{ animationDelay: `${Math.min(idx * 35, 180)}ms` }}
                             onClick={() => {
                               setSelectedApartment(apartment);
@@ -1325,7 +1364,7 @@ const Buildings = () => {
                             </div>
                             <div className="space-y-1 text-sm">
                               {apartment.owner && (
-                                <p className="text-muted-foreground truncate">
+                                <p className="text-muted-foreground truncate" title={apartment.owner}>
                                   <span className="font-medium">Vlasnik:</span>{" "}
                                   {apartment.owner}
                                   {apartment.ownerOib && (
@@ -1335,7 +1374,7 @@ const Buildings = () => {
                               )}
                               {apartment.tenant &&
                                 apartment.tenant !== apartment.owner && (
-                                  <p className="text-muted-foreground truncate">
+                                  <p className="text-muted-foreground truncate" title={apartment.tenant}>
                                     <span className="font-medium">Stanar:</span>{" "}
                                     {apartment.tenant}
                                   </p>
@@ -1344,8 +1383,8 @@ const Buildings = () => {
                                 <span
                                   className={
                                     apartment.debt > 0
-                                      ? "value-cell value-cell--negative"
-                                      : "text-muted-foreground"
+                                      ? "value-cell value-cell--negative tabular-nums"
+                                      : "tabular-nums text-muted-foreground"
                                   }
                                 >
                                   Dug: {formatCurrency(apartment.debt)}

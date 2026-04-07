@@ -43,20 +43,27 @@ import { TenantDialog } from "@/components/tenants/TenantDialog";
 import { TenantEditDialog } from "@/components/tenants/TenantEditDialog";
 import { AddApartmentToPersonDialog } from "@/components/tenants/AddApartmentToPersonDialog";
 import { TempPasswordModal } from "@/components/TempPasswordModal";
-import { usersApi, buildingsApi, tenantsApi, debtorsApi } from "@/lib/api";
+import { usersApi, tenantsApi, debtorsApi } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { exportTableToCSV } from "@/lib/export";
 import { useToast } from "@/hooks/use-toast";
 
 const Tenants = () => {
+  type StatusFilter = "all" | "paid" | "overdue";
+  type DeliveryFilter = "all" | "email" | "pošta";
+  const isStatusFilter = (value: string): value is StatusFilter =>
+    value === "all" || value === "paid" || value === "overdue";
+  const isDeliveryFilter = (value: string): value is DeliveryFilter =>
+    value === "all" || value === "email" || value === "pošta";
+
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue'>('all');
-  const [deliveryFilter, setDeliveryFilter] = useState<'all' | 'email' | 'pošta'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>("all");
   const [cityFilter, setCityFilter] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [tempPasswordModal, setTempPasswordModal] = useState<{
@@ -67,12 +74,8 @@ const Tenants = () => {
   
   const navigate = useNavigate();
   const { data: personsData, isLoading, isFetching } = usePersons({
-    page,
-    pageSize,
-    search: searchTerm,
-    status: statusFilter,
-    deliveryMethod: deliveryFilter,
-    city: cityFilter !== "all" ? cityFilter : undefined,
+    page: 1,
+    pageSize: 1000,
   });
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
@@ -107,6 +110,11 @@ const Tenants = () => {
   const [deleteTenantPending, setDeleteTenantPending] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, deliveryFilter, cityFilter]);
+
+
   const handleDeleteTenantConfirm = async () => {
     if (!deleteTenantConfirm) return;
     setDeleteTenantPending(true);
@@ -139,7 +147,7 @@ const Tenants = () => {
   };
 
   const handleExportCSV = () => {
-    const exportData = persons.map(p => ({
+    const exportData = sortedPersons.map(p => ({
       name: p.name,
       email: p.email,
       address: p.apartments.map(a => a.address).filter(Boolean).join('; ') || '-',
@@ -166,18 +174,41 @@ const Tenants = () => {
     );
     toast({
       title: "CSV exportan",
-      description: `Izvezeno ${persons.length} suvlasnika`,
+      description: `Izvezeno ${sortedPersons.length} suvlasnika`,
     });
   };
 
   const allPersons = personsData?.data || [];
-  const totalCount = personsData?.totalCount || 0;
 
   // Get unique cities from current data (for filter dropdown; backend filters by city when selected)
-  const cities = Array.from(new Set(allPersons.flatMap(p => p.apartments.map(a => a.city).filter(Boolean)))).sort() as string[];
+  const cities = useMemo(() => {
+    const values = allPersons.flatMap((p) => p.apartments.map((a) => a.city).filter(Boolean)) as string[];
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, "hr"));
+  }, [allPersons]);
 
-  // Sort (filtering is done by backend via usePersons params)
-  const persons = [...allPersons].sort((a, b) => {
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredPersons = allPersons.filter((person) => {
+    const matchesStatus = statusFilter === "all" ? true : person.status === statusFilter;
+    const matchesDelivery = deliveryFilter === "all" ? true : person.deliveryMethod === deliveryFilter;
+    const matchesCity =
+      cityFilter === "all"
+        ? true
+        : person.apartments.some((a) => (a.city || "") === cityFilter);
+    const matchesSearch = normalizedSearch
+      ? [
+          person.name || "",
+          person.email || "",
+          ...person.apartments.map((a) => a.address || ""),
+          ...person.apartments.map((a) => a.city || ""),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch)
+      : true;
+    return matchesStatus && matchesDelivery && matchesCity && matchesSearch;
+  });
+
+  const sortedPersons = [...filteredPersons].sort((a, b) => {
     const mul = sortDir === 'asc' ? 1 : -1;
     if (sortBy === 'name') {
       return mul * (a.name.localeCompare(b.name, 'hr'));
@@ -196,6 +227,15 @@ const Tenants = () => {
     }
     return 0;
   });
+  const totalCount = sortedPersons.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const persons = sortedPersons.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const activeFiltersCount =
     (statusFilter !== 'all' ? 1 : 0) +
@@ -234,10 +274,10 @@ const Tenants = () => {
   };
 
   const stats = {
-    total: totalCount,
-    paid: persons.filter(p => p.status === 'paid').length,
-    overdue: persons.filter(p => p.status === 'overdue').length,
-    totalApartments: persons.reduce((s, p) => s + (p.apartmentsCount ?? p.apartments?.length ?? 0), 0),
+    total: sortedPersons.length,
+    paid: sortedPersons.filter(p => p.status === 'paid').length,
+    overdue: sortedPersons.filter(p => p.status === 'overdue').length,
+    totalApartments: sortedPersons.reduce((s, p) => s + (p.apartmentsCount ?? p.apartments?.length ?? 0), 0),
   };
 
   return (
@@ -253,12 +293,12 @@ const Tenants = () => {
           { label: "U dugu", value: stats.overdue, className: "text-destructive" },
           { label: "Ukupno stanova", value: stats.totalApartments, className: "" },
         ].map((stat, i) => (
-          <div key={stat.label} className="page-kpi-card">
+          <div key={stat.label} className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
             <p className="page-kpi-label">{stat.label}</p>
             {isLoading ? (
               <Skeleton className="h-8 w-12 mt-2" />
             ) : (
-              <p className={`page-kpi-value ${stat.className}`}>{stat.value}</p>
+              <p className={`page-kpi-value tabular-nums ${stat.className}`}>{stat.value}</p>
             )}
           </div>
         ))}
@@ -279,7 +319,7 @@ const Tenants = () => {
               {persons.length > 0 && (
                 <Button
                   type="button"
-                  className="gap-2 min-h-[28px] sm:min-h-[32px]"
+                  className="gap-2 min-h-[36px]"
                   onClick={() => setTenantDialogOpen(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -295,6 +335,7 @@ const Tenants = () => {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input 
               placeholder="Pretraži po imenu ili adresi..." 
+              aria-label="Pretraži suvlasnike po imenu ili adresi"
               className="pl-9 transition-colors duration-150 focus-visible:ring-2"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -303,7 +344,7 @@ const Tenants = () => {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              className="flex-1 sm:flex-none relative min-h-[32px]"
+              className="flex-1 sm:flex-none relative min-h-[36px]"
               onClick={() => setFilterOpen(true)}
             >
               <Filter className="mr-2 h-4 w-4" />
@@ -318,7 +359,7 @@ const Tenants = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="min-w-[44px] min-h-[32px]"
+                className="min-w-[44px] min-h-[36px]"
                 onClick={clearFilters}
               >
                 <X className="h-4 w-4" />
@@ -326,7 +367,7 @@ const Tenants = () => {
             )}
             <Button 
               variant="outline" 
-              className="hidden sm:flex min-h-[32px]"
+              className="hidden sm:flex min-h-[36px]"
               onClick={handleExportCSV}
               disabled={persons.length === 0}
             >
@@ -343,28 +384,40 @@ const Tenants = () => {
               <Badge variant="secondary" className="gap-1">
                 <MapPin className="h-3 w-3" />
                 {cityFilter}
-                <X 
-                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="Ukloni filter grada"
                   onClick={() => setCityFilter('all')}
-                />
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             )}
             {statusFilter !== 'all' && (
               <Badge variant="secondary" className="gap-1">
                 Status: {statusFilter === 'paid' ? 'Plaća uredno' : 'Dužnik'}
-                <X 
-                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="Ukloni status filter"
                   onClick={() => setStatusFilter('all')}
-                />
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             )}
             {deliveryFilter !== 'all' && (
               <Badge variant="secondary" className="gap-1">
                 Dostava: {deliveryFilter === 'email' ? 'E-mail' : deliveryFilter === 'pošta' ? 'Pošta' : 'Sve'}
-                <X 
-                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  aria-label="Ukloni filter dostave"
                   onClick={() => setDeliveryFilter('all')}
-                />
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </Badge>
             )}
           </div>
@@ -416,10 +469,22 @@ const Tenants = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                persons.map((person, idx) => {
+                persons.map((person) => {
                   const firstApt = person.apartments[0];
                   return (
-                    <TableRow key={person.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
+                    <TableRow
+                      key={person.id}
+                      role="button"
+                      tabIndex={0}
+                      className="cursor-pointer transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/persons/${person.id}`, { state: { from: "/tenants" } });
+                        }
+                      }}
+                    >
                       <TableCell className="font-medium text-sm">
                         <div className="flex items-center gap-2">
                           {person.status === 'overdue' && <AlertCircle className="h-4 w-4 text-destructive" />}
@@ -432,12 +497,12 @@ const Tenants = () => {
                       <TableCell className="text-xs truncate">
                         {person.apartmentsCount === 1 ? (firstApt?.city || "–") : (() => { const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))]; return cities.length === 1 ? cities[0] : "–"; })()}
                       </TableCell>
-                      <TableCell className="text-right text-sm value-cell">{person.totalMonthlyRate ?? "–"}</TableCell>
-                      <TableCell className={`text-right value-cell ${person.totalBalanceNum < 0 ? "value-cell--negative" : "value-cell--positive"}`}>{person.totalBalance}</TableCell>
+                      <TableCell className="text-right text-sm value-cell tabular-nums">{person.totalMonthlyRate ?? "–"}</TableCell>
+                      <TableCell className={`text-right value-cell tabular-nums ${person.totalBalanceNum < 0 ? "value-cell--negative" : "value-cell--positive"}`}>{person.totalBalance}</TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{formatDelivery(person.deliveryMethod)}</Badge></TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="min-h-[36px] min-w-[44px]"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}><FileText className="h-4 w-4 mr-2" />Pregled detalja</DropdownMenuItem>
                             {person.status === 'overdue' && <DropdownMenuItem onClick={(e) => handleSendReminder(person.id, person.name, e)} disabled={sendingReminder === person.id}>{sendingReminder === person.id ? <span className="animate-pulse">Slanje...</span> : <><Send className="h-4 w-4 mr-2" />Pošalji opomenu</>}</DropdownMenuItem>}
@@ -469,8 +534,8 @@ const Tenants = () => {
                   <Skeleton className="h-10 w-10" />
                 </div>
                 <div className="grid grid-cols-2 gap-2 pt-3 border-t">
-                  <div><p className="text-muted-foreground text-xs">Mjesečna rata</p><p className="font-medium"><Skeleton className="h-4 w-12" /></p></div>
-                  <div><p className="text-muted-foreground text-xs">Saldo</p><p className="font-medium"><Skeleton className="h-4 w-16" /></p></div>
+                  <div><p className="text-muted-foreground text-xs">Mjesečna rata</p><div className="font-medium"><Skeleton className="h-4 w-12" /></div></div>
+                  <div><p className="text-muted-foreground text-xs">Saldo</p><div className="font-medium"><Skeleton className="h-4 w-16" /></div></div>
                   <div><p className="text-muted-foreground text-xs">Dostava</p><Skeleton className="h-6 w-20" /></div>
                 </div>
               </Card>
@@ -478,12 +543,24 @@ const Tenants = () => {
           ) : persons.length === 0 ? (
             <EmptyState title={hasActiveFilters ? "Nema suvlasnika za odabrane filtere" : "Nema suvlasnika"} action={hasActiveFilters ? { label: "Ukloni filtere", onClick: clearFilters } : { label: "Dodaj suvlasnika", onClick: () => setTenantDialogOpen(true) }} />
           ) : (
-            persons.map((person, idx) => {
+            persons.map((person) => {
               const firstApt = person.apartments[0];
               const addressStr = person.apartmentsCount === 1 && firstApt?.address ? firstApt.address : person.apartmentsCount > 1 ? `${person.apartmentsCount} stana` : '-';
               const cityStr = person.apartmentsCount === 1 ? (firstApt?.city || '') : (() => { const cities = [...new Set(person.apartments.map(a => a.city).filter(Boolean))]; return cities.length === 1 ? cities[0] : ''; })();
               return (
-                <Card key={person.id} className="rounded-lg border px-4 py-3 hover:shadow-md cursor-pointer" onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}>
+                <Card
+                  key={person.id}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer rounded-lg border px-4 py-3 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/persons/${person.id}`, { state: { from: "/tenants" } });
+                    }
+                  }}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -494,7 +571,7 @@ const Tenants = () => {
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px] -mr-2"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="min-h-[36px] min-w-[44px] -mr-2"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/persons/${person.id}`, { state: { from: "/tenants" } })}><FileText className="h-4 w-4 mr-2" />Pregled detalja</DropdownMenuItem>
                           {person.status === 'overdue' && (
@@ -526,7 +603,7 @@ const Tenants = () => {
 
         <PaginationControls
           currentPage={page}
-          totalPages={Math.ceil(totalCount / pageSize)}
+          totalPages={totalPages}
           pageSize={pageSize}
           totalItems={totalCount}
           onPageChange={setPage}
@@ -585,8 +662,9 @@ const Tenants = () => {
                         delivery_method: data.delivery_method || undefined,
                         person_id: personId,
                       });
-                    } catch (err: any) {
-                      const msg = err?.status === 409
+                    } catch (err: unknown) {
+                      const status = typeof err === "object" && err && "status" in err ? (err as { status?: number }).status : undefined;
+                      const msg = status === 409
                         ? `Suvlasnik je već dodan na stan ${i + 1}.`
                         : `Greška pri dodavanju na stan ${i + 1}.`;
                       toast({
@@ -703,8 +781,9 @@ const Tenants = () => {
                   person_id: addApartmentPerson.id,
                 });
                 added++;
-              } catch (err: any) {
-                if (err?.status === 409) {
+              } catch (err: unknown) {
+                const status = typeof err === "object" && err && "status" in err ? (err as { status?: number }).status : undefined;
+                if (status === 409) {
                   skipped++;
                 } else {
                   throw err;
@@ -742,7 +821,12 @@ const Tenants = () => {
           <div className="space-y-6 mt-6">
             <div className="space-y-3">
               <Label>Status plaćanja</Label>
-              <RadioGroup value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
+              <RadioGroup
+                value={statusFilter}
+                onValueChange={(val) => {
+                  if (isStatusFilter(val)) setStatusFilter(val);
+                }}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="status-all" />
                   <Label htmlFor="status-all" className="font-normal cursor-pointer">Svi suvlasnici</Label>
@@ -776,7 +860,12 @@ const Tenants = () => {
 
             <div className="space-y-3">
               <Label>Način dostave</Label>
-              <RadioGroup value={deliveryFilter} onValueChange={(val) => setDeliveryFilter(val as any)}>
+              <RadioGroup
+                value={deliveryFilter}
+                onValueChange={(val) => {
+                  if (isDeliveryFilter(val)) setDeliveryFilter(val);
+                }}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="all" id="delivery-all" />
                   <Label htmlFor="delivery-all" className="font-normal cursor-pointer">Svi načini</Label>

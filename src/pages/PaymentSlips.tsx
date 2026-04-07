@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/table";
 import { paymentSlipsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { locationsApi } from "@/lib/api";
@@ -93,6 +93,7 @@ const PaymentSlips = () => {
   const { data: historyData, isLoading } = usePaymentSlips({ page, pageSize });
   const history = historyData?.data || [];
   const totalCount = historyData?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -168,6 +169,12 @@ const PaymentSlips = () => {
   const alreadyChargedCount = checkData?.alreadyCharged ?? 0;
   const toChargeCount = checkData?.toCharge ?? 0;
 
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const handleGenerateSlips = async () => {
     if (!chargeLevel || !selectedLocation || (!sendEmail && !sendPrint)) return;
     if (periodType === "single" && !singleMonth) return;
@@ -192,10 +199,15 @@ const PaymentSlips = () => {
         title: "Uplatnice generirane",
         description: res.message,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        (typeof err === "object" && err && "body" in err && typeof (err as { body?: { message?: string } }).body?.message === "string"
+          ? (err as { body?: { message?: string } }).body?.message
+          : undefined) ||
+        (err instanceof Error ? err.message : "Generiranje nije uspjelo.");
       toast({
         title: "Greška",
-        description: err.body?.message || err.message || "Generiranje nije uspjelo.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -267,7 +279,7 @@ const PaymentSlips = () => {
                       variant="outline"
                       role="combobox"
                       aria-expanded={locationOpen}
-                      className="w-full justify-between h-auto min-h-[32px]"
+                      className="w-full justify-between h-auto min-h-[36px]"
                     >
                       <span className="truncate">
                         {selectedLocation
@@ -334,8 +346,10 @@ const PaymentSlips = () => {
                 </div>
                 
                 <div className="flex flex-wrap gap-2 pl-8">
-                  <div className={cn(
-                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-colors",
+                  <button
+                    type="button"
+                    className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     periodType === "current" 
                       ? "bg-primary/10 text-primary border-2 border-primary" 
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -346,9 +360,11 @@ const PaymentSlips = () => {
                   >
                     <Calendar className="h-4 w-4" />
                     Tekući mjesec
-                  </div>
-                  <div className={cn(
-                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-colors",
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     periodType === "single" 
                       ? "bg-primary/10 text-primary border-2 border-primary" 
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -356,9 +372,11 @@ const PaymentSlips = () => {
                     onClick={() => setPeriodType("single")}
                   >
                     Pojedinačni mjesec
-                  </div>
-                  <div className={cn(
-                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-colors",
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     periodType === "range" 
                       ? "bg-primary/10 text-primary border-2 border-primary" 
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -366,7 +384,7 @@ const PaymentSlips = () => {
                     onClick={() => setPeriodType("range")}
                   >
                     Raspon mjeseci
-                  </div>
+                  </button>
                 </div>
 
                 {/* Period inputs */}
@@ -439,7 +457,7 @@ const PaymentSlips = () => {
                     />
                     <Label htmlFor="print" className="text-sm font-normal cursor-pointer flex items-center gap-2">
                       <Printer className="h-4 w-4" />
-                      Print (PDF)
+                      Ispis (PDF)
                     </Label>
                   </div>
                 </div>
@@ -625,7 +643,7 @@ const PaymentSlips = () => {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[32px]">
+                            <Button variant="ghost" size="sm" className="min-w-[44px] min-h-[36px]">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -667,7 +685,7 @@ const PaymentSlips = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full min-h-[32px] mt-3"
+                    className="w-full min-h-[36px] mt-3"
                     onClick={() => {
                       setSelectedItem(item);
                       setDetailsOpen(true);
@@ -690,7 +708,7 @@ const PaymentSlips = () => {
         {!isLoading && history.length > 0 && (
           <PaginationControls
             currentPage={page}
-            totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
+            totalPages={totalPages}
             pageSize={pageSize}
             totalItems={totalCount}
             onPageChange={setPage}

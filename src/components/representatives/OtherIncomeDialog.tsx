@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -17,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { representativesApi } from "@/lib/api";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const FREQUENCIES = [
   { value: "monthly", label: "Mjesečno" },
@@ -42,13 +48,31 @@ interface OtherIncomeDialogProps {
 }
 
 export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPending }: OtherIncomeDialogProps) => {
-  const { register, handleSubmit, reset, setValue, watch } = useForm({
-    defaultValues: { name: "", service: "", frequency: "monthly", amount: "", iban: "" },
+  const [recipientComboboxOpen, setRecipientComboboxOpen] = useState(false);
+  const { data: representativesResponse = [] } = useQuery({
+    queryKey: ["representatives", "other-income-recipient"],
+    queryFn: () => representativesApi.getAll(),
+    enabled: open,
   });
+  const recipients = (Array.isArray(representativesResponse) ? representativesResponse : [])
+    .map((r: any) => ({
+      id: String(r?.id || ""),
+      name: String(r?.name || ""),
+      iban: typeof r?.iban === "string" ? r.iban : "",
+    }))
+    .filter((r) => r.id && r.name);
+
+  const { register, handleSubmit, reset, setValue, watch } = useForm({
+    defaultValues: { recipientId: "", name: "", service: "", frequency: "monthly", amount: "", iban: "" },
+  });
+  const selectedRecipientId = watch("recipientId");
+  const selectedRecipient = recipients.find((r) => r.id === String(selectedRecipientId));
 
   useEffect(() => {
     if (editItem) {
+      const matched = recipients.find((r) => r.name.trim().toLowerCase() === (editItem.name || "").trim().toLowerCase());
       reset({
+        recipientId: matched?.id || "",
         name: editItem.name || "",
         service: editItem.service || "",
         frequency: editItem.frequency || "monthly",
@@ -56,13 +80,22 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPend
         iban: editItem.iban || "",
       });
     } else {
-      reset({ name: "", service: "", frequency: "monthly", amount: "", iban: "" });
+      reset({ recipientId: "", name: "", service: "", frequency: "monthly", amount: "", iban: "" });
     }
-  }, [editItem, open, reset]);
+  }, [editItem, open, recipients, reset]);
 
-  const onSubmit = (data: { name: string; service: string; frequency: string; amount: string; iban: string }) => {
+  useEffect(() => {
+    if (!selectedRecipient) return;
+    setValue("name", selectedRecipient.name, { shouldDirty: true });
+    if (!watch("iban") && selectedRecipient.iban) {
+      setValue("iban", selectedRecipient.iban, { shouldDirty: true });
+    }
+  }, [selectedRecipient, setValue, watch]);
+
+  const onSubmit = (data: { recipientId: string; name: string; service: string; frequency: string; amount: string; iban: string }) => {
+    if (!selectedRecipient) return;
     onSave({
-      name: data.name,
+      name: selectedRecipient.name,
       service: data.service,
       frequency: data.frequency,
       amount: parseFloat(String(data.amount || "0").replace(",", ".")),
@@ -72,16 +105,61 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPend
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editItem ? "Uredi dohodak" : "Dodaj dohodak"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <FormSection>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Primatelj dohotka (predstavnik)</Label>
+              <Popover open={recipientComboboxOpen} onOpenChange={setRecipientComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={recipientComboboxOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedRecipient?.name || "Odaberi predstavnika"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Pretraži predstavnika..." />
+                    <CommandList>
+                      <CommandEmpty>Nema rezultata</CommandEmpty>
+                      <CommandGroup>
+                        {recipients.map((r) => (
+                          <CommandItem
+                            key={r.id}
+                            value={r.name}
+                            onSelect={() => {
+                              setValue("recipientId", r.id, { shouldDirty: true });
+                              setRecipientComboboxOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                String(selectedRecipientId) === String(r.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span className="truncate">{r.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 mt-4">
               <div className="space-y-2">
-                <Label>Naziv / Ime</Label>
-                <Input {...register("name", { required: true })} placeholder="npr. Košir Josip" className="w-full" />
+                <Label>Ime i prezime</Label>
+                <Input value={selectedRecipient?.name || "—"} disabled className="w-full" />
               </div>
               <div className="space-y-2">
                 <Label>Usluga</Label>
@@ -114,7 +192,7 @@ export const OtherIncomeDialog = ({ open, onOpenChange, onSave, editItem, isPend
           </FormSection>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Odustani</Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || !selectedRecipient}>
               {isPending ? "Spremanje..." : editItem ? "Spremi" : "Dodaj"}
             </Button>
           </div>

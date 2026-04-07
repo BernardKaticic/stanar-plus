@@ -13,7 +13,6 @@ import Buildings from "./pages/Buildings";
 import Tenants from "./pages/Tenants";
 import { TenantDetailRedirect } from "./pages/TenantDetailRedirect";
 import PersonDetail from "./pages/PersonDetail";
-import AdminTenants from "./pages/AdminTenants";
 import Debtors from "./pages/Debtors";
 import PaymentSlips from "./pages/PaymentSlips";
 import WorkOrders from "./pages/WorkOrders";
@@ -24,7 +23,9 @@ import Representatives from "./pages/Representatives";
 import Suppliers from "./pages/Suppliers";
 import AuditLog from "./pages/AuditLog";
 import EInvoices from "./pages/EInvoices";
+import InvoiceEditor from "./pages/InvoiceEditor";
 import Decisions from "./pages/Decisions";
+import DecisionContractEditor from "./pages/DecisionContractEditor";
 import MapPage from "./pages/Map";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -64,14 +65,6 @@ const App = () => (
                           <Route path="/tenants" element={<Tenants />} />
                           <Route path="/tenants/:id" element={<TenantDetailRedirect />} />
                           <Route path="/persons/:id" element={<PersonDetail />} />
-                          <Route 
-                            path="/admin/tenants" 
-                            element={
-                              <ProtectedRoute allowedRoles={["admin", "upravitelj"]}>
-                                <AdminTenants />
-                              </ProtectedRoute>
-                            } 
-                          />
                           <Route path="/payment-slips" element={<PaymentSlips />} />
                           <Route path="/debtors" element={<Debtors />} />
                           <Route path="/work-orders" element={<WorkOrders />} />
@@ -80,10 +73,14 @@ const App = () => (
                           <Route path="/account-statement" element={<AccountStatement />} />
                           <Route path="/map" element={<MapPage />} />
                           <Route path="/e-invoices" element={<EInvoices />} />
+                          <Route path="/e-invoices/new" element={<InvoiceEditor />} />
+                          <Route path="/e-invoices/:id/edit" element={<InvoiceEditor />} />
                           <Route path="/representatives" element={<Representatives />} />
                           <Route path="/suppliers" element={<Suppliers />} />
                           <Route path="/audit-log" element={<ProtectedRoute allowedRoles={["admin"]}><AuditLog /></ProtectedRoute>} />
                           <Route path="/decisions" element={<Decisions />} />
+                          <Route path="/decisions/new" element={<DecisionContractEditor />} />
+                          <Route path="/decisions/:kind/:id/edit" element={<DecisionContractEditor />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                         </div>

@@ -23,39 +23,72 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, cn } from "@/lib/utils";
-import { useState } from "react";
+import { formatCurrency } from "@/lib/utils";
+import { useEffect, useMemo, useState } from "react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useSuppliers } from "@/hooks/useSuppliersData";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { suppliersApi } from "@/lib/api";
-import { SupplierDialog } from "@/components/suppliers/SupplierDialog";
+import { SupplierDialog, type SupplierFormData } from "@/components/suppliers/SupplierDialog";
+import { exportTableToCSV } from "@/lib/export";
 import { toast } from "sonner";
 
+type AppError = {
+  body?: { message?: string };
+  message?: string;
+};
+
+type SupplierItem = {
+  id: string;
+  name: string;
+  category?: string | null;
+  oib?: string | null;
+  contact?: string | null;
+  email?: string | null;
+  iban?: string | null;
+  monthlyAverage?: string | null;
+  yearlyTotal?: string | null;
+  lastInvoice?: string | null;
+};
+
+const getErrorMessage = (err: unknown, fallback: string): string => {
+  if (typeof err === "object" && err && "body" in err) {
+    const bodyMessage = (err as AppError).body?.message;
+    if (typeof bodyMessage === "string" && bodyMessage.trim()) return bodyMessage;
+  }
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+};
+
+const parseEuroAmount = (value: string | null | undefined): number =>
+  parseFloat(String(value || "0").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+
 const Suppliers = () => {
-  const [dateFrom, setDateFrom] = useState<Date>(startOfYear(new Date()));
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [editingSupplier, setEditingSupplier] = useState<SupplierItem | null>(null);
   const queryClient = useQueryClient();
 
   const createSupplier = useMutation({
-    mutationFn: suppliersApi.create,
+    mutationFn: (data: SupplierFormData) => suppliersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       toast.success("Dobavljač dodan");
     },
-    onError: (e: any) => toast.error(e?.body?.message || "Greška"),
+    onError: (e: unknown) => toast.error(getErrorMessage(e, "Greška")),
   });
   const updateSupplier = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => suppliersApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: SupplierFormData }) => suppliersApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suppliers"] });
       toast.success("Dobavljač ažuriran");
     },
-    onError: (e: any) => toast.error(e?.body?.message || "Greška"),
+    onError: (e: unknown) => toast.error(getErrorMessage(e, "Greška")),
   });
 
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const deleteSupplier = useMutation({
@@ -65,10 +98,10 @@ const Suppliers = () => {
       toast.success("Dobavljač uklonjen");
       setDeleteConfirm(null);
     },
-    onError: (e: any) => toast.error(e?.body?.message || "Greška pri uklanjanju"),
+    onError: (e: unknown) => toast.error(getErrorMessage(e, "Greška pri uklanjanju")),
   });
 
-  const handleSupplierSave = (data: any) => {
+  const handleSupplierSave = (data: SupplierFormData) => {
     if (editingSupplier) {
       updateSupplier.mutate(
         { id: editingSupplier.id, data },
@@ -81,19 +114,41 @@ const Suppliers = () => {
     }
   };
 
-  const { data: suppliers = [], isLoading } = useSuppliers({
-    category: categoryFilter === "all" ? undefined : categoryFilter,
-    search: searchTerm || undefined,
-  });
-  const totalYearly = suppliers.reduce((sum, s) =>
-    sum + parseFloat(String(s.yearlyTotal || "0").replace(/[^\d,]/g, "").replace(",", ".")),
-    0
+  const { data: suppliers = [], isLoading } = useSuppliers();
+  const allSuppliers = (Array.isArray(suppliers) ? suppliers : []) as SupplierItem[];
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const allCategories = useMemo(
+    () =>
+      Array.from(new Set(allSuppliers.map((s) => s.category || "Ostalo"))).sort((a, b) =>
+        a.localeCompare(b, "hr-HR")
+      ),
+    [allSuppliers]
   );
-  const totalMonthly = suppliers.reduce((sum, s) =>
-    sum + parseFloat(String(s.monthlyAverage || "0").replace(/[^\d,]/g, "").replace(",", ".")),
-    0
+  const filteredSuppliers = useMemo(
+    () =>
+      allSuppliers.filter((s) => {
+        const byCategory = categoryFilter === "all" || (s.category || "Ostalo") === categoryFilter;
+        if (!normalizedSearch) return byCategory;
+        const haystack = `${s.name || ""} ${s.oib || ""} ${s.contact || ""} ${s.email || ""} ${s.iban || ""}`.toLowerCase();
+        return byCategory && haystack.includes(normalizedSearch);
+      }),
+    [allSuppliers, categoryFilter, normalizedSearch]
   );
-  const categories = Array.from(new Set(suppliers.map((s: any) => s.category)));
+  const visibleCategories = useMemo(
+    () => Array.from(new Set(filteredSuppliers.map((s) => s.category || "Ostalo"))),
+    [filteredSuppliers]
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedSuppliers = useMemo(
+    () => filteredSuppliers.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredSuppliers, safePage, pageSize]
+  );
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+  }, [page, safePage]);
+  const totalYearly = filteredSuppliers.reduce((sum, s) => sum + parseEuroAmount(s.yearlyTotal), 0);
+  const totalMonthly = filteredSuppliers.reduce((sum, s) => sum + parseEuroAmount(s.monthlyAverage), 0);
 
   return (
     <div className="page animate-fade-in">
@@ -102,53 +157,84 @@ const Suppliers = () => {
       </header>
 
       <div className="page-kpi">
-        <div className="page-kpi-card">
+        <div className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
           <p className="page-kpi-label">Ukupno dobavljača</p>
           {isLoading ? (
             <Skeleton className="h-8 w-12 mt-1.5" />
           ) : (
-            <p className="page-kpi-value">{suppliers.length}</p>
+            <p className="page-kpi-value tabular-nums">{filteredSuppliers.length}</p>
           )}
         </div>
-        <div className="page-kpi-card">
+        <div className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
           <p className="page-kpi-label">Kategorija</p>
           {isLoading ? (
             <Skeleton className="h-8 w-12 mt-1.5" />
           ) : (
-            <p className="page-kpi-value">{categories.length}</p>
+            <p className="page-kpi-value tabular-nums">{visibleCategories.length}</p>
           )}
         </div>
-        <div className="page-kpi-card">
+        <div className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
           <p className="page-kpi-label">Mjesečni prosjek</p>
           {isLoading ? (
             <Skeleton className="h-8 w-20 mt-1.5" />
           ) : (
-            <p className="page-kpi-value text-primary">{formatCurrency(totalMonthly)}</p>
+            <p className="page-kpi-value tabular-nums text-primary">{formatCurrency(totalMonthly)}</p>
           )}
         </div>
-        <div className="page-kpi-card">
+        <div className="page-kpi-card rounded-lg border border-border/70 shadow-sm">
           <p className="page-kpi-label">Godišnji trošak</p>
           {isLoading ? (
             <Skeleton className="h-8 w-20 mt-1.5" />
           ) : (
-            <p className="page-kpi-value text-warning">{formatCurrency(totalYearly)}</p>
+            <p className="page-kpi-value tabular-nums text-warning">{formatCurrency(totalYearly)}</p>
           )}
         </div>
       </div>
 
-      <Card className="rounded-md">
+      <Card className="rounded-lg border border-border/70 shadow-sm">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3 w-full">
             <CardTitle className="text-lg">Popis dobavljača</CardTitle>
             <div className="flex justify-end gap-2 w-full sm:w-auto shrink-0">
-              <Button variant="outline" size="sm" className="min-h-[32px] gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-[36px] gap-2"
+                onClick={() => {
+                  exportTableToCSV(
+                    filteredSuppliers.map((s) => ({
+                      name: s.name,
+                      category: s.category,
+                      oib: s.oib,
+                      contact: s.contact,
+                      email: s.email,
+                      iban: s.iban,
+                      monthlyAverage: s.monthlyAverage,
+                      yearlyTotal: s.yearlyTotal,
+                    })),
+                    [
+                      { key: "name", label: "Dobavljač" },
+                      { key: "category", label: "Kategorija" },
+                      { key: "oib", label: "OIB" },
+                      { key: "contact", label: "Kontakt" },
+                      { key: "email", label: "Email" },
+                      { key: "iban", label: "IBAN" },
+                      { key: "monthlyAverage", label: "Mjesečni prosjek" },
+                      { key: "yearlyTotal", label: "Godišnje" },
+                    ],
+                    "dobavljaci"
+                  );
+                  toast.success("CSV exportan");
+                }}
+                disabled={filteredSuppliers.length === 0}
+              >
                 <FileText className="h-4 w-4" />
                 Export CSV
               </Button>
               <Button
                 type="button"
                 size="sm"
-                className="gap-2 min-h-[32px]"
+                className="gap-2 min-h-[36px]"
                 onClick={() => { setEditingSupplier(null); setSupplierDialogOpen(true); }}
               >
                 <Plus className="h-4 w-4" />
@@ -164,6 +250,7 @@ const Suppliers = () => {
               <Input
                 placeholder="Pretraži dobavljače..."
                 className="pl-10"
+                aria-label="Pretraži dobavljače po nazivu"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -175,28 +262,23 @@ const Suppliers = () => {
             <Button 
               variant={categoryFilter === 'all' ? 'default' : 'outline'} 
               size="sm" 
-              className="min-h-[32px]"
+              className="min-h-[36px]"
               onClick={() => setCategoryFilter('all')}
             >
               Svi
             </Button>
-            {categories.map((category) => (
+            {allCategories.map((category) => (
               <Button 
                 key={category} 
                 variant={categoryFilter === category ? 'default' : 'outline'} 
                 size="sm" 
-                className="min-h-[32px]"
+                className="min-h-[36px]"
                 onClick={() => setCategoryFilter(category)}
               >
                 {category}
               </Button>
             ))}
           </div>
-          {categoryFilter !== 'all' && (
-            <div className="text-sm text-muted-foreground">
-              Prikazano {suppliers.length} od {suppliers.length} dobavljača
-            </div>
-          )}
         </div>
 
         {/* Desktop Table View */}
@@ -230,7 +312,7 @@ const Suppliers = () => {
                     </TableRow>
                   ))}
                 </>
-              ) : suppliers.length === 0 ? (
+              ) : filteredSuppliers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="p-0">
                     <EmptyState
@@ -247,13 +329,10 @@ const Suppliers = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                suppliers.map((supplier: any) => (
+                pagedSuppliers.map((supplier) => (
                   <TableRow key={supplier.id} className="hover:bg-muted/30 transition-colors duration-150">
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                          <Truck className="h-5 w-5 text-primary" />
-                        </div>
+                      <div>
                         <div>
                           <p>{supplier.name ?? "–"}</p>
                           <p className="text-xs text-muted-foreground">
@@ -293,13 +372,13 @@ const Suppliers = () => {
                     <TableCell className="text-right font-bold text-warning tabular-nums">{supplier.yearlyTotal ?? "–"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" size="sm" className="min-h-[32px] h-8" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
+                        <Button variant="ghost" size="sm" className="min-h-[36px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
                           Uredi
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="min-h-[32px] h-8 text-destructive hover:text-destructive"
+                          className="min-h-[36px] text-destructive hover:text-destructive"
                           onClick={() => setDeleteConfirm({ id: supplier.id, name: supplier.name })}
                           aria-label="Obriši"
                         >
@@ -365,7 +444,7 @@ const Suppliers = () => {
                 </Card>
               ))}
             </>
-          ) : suppliers.length === 0 ? (
+          ) : filteredSuppliers.length === 0 ? (
             <EmptyState
               icon={Truck}
               title="Nema dobavljača"
@@ -378,7 +457,7 @@ const Suppliers = () => {
               }
             />
           ) : (
-            suppliers.map((supplier: any) => (
+            pagedSuppliers.map((supplier) => (
               <Card key={supplier.id} className="p-4 border rounded-lg hover:border-primary/20 transition-colors">
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
@@ -430,13 +509,13 @@ const Suppliers = () => {
                     </div>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1 min-h-[32px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
+                    <Button variant="outline" size="sm" className="flex-1 min-h-[36px]" onClick={() => { setEditingSupplier(supplier); setSupplierDialogOpen(true); }}>
                       Uredi
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="min-h-[32px] text-destructive hover:text-destructive"
+                      className="min-h-[36px] text-destructive hover:text-destructive"
                       onClick={() => setDeleteConfirm({ id: supplier.id, name: supplier.name })}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -447,27 +526,39 @@ const Suppliers = () => {
             ))
           )}
         </div>
+        {filteredSuppliers.length > 0 && (
+          <PaginationControls
+            currentPage={safePage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredSuppliers.length}
+            onPageChange={setPage}
+            onPageSizeChange={(next) => {
+              setPageSize(next);
+              setPage(1);
+            }}
+          />
+        )}
         </CardContent>
       </Card>
 
-      {categories.length > 0 && (
+      {visibleCategories.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {categories.map((category) => {
-            const categorySuppliers = suppliers.filter((s: any) => (s.category || "Ostalo") === category);
+          {visibleCategories.map((category) => {
+            const categorySuppliers = filteredSuppliers.filter((s) => (s.category || "Ostalo") === category);
             const categoryTotal = categorySuppliers.reduce(
-              (sum: number, s: any) =>
-                sum + parseFloat(String(s.yearlyTotal ?? "0").replace(/[^\d,]/g, "").replace(",", ".")),
+              (sum: number, s) => sum + parseEuroAmount(s.yearlyTotal),
               0
             );
             return (
-              <Card key={category} className="p-4 rounded-md">
+              <Card key={category} className="rounded-lg border border-border/70 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">{category}</h3>
-                <Badge variant="secondary">{categorySuppliers.length}</Badge>
+                <Badge variant="secondary" className="tabular-nums">{categorySuppliers.length}</Badge>
               </div>
               <div className="flex items-center gap-2">
                 <Euro className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-semibold">
+                <p className="text-sm font-semibold tabular-nums">
                   {formatCurrency(categoryTotal)}
                 </p>
               </div>
